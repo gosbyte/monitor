@@ -32,6 +32,7 @@ def temp_data_dir(tmp_path):
     data.LOGS_FILE = str(tmp_path / "logs.json")
     data.SECRET_KEY_FILE = str(tmp_path / ".secret_key")
     data._users_cache = {"data": None, "mtime": 0}
+    data._certs_cache = {"data": None, "mtime": 0}
     # 同时更新 db 模块的路径
     import db
     db.DB_PATH = str(tmp_path / "monitor.db")

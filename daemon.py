@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-后台常驻脚本 - 精确到分钟的证书到期提醒
+后台常驻脚本 - 精确到分钟的到期项到期提醒
 每分钟检查一次，到期时间到了就立即推送
 """
 import os
@@ -86,7 +86,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_data():
-    """加载证书数据（带文件锁）"""
+    """加载到期项数据（带文件锁）"""
     result = _locked_load_json(DATA_FILE)
     return result if result is not None else []
 
@@ -172,13 +172,13 @@ def build_email_html(to_remind, is_responsible=False):
             badge = f'<span style="background:#eab308;color:white;padding:2px 8px;border-radius:12px;font-size:12px">剩{days_left}天</span>'
         rows.append(f'<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("customer","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("cert_type","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("domain","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("expire_date","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">{badge}</td></tr>')
     rows_html = "".join(rows)
-    subtitle = "您负责的以下证书即将到期" if is_responsible else f"共 {len(to_remind)} 条证书需要关注"
+    subtitle = "您负责的以下到期项即将到期" if is_responsible else f"共 {len(to_remind)} 条到期项需要关注"
     html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;margin:0;padding:20px">
 <div style="max-width:700px;margin:0 auto">
 <div style="background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
 <div style="background:#2563eb;padding:20px 24px">
-<h2 style="color:white;margin:0;font-size:18px">🔔 证书到期提醒</h2>
+<h2 style="color:white;margin:0;font-size:18px">🔔 到期项到期提醒</h2>
 <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px">{subtitle}</p>
 </div>
 <table style="width:100%;border-collapse:collapse;font-size:14px">
@@ -192,7 +192,7 @@ def build_email_html(to_remind, is_responsible=False):
 <tbody>{rows_html}</tbody>
 </table>
 <div style="padding:16px 24px;border-top:1px solid #e5e7eb">
-<p style="color:#6b7280;font-size:12px;margin:0">本邮件由证书监控系统自动发送，请勿直接回复。</p>
+<p style="color:#6b7280;font-size:12px;margin:0">本邮件由到期提醒监控系统自动发送，请勿直接回复。</p>
 </div>
 </div></div></body></html>'''
     return html
@@ -338,9 +338,9 @@ def check_and_remind():
                 c["days_left"] = (parse_expire_date(c["expire_date"]) - datetime.now()).days
             
             # 按负责人分组发送邮件
-            # 1. 收集所有负责人及其对应的证书
+            # 1. 收集所有负责人及其对应的到期项
             responsible_certs = {}  # {username: [certs]}
-            certs_without_responsible = []  # 无负责人的证书
+            certs_without_responsible = []  # 无负责人的到期项
             
             for c in to_remind:
                 responsible_users = c.get("responsible_users", [])
@@ -360,19 +360,19 @@ def check_and_remind():
                 if email:
                     # 发送给负责人
                     email_html = build_email_html(certs, is_responsible=True)
-                    ok, msg = send_email_remind_to(f"🔔 您负责的证书到期提醒", email_html, cfg, [email])
+                    ok, msg = send_email_remind_to(f"🔔 您负责的到期项到期提醒", email_html, cfg, [email])
                     if ok:
                         logger.info(f"邮件已发送给负责人 {uname} ({email})")
                         sent_count += 1
                     else:
                         logger.warning(f"发送给负责人 {uname} 失败: {msg}")
-                        # 负责人发送失败，这些证书归入无负责人列表
+                        # 负责人发送失败，这些到期项归入无负责人列表
                         certs_without_responsible.extend(certs)
                 else:
-                    # 负责人没有邮箱，这些证书归入无负责人列表
+                    # 负责人没有邮箱，这些到期项归入无负责人列表
                     certs_without_responsible.extend(certs)
             
-            # 3. 无负责人或负责人无邮箱的证书，发给全局收件人
+            # 3. 无负责人或负责人无邮箱的到期项，发给全局收件人
             if certs_without_responsible:
                 email_html = build_email_html(certs_without_responsible, is_responsible=False)
                 email_ok, email_msg = send_email_remind(title, email_html, cfg)
@@ -392,7 +392,7 @@ def check_and_remind():
 def main():
     """主循环"""
     logger.info("=" * 50)
-    logger.info("证书到期后台监控服务启动")
+    logger.info("到期项到期后台监控服务启动")
     logger.info("检查频率：每分钟一次")
     logger.info("=" * 50)
     

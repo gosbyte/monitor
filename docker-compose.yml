@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
-  cert-monitor:
+  item-monitor:
     build: .
-    image: cert-monitor:latest
-    container_name: cert-monitor
+    image: item-monitor:latest
+    container_name: item-monitor
     ports:
-      - "${CERT_MONITOR_PORT:-5188}:5188"          # Web 管理界面
+      - "${ITEM_MONITOR_PORT:-5188}:5188"          # Web 管理界面
     volumes:
-      - ./data:/app/data     # 数据持久化（证书/配置/用户）
+      - ./data:/app/data     # 数据持久化（到期项/配置/用户）
     environment:
       - TZ=Asia/Shanghai     # 时区
       - PORT=5188            # Flask 监听端口

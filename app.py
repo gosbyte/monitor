@@ -30,6 +30,12 @@ from auth import (
     generate_captcha, create_captcha_image,
 )
 
+from webhook import (
+    send_webhook,
+    build_item_expiry_payload,
+    build_item_added_payload,
+    build_item_deleted_payload,
+)
 from PIL import Image, ImageDraw, ImageFont
 
 
@@ -270,7 +276,7 @@ def index():
     cert_types = sorted(set(c["cert_type"] for c in certs if c.get("cert_type")))
 
     # 计算图表数据
-    # 1. 月度到期趋势 - 统计未来6个月内每月到期的证书数
+    # 1. 月度到期趋势 - 统计未来6个月内每月到期的到期项数
     from collections import defaultdict
     monthly_count = defaultdict(int)
     today = datetime.now()
@@ -361,7 +367,7 @@ def add_cert():
     })
     save_certs(certs)
     current_user = session.get("username", "?")
-    write_log(current_user, "添加记录", f"客户：{customer}", "证书", request.remote_addr or '')
+    write_log(current_user, "添加记录", request.remote_addr or '')
     if is_ajax:
         return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session["_csrf_token"])
     return redirect(url_for("index") + "?success=添加成功")
@@ -405,7 +411,7 @@ def edit_cert(cert_id):
             cert["handled"] = request.form.get("handled") == "on"
             cert["responsible_users"] = request.form.getlist("responsible_users")
         save_certs(certs)
-        write_log(session.get("username", "?"), "编辑记录", f"客户：{cert['customer']}", f"证书 #{cert_id}", request.remote_addr or '')
+        write_log(session.get("username", "?"), "编辑记录 #{cert_id}", request.remote_addr or '')
         if is_ajax:
             return jsonify({"ok": True, "success": True, "csrf_token": session["_csrf_token"]})
         return redirect(url_for("index") + "?success=保存成功")
@@ -423,7 +429,7 @@ def delete_cert(cert_id):
     certs = [c for c in certs if c["id"] != cert_id]
     save_certs(certs)
     current_user = session.get("username", "?")
-    write_log(current_user, "删除记录", f"客户：{cert_name}", f"证书 #{cert_id}", request.remote_addr or '')
+    write_log(current_user, "删除记录 #{cert_id}", request.remote_addr or '')
     if is_ajax:
         return jsonify(ok=True, message="删除成功", csrf_token=session["_csrf_token"])
     return redirect(url_for("index") + "?success=删除成功")
@@ -431,7 +437,7 @@ def delete_cert(cert_id):
 @app.route("/api/cert/<int:cert_id>", methods=["DELETE"])
 @login_required
 def api_delete_cert(cert_id):
-    """AJAX删除证书（管理员可删任意，用户只能删自己创建的）"""
+    """AJAX删除到期项（管理员可删任意，用户只能删自己创建的）"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     users = load_users()
@@ -447,7 +453,7 @@ def api_delete_cert(cert_id):
     cert_name = cert.get("customer", str(cert_id))
     certs = [c for c in certs if c["id"] != cert_id]
     save_certs(certs)
-    write_log(current_username, "删除记录", f"客户：{cert_name}", f"证书 #{cert_id}", request.remote_addr or '')
+    write_log(current_username, "删除记录 #{cert_id}", request.remote_addr or '')
     return jsonify({"ok": True, "message": "删除成功", "csrf_token": session["_csrf_token"]})
 
 # ── API 接口 ──────────────────────────────────────────────
@@ -464,7 +470,7 @@ def _check_api_csrf():
 @app.route("/api/cert_status/<int:cert_id>")
 @login_required
 def get_cert_status_api(cert_id):
-    """返回证书计算后的状态信息（用于AJAX局部更新）"""
+    """返回到期项计算后的状态信息（用于AJAX局部更新）"""
     certs = load_certs()
     for c in certs:
         if c["id"] == cert_id:
@@ -529,7 +535,7 @@ def toggle_handle(cert_id):
 @login_required
 @admin_required
 def api_batch_delete():
-    """批量删除证书（幂等：返回实际删除数量）"""
+    """批量删除到期项（幂等：返回实际删除数量）"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     data = request.get_json() or {}
@@ -537,7 +543,7 @@ def api_batch_delete():
     if not ids:
         return jsonify({"ok": False, "message": "未选择记录"}), 400
     certs = load_certs()
-    # 记录将被删除的证书（用于日志）
+    # 记录将被删除的到期项（用于日志）
     deleted_certs = [c for c in certs if c["id"] in ids]
     deleted_names = [c["customer"] for c in deleted_certs]
     actual_deleted = len(deleted_certs)
@@ -612,7 +618,7 @@ def api_batch_remind():
 @app.route("/api/cert")
 @login_required
 def api_list_certs():
-    """分页/筛选证书列表 API"""
+    """分页/筛选到期项列表 API"""
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     per_page = min(per_page, 100)  # 上限 100
@@ -795,7 +801,7 @@ def api_test_push():
 @login_required
 @admin_required
 def api_push_cert(cert_id):
-    """手动推送单条证书提醒到钉钉"""
+    """手动推送单条到期项提醒到钉钉"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     import logging
@@ -809,7 +815,7 @@ def api_push_cert(cert_id):
     certs = load_certs()
     cert = next((c for c in certs if c["id"] == cert_id), None)
     if not cert:
-        return jsonify({"ok": False, "message": "证书不存在"}), 404
+        return jsonify({"ok": False, "message": "到期项不存在"}), 404
     cert["days_left"] = calc_days_left(cert["expire_date"])
     users = load_users()
     users_map = {u["username"]: u for u in users}
@@ -817,7 +823,7 @@ def api_push_cert(cert_id):
     secret = cfg.get("secret", "")
     success = send_dingtalk_card(webhook_url, title, content, secret, at_user_ids=at_ids if at_ids else None)
     current_user = session.get("username", "?")
-    write_log(current_user, "推送提醒", f"推送 {cert['customer']} 的提醒（剩余 {cert['days_left']:.0f} 天）", f"证书 #{cert_id}", request.remote_addr or '')
+    write_log(current_user, "推送提醒", f"推送 {cert['customer']} 的提醒（剩余 {cert['days_left']:.0f} 天）", f"到期项 #{cert_id}", request.remote_addr or '')
     return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session["_csrf_token"]})
 
 # ââ 批量导入 / 导出 ââââââââââââââââââââââââââââââââââââââ
@@ -918,7 +924,7 @@ def download_template():
     ws = wb.active
     ws.title = "导入模板"
     ws.append(["客户名称", "提醒类型", "域名", "到期日期", "备注"])
-    ws.append(["示例客户", "SSL证书", "example.com", "2026-12-31", "备注信息"])
+    ws.append(["示例客户", "SSL到期项", "example.com", "2026-12-31", "备注信息"])
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)

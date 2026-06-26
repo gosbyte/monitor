@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-数据层 - 证书/用户/配置/日志的加载与保存（无 Flask 依赖，daemon 可用）
+数据层 - 到期项/用户/配置/日志的加载与保存（无 Flask 依赖，daemon 可用）
 支持文件锁防止并发写入损坏，支持 Fernet 密码加密
 """
 import json
@@ -18,6 +18,26 @@ try:
 except ImportError:
     generate_password_hash = None
     check_password_hash = None
+
+# ── 路径常量（必须在 _get_fernet 之前定义）────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
+DATA_FILE = os.path.join(DATA_DIR, "certs.json")
+CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+LOGS_FILE = os.path.join(DATA_DIR, "logs.json")
+SECRET_KEY_FILE=os.path.join(DATA_DIR, ".secret_key")
+
+# ── 首次运行：迁移旧 cert_data.json ──────────────────────
+_MIGRATE_SRC = os.path.join(BASE_DIR, "cert_data.json")
+if os.path.exists(_MIGRATE_SRC) and not os.path.exists(DATA_FILE):
+    try:
+        import shutil
+        shutil.copy2(_MIGRATE_SRC, DATA_FILE)
+        os.remove(_MIGRATE_SRC)
+        print(f"[MIGRATE] cert_data.json -> {DATA_FILE}")
+    except Exception as e:
+        print(f"[MIGRATE] 失败: {e}")
 
 # ── Fernet 加密密钥（用于 SMTP 密码等敏感字段）────────────
 _fernet = None
@@ -38,7 +58,7 @@ def _get_fernet():
     else:
         _fernet = Fernet(Fernet.generate_key())
         with open(key_file, "wb") as f:
-            f.write(_fernet._key)
+            _fernet._key = f.read()
     return _fernet
 
 
@@ -113,26 +133,6 @@ def locked_write_json(filepath, data):
         atomic_write_json(filepath, data)
 
 
-# ── 路径常量 ─────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
-DATA_FILE = os.path.join(DATA_DIR, "certs.json")
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-LOGS_FILE = os.path.join(DATA_DIR, "logs.json")
-SECRET_KEY_FILE=os.path.join(DATA_DIR, ".secret_key")
-
-# ── 首次运行：迁移旧 cert_data.json ──────────────────────
-_MIGRATE_SRC = os.path.join(BASE_DIR, "cert_data.json")
-if os.path.exists(_MIGRATE_SRC) and not os.path.exists(DATA_FILE):
-    try:
-        import shutil
-        shutil.copy2(_MIGRATE_SRC, DATA_FILE)
-        os.remove(_MIGRATE_SRC)
-        print(f"[MIGRATE] cert_data.json -> {DATA_FILE}")
-    except Exception as e:
-        print(f"[MIGRATE] 失败: {e}")
-
 # ── 原子写入 ─────────────────────────────────────────────
 def atomic_write_json(filepath, data):
     """写 JSON 文件（临时文件 + os.replace，保证原子性）"""
@@ -195,8 +195,12 @@ def _migrate_password(users):
         save_users(users)
     return users
 
+# ── 缓存（防止频繁读盘）────────────────────────────────────
 # 用户缓存（30s TTL）
 _users_cache = {"data": None, "mtime": 0}
+
+# 到期项缓存（5s TTL）
+_certs_cache = {"data": None, "mtime": 0}
 
 def load_users():
     """加载用户列表（带文件锁 + mtime 缓存）"""
@@ -276,9 +280,9 @@ def verify_user(username, password):
             return check_password_hash(u["password"], password)
     return False
 
-# ── 证书数据 ─────────────────────────────────────────────
+# ── 到期项数据 ─────────────────────────────────────────────
 def load_certs():
-    """加载证书（带文件锁 + 缓存）"""
+    """加载到期项（带文件锁 + 缓存）"""
     global _certs_cache
     now = time.time()
     if _certs_cache["data"] is not None and (now - _certs_cache["mtime"]) < 5:
@@ -293,7 +297,7 @@ def load_certs():
     return []
 
 def save_certs(certs):
-    """保存证书（带文件锁 + 清除缓存）"""
+    """保存到期项（带文件锁 + 清除缓存）"""
     global _certs_cache
     with FileLock(DATA_FILE):
         atomic_write_json(DATA_FILE, certs)
@@ -322,7 +326,7 @@ def calc_days_left(expire_str):
         else:
             exp = datetime.strptime(s, "%Y-%m-%d")
         return (exp - datetime.now()).total_seconds() / 86400
-    except:
+    except Exception:
         return -999
 
 def get_cert_status(cert, days_left=None):

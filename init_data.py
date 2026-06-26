@@ -16,7 +16,7 @@ def init_data():
     # 确保数据目录存在
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    # 初始化证书数据文件
+    # 初始化到期项数据文件
     certs_file = os.path.join(DATA_DIR, "certs.json")
     if not os.path.exists(certs_file):
         with open(certs_file, "w", encoding="utf-8") as f:

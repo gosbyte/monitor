@@ -43,7 +43,7 @@ def init_db():
     """初始化数据库表结构"""
     with db_transaction() as conn:
         conn.executescript("""
-            -- 证书表
+            -- 到期项表
             CREATE TABLE IF NOT EXISTS certs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer TEXT NOT NULL,
@@ -118,7 +118,7 @@ def init_db():
             INSERT OR IGNORE INTO config (key, value) VALUES ('smtp_user', '');
             INSERT OR IGNORE INTO config (key, value) VALUES ('smtp_pass', '');
             INSERT OR IGNORE INTO config (key, value) VALUES ('smtp_to', '');
-            INSERT OR IGNORE INTO config (key, value) VALUES ('smtp_from_name', 'Certificate Monitor');
+            INSERT OR IGNORE INTO config (key, value) VALUES ('smtp_from_name', 'Item Monitor');
             INSERT OR IGNORE INTO config (key, value) VALUES ('wecom_enabled', 'false');
             INSERT OR IGNORE INTO config (key, value) VALUES ('wecom_webhook', '');
         """)
@@ -137,14 +137,14 @@ def migrate_json_to_sqlite():
     
     migrated = 0
     
-    # 迁移证书
+    # 迁移到期项
     if os.path.exists(certs_file):
         with open(certs_file, "r", encoding="utf-8-sig") as f:
             certs = json_mod.load(f)
         if certs:
             with db_transaction() as conn:
                 conn.executemany(
-                    """INSERT INTO certs (id, customer, cert_type, domain, expire_date, note,
+                    """INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
                        remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     [(c.get("id"), c.get("customer"), c.get("cert_type", ""), c.get("domain", ""),
@@ -215,9 +215,9 @@ def migrate_json_to_sqlite():
     return migrated
 
 
-# ── 证书 CRUD ──────────────────────────────────────────────
+# ── 到期项 CRUD ──────────────────────────────────────────────
 def db_load_certs():
-    """加载所有证书"""
+    """加载所有到期项"""
     with db_transaction() as conn:
         rows = conn.execute("SELECT * FROM certs ORDER BY expire_date ASC").fetchall()
         certs = []
@@ -231,7 +231,7 @@ def db_load_certs():
 
 
 def db_save_cert(cert_data):
-    """保存单条证书（INSERT OR REPLACE，支持更新）"""
+    """保存单条到期项（INSERT OR REPLACE，支持更新）"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     cert_id = cert_data.get("id")
     with db_transaction() as conn:
@@ -248,7 +248,7 @@ def db_save_cert(cert_data):
                      json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      now, cert_id))
             else:
-                conn.execute("""INSERT INTO certs (id, customer, cert_type, domain, expire_date, note,
+                conn.execute("""INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
                               remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (cert_id, cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
@@ -257,7 +257,7 @@ def db_save_cert(cert_data):
                      json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      cert_data.get("created_by", ""), now, now))
         else:
-            conn.execute("""INSERT INTO certs (customer, cert_type, domain, expire_date, note,
+            conn.execute("""INSERT OR REPLACE INTO certs (customer, cert_type, domain, expire_date, note,
                           remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
@@ -268,13 +268,13 @@ def db_save_cert(cert_data):
 
 
 def db_delete_cert(cert_id):
-    """删除证书"""
+    """删除到期项"""
     with db_transaction() as conn:
         conn.execute("DELETE FROM certs WHERE id=?", (cert_id,))
 
 
 def db_batch_delete_cert_ids(ids):
-    """批量删除证书，返回实际删除数量"""
+    """批量删除到期项，返回实际删除数量"""
     with db_transaction() as conn:
         placeholders = ",".join("?" * len(ids))
         cursor = conn.execute(f"DELETE FROM certs WHERE id IN ({placeholders})", ids)
@@ -282,7 +282,7 @@ def db_batch_delete_cert_ids(ids):
 
 
 def db_get_cert(cert_id):
-    """获取单条证书"""
+    """获取单条到期项"""
     with db_transaction() as conn:
         row = conn.execute("SELECT * FROM certs WHERE id=?", (cert_id,)).fetchone()
         if row:

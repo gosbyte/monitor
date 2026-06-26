@@ -5,10 +5,7 @@ __pycache__
 *.reg
 .env
 .git
-README.md
 *.zip
-*.md
-tests/
 *.json.old
 *.json.bak
 # 数据文件 - 运行时由容器挂载 /app/data

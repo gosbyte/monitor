@@ -86,13 +86,13 @@ def build_remind_card(certs, users_map):
     构建钉钉提醒卡片内容
     
     Args:
-        certs: 证书列表
+        certs: 到期项列表
         users_map: 用户映射表
     
     Returns:
         tuple: (title, content, at_user_ids)
     """
-    title = "🔔 证书到期提醒"
+    title = "🔔 到期项到期提醒"
     
     # 收集需要 @ 的用户
     at_user_ids = []
