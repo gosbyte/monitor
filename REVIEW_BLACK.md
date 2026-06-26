@@ -307,3 +307,27 @@ pyOpenSSL==23.3.0
 ### 测试结果
 - ✅ 19/19 单元测试通过
 - ✅ 所有 Python 文件语法检查通过
+
+
+---
+
+## 六、小黑 Phase 2 修改记录 — 2026-06-26
+
+**修改时间：** 2026-06-26
+**提交：** `c367cad`
+
+### 已修复项
+
+| 编号 | 问题 | 状态 | 说明 |
+|------|------|------|------|
+| 1 | `db.py` 未集成 | ✅ 已修复 | 添加 `USE_SQLITE` 环境变量开关，data.py 所有数据函数支持 JSON/SQLite 双模式路由 |
+| 2 | db.py 迁移 bool 大小写 | ✅ 已修复 | `str(v)` → `str(v).lower()` |
+| 3 | supervisord.conf 端口硬编码 | ✅ 已修复 | 改为 `PORT="%(_env_PORT)s"` |
+| 4 | Dockerfile ARG → ENV | ✅ 已修复 | HEALTHCHECK 使用环境变量 |
+| 5 | docker-compose.yml 端口变量 | ✅ 已修复 | 统一为 `${PORT:-5188}` |
+| 6 | 剩余"证书"文字 | ✅ 已修复 | deploy.sh/README/CHANGELOG/templates/tests/webhook.py |
+| 7 | webhook.py 术语 | ✅ 已修复 | 统一替换 |
+
+### 测试结果
+- ✅ 19/19 单元测试通过
+- ✅ 所有 Python 文件语法检查通过
