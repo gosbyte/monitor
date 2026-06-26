@@ -51,7 +51,7 @@ def test_db_crud(temp_data_dir):
 
 
 def test_db_get_cert(temp_data_dir):
-    """获取单条证书"""
+    """获取单条到期项"""
     init_db()
     cert = {"id": 1, "customer": "Test", "expire_date": "2027-12-31"}
     db_save_cert(cert)

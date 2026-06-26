@@ -187,7 +187,7 @@ def migrate_json_to_sqlite():
                 if isinstance(v, list):
                     v = json_mod.dumps(v)
                 else:
-                    v = str(v)
+                    v = str(v).lower()
                 conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (k, v))
             migrated += len(cfg)
         logger.info(f"Migrated {len(cfg)} config entries from JSON")

@@ -31,7 +31,7 @@ def send_webhook(url, payload, timeout=10):
 
 
 def build_item_expiry_payload(cert, days_left):
-    """构建到期项到期 Webhook 载荷"""
+    """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_expiry",
         "timestamp": datetime.now().isoformat(),
@@ -49,7 +49,7 @@ def build_item_expiry_payload(cert, days_left):
 
 
 def build_item_added_payload(cert):
-    """构建到期项新增 Webhook 载荷"""
+    """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_added",
         "timestamp": datetime.now().isoformat(),
@@ -65,7 +65,7 @@ def build_item_added_payload(cert):
 
 
 def build_item_deleted_payload(cert_id, customer):
-    """构建到期项删除 Webhook 载荷"""
+    """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_deleted",
         "timestamp": datetime.now().isoformat(),

@@ -6,7 +6,7 @@ services:
     image: item-monitor:latest
     container_name: item-monitor
     ports:
-      - "${ITEM_MONITOR_PORT:-5188}:5188"          # Web 管理界面
+      - "${PORT:-5188}:5188"          # Web 管理界面
     volumes:
       - ./data:/app/data     # 数据持久化（到期项/配置/用户）
     environment:

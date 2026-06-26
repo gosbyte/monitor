@@ -13,7 +13,7 @@ All notable changes to this project.
   - `send_wecom()` — 企业微信群机器人 Markdown 消息
   - `build_remind_card()` — 构建到期提醒卡片内容，自动收集负责人 @UserID
 - **`init_data.py`** — 首次运行初始化脚本
-  - 创建默认证书数据、配置文件、用户数据、操作日志
+  - 创建默认到期项数据、配置文件、用户数据、操作日志
   - 生成 Flask secret_key
   - 被 Dockerfile RUN 调用
 - **`deploy.sh`** — 一键部署脚本
@@ -76,5 +76,5 @@ All notable changes to this project.
 - 钉钉机器人到期提醒
 - 后台常驻守护进程（精确到分钟）
 - 用户管理（登录、密码哈希、登录锁定）
-- 证书 CRUD + 批量操作
+- 到期项 CRUD + 批量操作
 - 操作日志

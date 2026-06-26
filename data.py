@@ -19,6 +19,10 @@ except ImportError:
     generate_password_hash = None
     check_password_hash = None
 
+
+# ── 存储模式开关 ──────────────────────────────────────
+USE_SQLITE = os.environ.get("USE_SQLITE", "0") == "1"
+
 # ── 路径常量（必须在 _get_fernet 之前定义）────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
@@ -143,7 +147,10 @@ def atomic_write_json(filepath, data):
 
 # ── 日志 ─────────────────────────────────────────────────
 def load_logs():
-    """加载日志（带文件锁）"""
+    """加载日志（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_load_logs
+        return db_load_logs()
     with FileLock(LOGS_FILE):
         if os.path.exists(LOGS_FILE):
             with open(LOGS_FILE, "r", encoding="utf-8-sig") as f:
@@ -151,13 +158,20 @@ def load_logs():
     return []
 
 def save_logs(logs):
-    """保存日志（带文件锁）"""
+    """保存日志（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        # SQLite 模式下日志通过 write_log 直接写入，此处保留 JSON 兼容
+        return
     with FileLock(LOGS_FILE):
         logs = logs[-1000:]
         atomic_write_json(LOGS_FILE, logs)
 
 def write_log(username, action, detail="", target="", ip=""):
-    """写操作日志（daemon 无 web 请求，ip 传空字符串）"""
+    """写操作日志（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_write_log
+        db_write_log(username, action, detail, target, ip)
+        return
     logs = load_logs()
     logs.append({
         "id": len(logs) + 1,
@@ -196,6 +210,25 @@ def _migrate_password(users):
     return users
 
 # ── 缓存（防止频繁读盘）────────────────────────────────────
+
+def _migrate_password_sqlite(users):
+    """[FIX] P0: 自动迁移 SQLite 用户明文密码为哈希"""
+    for u in users:
+        pwd = u.get("password", "")
+        if pwd and len(pwd) < 50 and generate_password_hash:
+            u["password"] = generate_password_hash(pwd)
+    if any(u.get("password", "") and len(u.get("password", "")) < 50 for u in users):
+        # 有更新则写回
+        if USE_SQLITE:
+            from db import db_save_user
+            for u in users:
+                u.setdefault("name", u.get("username", ""))
+                u.setdefault("dingtalk_id", "")
+                u.setdefault("failed_attempts", 0)
+                u.setdefault("consecutive_locks", 0)
+                u.setdefault("lock_until", None)
+                db_save_user(u)
+
 # 用户缓存（30s TTL）
 _users_cache = {"data": None, "mtime": 0}
 
@@ -203,7 +236,12 @@ _users_cache = {"data": None, "mtime": 0}
 _certs_cache = {"data": None, "mtime": 0}
 
 def load_users():
-    """加载用户列表（带文件锁 + mtime 缓存）"""
+    """加载用户列表（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_load_users
+        users = db_load_users()
+        _migrate_password_sqlite(users)
+        return users
     global _users_cache
     if not os.path.exists(USERS_FILE):
         _users_cache = {"data": [], "mtime": 0}
@@ -222,7 +260,17 @@ def load_users():
     return users
 
 def save_users(users):
-    """保存用户列表（带字段补全）"""
+    """保存用户列表（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_save_user
+        for u in users:
+            u.setdefault("name", u.get("username", ""))
+            u.setdefault("dingtalk_id", "")
+            u.setdefault("failed_attempts", 0)
+            u.setdefault("consecutive_locks", 0)
+            u.setdefault("lock_until", None)
+            db_save_user(u)
+        return
     for u in users:
         if "name" not in u: u["name"] = u.get("username", "")
         if "dingtalk_id" not in u: u["dingtalk_id"] = ""
@@ -282,7 +330,10 @@ def verify_user(username, password):
 
 # ── 到期项数据 ─────────────────────────────────────────────
 def load_certs():
-    """加载到期项（带文件锁 + 缓存）"""
+    """加载到期项（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_load_certs
+        return db_load_certs()
     global _certs_cache
     now = time.time()
     if _certs_cache["data"] is not None and (now - _certs_cache["mtime"]) < 5:
@@ -297,14 +348,26 @@ def load_certs():
     return []
 
 def save_certs(certs):
-    """保存到期项（带文件锁 + 清除缓存）"""
+    """保存到期项（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_save_cert, db_batch_delete_cert_ids
+        # certs 可能是列表（全量保存）或单条（增量保存）
+        if isinstance(certs, list):
+            for c in certs:
+                db_save_cert(c)
+        else:
+            db_save_cert(certs)
+        return
     global _certs_cache
     with FileLock(DATA_FILE):
         atomic_write_json(DATA_FILE, certs)
     _certs_cache = {"data": None, "mtime": 0}
 
 def load_config():
-    """加载配置（带文件锁）"""
+    """加载配置（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_load_config
+        return db_load_config()
     with FileLock(CONFIG_FILE):
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
@@ -312,7 +375,11 @@ def load_config():
     return {"webhook_url": "", "remind_days": [7, 3, 1]}
 
 def save_config(cfg):
-    """保存配置（带文件锁）"""
+    """保存配置（支持 JSON 和 SQLite 双模式）"""
+    if USE_SQLITE:
+        from db import db_save_config
+        db_save_config(cfg)
+        return
     with FileLock(CONFIG_FILE):
         atomic_write_json(CONFIG_FILE, cfg)
 

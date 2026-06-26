@@ -26,7 +26,7 @@ RUN python init_data.py
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # 暴露端口（默认 5188，可通过环境变量覆盖）
-ARG PORT=5188
+ENV PORT=5188
 ENV PORT=${PORT}
 EXPOSE ${PORT}
 
@@ -36,6 +36,7 @@ ENV DATA_DIR=/app/data \
     TZ=Asia/Shanghai
 
 # 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/')" || exit 1
 

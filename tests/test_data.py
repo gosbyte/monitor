@@ -26,7 +26,7 @@ def test_atomic_write_json(temp_data_dir):
 
 
 def test_load_save_certs(temp_data_dir):
-    """证书加载/保存"""
+    """到期项加载/保存"""
     certs = [
         {"id": 1, "customer": "A", "expire_date": "2025-12-31"},
         {"id": 2, "customer": "B", "expire_date": "2026-06-30"},
@@ -38,7 +38,7 @@ def test_load_save_certs(temp_data_dir):
 
 
 def test_empty_certs(temp_data_dir):
-    """空证书列表"""
+    """空到期项列表"""
     # 清除之前测试留下的缓存
     import data
     data._certs_cache = {"data": None, "mtime": 0}
@@ -103,7 +103,7 @@ def test_calc_days_left_past():
 
 
 def test_get_cert_status():
-    """证书状态判断"""
+    """到期项状态判断"""
     cert_normal = {"expire_date": "2027-12-31", "remind_enabled": True, "handled": False}
     assert get_cert_status(cert_normal) == "normal"
     

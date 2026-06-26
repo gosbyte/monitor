@@ -42,7 +42,7 @@ def temp_data_dir(tmp_path):
 
 @pytest.fixture
 def sample_cert(temp_data_dir):
-    """创建一个示例证书"""
+    """创建一个示例到期项"""
     cert = {
         "id": 1,
         "customer": "Test Corp",
