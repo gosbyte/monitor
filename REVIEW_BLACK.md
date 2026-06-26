@@ -273,3 +273,37 @@ pyOpenSSL==23.3.0
 2. **commit 前跑测试。** `test_data.py` 中手动重置 `_certs_cache` 说明测试本身就知道这个变量存在，但模块初始化漏了 — 这说明测试和代码不同步。
 3. **术语替换要彻底。** 之前已经把"证书"改为"到期项"，新的改动不应该再引入"证书"。
 4. **force push 前告知。** 直接 force push 覆盖了所有历史，导致之前的 review 文档（`ARCHITECTURE_REVIEW.md`）也被删除了。建议用普通 merge 而不是 force push。
+
+
+---
+
+## 五、小黑修改记录 — 2026-06-26（第二轮修复）
+
+**修改时间：** 2026-06-26
+**提交：** `4d6afe7`
+
+### 已修复项
+
+| 编号 | 问题 | 状态 | 说明 |
+|------|------|------|------|
+| 1 | `_certs_cache` 未初始化 | ✅ 已修复 | 模块级别添加 `_certs_cache = {"data": None, "mtime": 0}` |
+| 2 | `DATA_DIR` 定义顺序 | ✅ 已修复 | 移至 `_get_fernet()` 之前 |
+| 3 | conftest.py 缓存重置 | ✅ 已修复 | 添加 `_certs_cache` 重置 |
+| 4 | 术语"证书"未替换 | ✅ 已修复 | 全量替换为"到期项" |
+| 5 | docker-compose.yml 服务名 | ✅ 已修复 | `cert-monitor` → `item-monitor` |
+| 6 | db.py 迁移逻辑 | ✅ 已修复 | `INSERT` → `INSERT OR REPLACE` |
+| 7 | supervisord.conf 端口硬编码 | ✅ 已修复 | 改为 `PORT="%(_env_PORT)s"` |
+| 8 | Dockerfile HEALTHCHECK | ✅ 已修复 | 使用 `${PORT}` 环境变量 |
+| 9 | webhook 未集成 | ✅ 已修复 | 添加 webhook 回调触发 |
+| 10 | pyOpenSSL 多余依赖 | ✅ 已修复 | 从 requirements.txt 移除 |
+| 11 | .dockerignore 过度忽略 | ✅ 已修复 | 移除 README.md/tests/ 忽略 |
+
+### 未修复项（待讨论）
+
+| 编号 | 问题 | 原因 |
+|------|------|------|
+| 1 | `db.py` 未集成到 app.py/daemon.py | 当前 JSON 层稳定运行，db.py 保留为 SQLite 备选方案。集成需要重写 app.py 所有数据访问层，风险较高，建议下一轮迭代进行 |
+
+### 测试结果
+- ✅ 19/19 单元测试通过
+- ✅ 所有 Python 文件语法检查通过
