@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  cert-monitor:
+    build: .
+    image: cert-monitor:latest
+    container_name: cert-monitor
+    ports:
+      - "${CERT_MONITOR_PORT:-5188}:5188"          # Web 管理界面
+    volumes:
+      - ./data:/app/data     # 数据持久化（证书/配置/用户）
+    environment:
+      - TZ=Asia/Shanghai     # 时区
+      - PORT=5188            # Flask 监听端口
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5188/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

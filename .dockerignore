@@ -1,0 +1,22 @@
+__pycache__
+*.pyc
+*.log
+*.bat
+*.reg
+.env
+.git
+README.md
+*.zip
+*.md
+tests/
+*.json.old
+*.json.bak
+# 数据文件 - 运行时由容器挂载 /app/data
+users.json
+cert_data.json
+config.json
+logs.json
+remind_state.json
+.secret_key
+*.json.bak
+monitor.db

@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户管理</title>
+  <script src="/static/tailwind.js"></script>
+  <style nonce="{{ csp_nonce }}">
+    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
+    .avatar-grad { background: linear-gradient(135deg, var(--c1,#6366f1), var(--c2,#8b5cf6)); }
+    .card-hover { transition: all .2s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,.08); }
+    .badge-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  </style>
+  <link rel="stylesheet" href="/static/dark.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+          <i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i>
+        </a>
+        <span class="text-gray-200">|</span>
+        <h1 class="text-lg font-bold text-gray-900">用户管理</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-full">
+          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
+          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
+          <span id="dark-label" class="text-xs">暗色模式</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+  <!-- 统计 -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+          <i data-lucide="users" class="w-5 h-5 inline-block text-indigo-500"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-gray-900">{{ users|length }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">用户总数</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+          <i data-lucide="shield" class="w-5 h-5 inline-block text-purple-500"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-gray-900">{{ users|selectattr('role','equalto','admin')|list|length }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">管理员</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+          <i data-lucide="mail" class="w-5 h-5 inline-block text-blue-500"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-gray-900">{{ users|selectattr('email')|list|length }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">已配邮箱</p>
+        </div>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+          <i data-lucide="message-circle" class="w-5 h-5 inline-block text-green-500"></i>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-gray-900">{{ users|selectattr('dingtalk_id')|list|length }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">已配钉钉</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加用户 -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3.5 bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-gray-100">
+      <h2 class="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+        <i data-lucide="user-plus" class="w-4 h-4 inline-block text-indigo-500"></i> 添加新用户
+      </h2>
+    </div>
+    <form method="POST" action="/users/add" class="p-5 space-y-3">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <input type="text" name="name" placeholder="姓名" required
+          class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        <input type="text" name="username" placeholder="用户名" required
+          class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        <input type="password" name="password" placeholder="密码" required
+          class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        <div class="flex gap-2">
+          <select name="role"
+            class="flex-1 px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm bg-white transition-shadow">
+            <option value="user">普通用户</option>
+            <option value="admin">管理员</option>
+          </select>
+          <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium whitespace-nowrap flex items-center gap-1.5 shadow-sm">
+            <i data-lucide="plus" class="w-4 h-4 inline-block"></i> 添加
+          </button>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <input type="email" name="email" placeholder="邮箱（可选）"
+          class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        <input type="text" name="dingtalk_id" placeholder="钉钉用户ID（可选）"
+          class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        <input type="text" name="wecom_id" placeholder="企业微信用户ID（可选）"
+          class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+      </div>
+    </form>
+  </div>
+
+  <!-- 用户列表 -->
+  <div class="space-y-3">
+    {% if users %}
+    {% for u in users %}
+    {% set initial = (u.name or u.username)[:1] %}
+    {% set colors = [['#6366f1','#8b5cf6'],['#ec4899','#f43f5e'],['#14b8a6','#06b6d4'],['#f59e0b','#f97316'],['#8b5cf6','#a855f7'],['#10b981','#34d399'],['#3b82f6','#2563eb'],['#ef4444','#ec4899']] %}
+    {% set color = colors[loop.index0 % colors|length] %}
+    <div class="bg-white rounded-xl border {% if u.role == 'admin' %}border-purple-200 shadow-sm shadow-purple-100/50{% else %}border-gray-100 shadow-sm{% endif %} overflow-hidden card-hover">
+      <div class="p-4 sm:p-5">
+        <div class="flex items-center gap-4">
+          <!-- 头像 -->
+          <div class="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-sm avatar-grad" style="--c1:{{color[0]}};--c2:{{color[1]}}">
+            {{ initial }}
+          </div>
+
+          <!-- 信息 -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold text-gray-900 text-base">{{ u.name or u.username }}</span>
+              <span class="text-xs text-gray-400">@{{ u.username }}</span>
+              {% if u.role == 'admin' %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs rounded-full shadow-sm">
+                <i data-lucide="shield" class="w-3 h-3 inline-block"></i> 管理员
+              </span>
+              {% else %}
+              <span class="inline-block px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">普通用户</span>
+              {% endif %}
+            </div>
+
+            <!-- 联系方式（图标式，一行水平排列） -->
+            <div class="flex items-center gap-3 mt-3">
+              <!-- 钉钉 -->
+              <div class="flex items-center gap-1.5 text-xs" title="钉钉用户ID">
+                <i data-lucide="message-square" class="w-3.5 h-3.5 inline-block {{ 'text-blue-500' if u.dingtalk_id else 'text-gray-300' }}"></i>
+                {% if u.dingtalk_id %}
+                <span class="text-blue-600 font-medium">{{ u.dingtalk_id }}</span>
+                {% else %}
+                <span class="text-gray-300">未配置</span>
+                {% endif %}
+              </div>
+              <span class="text-gray-200">|</span>
+              <!-- 邮箱 -->
+              <div class="flex items-center gap-1.5 text-xs" title="邮箱地址">
+                <i data-lucide="mail" class="w-3.5 h-3.5 inline-block {{ 'text-green-500' if u.email else 'text-gray-300' }}"></i>
+                {% if u.email %}
+                <span class="text-green-600 font-medium">{{ u.email }}</span>
+                {% else %}
+                <span class="text-gray-300">未配置</span>
+                {% endif %}
+              </div>
+              <span class="text-gray-200">|</span>
+              <!-- 企业微信 -->
+              <div class="flex items-center gap-1.5 text-xs" title="企业微信用户ID">
+                <i data-lucide="smartphone" class="w-3.5 h-3.5 inline-block {{ 'text-indigo-500' if u.wecom_id else 'text-gray-300' }}"></i>
+                {% if u.wecom_id %}
+                <span class="text-indigo-600 font-medium">{{ u.wecom_id }}</span>
+                {% else %}
+                <span class="text-gray-300">未配置</span>
+                {% endif %}
+              </div>
+
+              <!-- 锁定状态 -->
+              {% if u.locked %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-500 text-xs rounded-full border border-red-100 ml-1">
+                <i data-lucide="lock" class="w-3 h-3 inline-block"></i> 已锁定
+              </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- 操作 -->
+          <div class="flex items-center gap-1 flex-shrink-0">
+            {% if u.locked and is_admin %}
+            <form method="POST" action="/users/unlock/{{ u.username }}" style="display:inline">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="解除锁定">
+                <i data-lucide="unlock" class="w-4 h-4 inline-block"></i>
+              </button>
+            </form>
+            {% endif %}
+            <button onclick="openEditModal('{{ u.username }}', '{{ u.name or "" }}', '{{ u.role }}', '{{ u.dingtalk_id or "" }}', '{{ u.email or "" }}', '{{ u.wecom_id or "" }}')"
+              class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="编辑用户">
+              <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+            </button>
+            {% if u.username != 'admin' %}
+            <form method="POST" action="/users/delete/{{ u.username }}" style="display:inline" onsubmit="return confirm('确定删除用户 {{ u.username }}？')">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
+                <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
+      <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-50 flex items-center justify-center">
+        <i data-lucide="users" class="w-8 h-8 inline-block text-gray-300"></i>
+      </div>
+      <p class="text-gray-400 text-sm">暂无用户</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- 折叠式说明 -->
+  <details class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <summary class="px-5 py-3.5 text-sm font-medium text-gray-500 hover:text-gray-700 cursor-pointer flex items-center gap-2 select-none hover:bg-gray-50 transition-colors">
+      <i data-lucide="help-circle" class="w-4 h-4 inline-block text-gray-400"></i>
+      如何获取用户ID？
+      <i data-lucide="chevron-down" class="w-4 h-4 inline-block ml-auto text-gray-300"></i>
+    </summary>
+    <div class="px-5 pb-4 pt-2 border-t border-gray-50">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+        <div class="bg-blue-50 rounded-lg p-3.5 border border-blue-100">
+          <div class="font-semibold text-blue-800 mb-2 flex items-center gap-1.5">
+            <i data-lucide="message-square" class="w-3.5 h-3.5 inline-block"></i> 钉钉用户ID
+          </div>
+          <ol class="text-blue-700 space-y-1 list-decimal list-inside">
+            <li>钉钉管理后台 → 通讯录 → 点击成员详情</li>
+            <li>查看「用户ID」（userId）</li>
+            <li>填写后会在钉钉消息中 @该负责人</li>
+          </ol>
+        </div>
+        <div class="bg-green-50 rounded-lg p-3.5 border border-green-100">
+          <div class="font-semibold text-green-800 mb-2 flex items-center gap-1.5">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5 inline-block"></i> 企业微信用户ID
+          </div>
+          <ol class="text-green-700 space-y-1 list-decimal list-inside">
+            <li>企业微信管理后台 → 通讯录</li>
+            <li>点击成员 → 查看「账号」即用户ID</li>
+            <li>填写后会在企业微信消息中 @该负责人</li>
+          </ol>
+        </div>
+        <div class="bg-indigo-50 rounded-lg p-3.5 border border-indigo-100">
+          <div class="font-semibold text-indigo-800 mb-2 flex items-center gap-1.5">
+            <i data-lucide="mail" class="w-3.5 h-3.5 inline-block"></i> 邮箱
+          </div>
+          <ol class="text-indigo-700 space-y-1 list-decimal list-inside">
+            <li>填写接收邮件提醒的邮箱地址</li>
+            <li>填写后到期提醒会按负责人定向发送</li>
+            <li>需先在「推送配置」中配置 SMTP</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </details>
+
+</main>
+
+<!-- 编辑弹窗 -->
+<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden max-h-[90vh] flex flex-col animate-in">
+    <!-- 弹窗头部 -->
+    <div class="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-between">
+      <h3 class="font-semibold flex items-center gap-2 text-sm">
+        <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
+        编辑用户 - <span id="editUsername" class="font-bold"></span>
+      </h3>
+      <button type="button" onclick="closeEditModal()" class="p-1 hover:bg-white/20 rounded-lg transition-colors">
+        <i data-lucide="x" class="w-4 h-4 inline-block"></i>
+      </button>
+    </div>
+    <!-- 弹窗内容 -->
+    <form method="POST" action="" id="editForm" class="p-6 space-y-4 overflow-y-auto">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="username" id="editFormUsername">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">姓名</label>
+          <input type="text" name="name" id="editName"
+            class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">角色</label>
+          <select name="role" id="editRole"
+            class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm bg-white transition-shadow">
+            <option value="user">普通用户</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">密码（不填则不修改）</label>
+        <input type="password" name="password" id="editPassword" placeholder="至少8位，包含大小写字母和数字"
+          class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+      </div>
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs font-medium text-gray-400 mb-3">联系方式</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">
+              <i data-lucide="mail" class="w-3 h-3 inline-block text-green-500 mr-0.5"></i> 邮箱
+            </label>
+            <input type="email" name="email" id="editEmail" placeholder="邮箱地址"
+              class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">
+              <i data-lucide="message-square" class="w-3 h-3 inline-block text-blue-500 mr-0.5"></i> 钉钉ID
+            </label>
+            <input type="text" name="dingtalk_id" id="editDingtalkId" placeholder="钉钉用户ID"
+              class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">
+              <i data-lucide="smartphone" class="w-3 h-3 inline-block text-indigo-500 mr-0.5"></i> 企微ID
+            </label>
+            <input type="text" name="wecom_id" id="editWecomId" placeholder="企业微信用户ID"
+              class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeEditModal()"
+          class="px-5 py-2.5 text-sm text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+        <button type="submit"
+          class="px-5 py-2.5 text-sm text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script nonce="{{ csp_nonce }}">
+lucide.createIcons();
+
+function openEditModal(username, name, role, dingtalkId, email, wecomId) {
+  document.getElementById('editUsername').textContent = username;
+  document.getElementById('editFormUsername').value = username;
+  document.getElementById('editForm').action = '/users/edit/' + encodeURIComponent(username);
+  document.getElementById('editName').value = name || '';
+  document.getElementById('editRole').value = role || 'user';
+  document.getElementById('editPassword').value = '';
+  document.getElementById('editDingtalkId').value = dingtalkId || '';
+  document.getElementById('editEmail').value = email || '';
+  document.getElementById('editWecomId').value = wecomId || '';
+  document.getElementById('editModal').classList.remove('hidden');
+  document.getElementById('editModal').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('editName').focus(), 100);
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.add('hidden');
+  document.getElementById('editModal').classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+</script>
+<script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
+<script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
+<script src="/static/dark.js"></script></body>
+</html>
