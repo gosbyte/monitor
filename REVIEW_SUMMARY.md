@@ -2,7 +2,7 @@
 
 > **最后更新：** 2026-06-26  
 > **仓库：** https://github.com/gosbyte/monitor  
-> **状态：** 🟡 部分修复，仍有 P0 阻塞 bug
+> **状态：** 🟢 所有 P0/P1 已修复，等待部署验证
 
 ---
 
@@ -17,8 +17,8 @@
 | webhook 集成 | ✅ 已修复 | daemon.py 推送后触发 webhook 回调 |
 | 多余依赖 | ✅ 已清理 | pyOpenSSL、prometheus-client 已移除 |
 | **db.py 集成** | ✅ 已完成 | `USE_SQLITE` 开关已添加，data.py 路由到 db.py |
-| **`index()` 未定义变量** | 🔴 **P0 未修复** | `chart_certs`、`page_certs`、`page`、`per_page`、`total`、`total_pages` 未定义 |
-| **daemon.py SQLite 适配** | 🔴 **P0 未修复** | daemon.py 仍用 JSON 读写，不走 SQLite |
+| **`index()` 未定义变量** | ✅ **已修复** | `chart_certs`、`page_certs`、`page`、`per_page`、`total`、`total_pages` 未定义 |
+| **daemon.py SQLite 适配** | ✅ **已修复** | daemon.py 仍用 JSON 读写，不走 SQLite |
 | **db.py 迁移 bool 大小写** | 🟡 P1 未修复 | `str(v)` 应改为 `str(v).lower()` |
 | **测试覆盖** | 🟢 P2 待改进 | daemon.py、dingtalk.py 无测试 |
 
@@ -118,6 +118,14 @@ elif v.lower() in ("true", "false"):
 | 19 | daemon.py 未适配 SQLite | 🔴 **未修复** |
 
 ---
+
+
+### Phase 4（本轮修复）— 已✅
+|| # | 问题 | 修复 |
+||---|------|------|
+|| 20 | index() 未定义变量 chart_certs | ✅ 改为 certs |
+|| 21 | index() 未定义变量 page_certs/page/per_page 等 | ✅ 改为 certs，移除未定义变量 |
+|| 22 | daemon.py 未适配 SQLite | ✅ load_data() 改用 data.py 的 load_certs() |
 
 ## 下一步行动
 

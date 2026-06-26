@@ -301,7 +301,7 @@ def index():
     for c in certs:
         t = c.get("cert_type", "其他")
         type_count[t] += 1
-    total_certs = len(chart_certs) if len(chart_certs) > 0 else 1
+    total_certs = len(certs) if len(certs) > 0 else 1
     type_distribution = [{"type": t, "count": cnt, "percent": round(cnt*100/total_certs, 1)} for t, cnt in sorted(type_count.items(), key=lambda x: -x[1])[:8]]
     
     # 3. 状态分布
@@ -318,9 +318,8 @@ def index():
         "type_distribution": type_distribution,
         "status_distribution": status_distribution
     }
-    return render_template("index.html", certs=page_certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
-                           chart_data=chart_data, cert_types=cert_types, current_username=current_username,
-                           page=page, per_page=per_page, total=total, total_pages=total_pages)
+    return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
+                           chart_data=chart_data, cert_types=cert_types, current_username=current_username)
 
 @app.route("/config", methods=["GET", "POST"])
 @admin_required

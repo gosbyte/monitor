@@ -86,9 +86,13 @@ logger = logging.getLogger(__name__)
 
 
 def load_data():
-    """加载到期项数据（带文件锁）"""
-    result = _locked_load_json(DATA_FILE)
-    return result if result is not None else []
+    """加载到期项数据（带文件锁，支持 SQLite）"""
+    try:
+        from data import load_certs
+        return load_certs()
+    except Exception:
+        result = _locked_load_json(DATA_FILE)
+        return result if result is not None else []
 
 def load_config():
     """加载配置（带文件锁 + 自动解密敏感字段）"""
