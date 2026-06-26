@@ -48,7 +48,7 @@
     <div id="result-area" class="hidden mb-4 p-3 rounded-lg text-sm"></div>
 
     <form id="restore-form" onsubmit="return submitRestore(event)">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div class="mb-5">
         <label class="block text-sm font-medium text-gray-700 mb-2">选择备份文件</label>
         <input type="file" name="backup_file" id="backup-file" accept=".json" required

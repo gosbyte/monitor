@@ -29,7 +29,7 @@ def inject_globals():
             )
         except Exception:
             badge_count = 0
-    return dict(csrf_token=_generate_csrf_token(), badge_count=badge_count)
+    return dict(csrf_token=_generate_csrf_token, badge_count=badge_count)
 
 # ── CSRF ─────────────────────────────────────────────────
 def _generate_csrf_token():

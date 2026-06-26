@@ -484,7 +484,7 @@ function showToast(msg, type) {
       <button onclick="closeAddModal()" class="p-1 hover:bg-gray-100 rounded"><i data-lucide="x" class="w-4 h-4 inline-block"></i></button>
     </div>
     <form method="POST" action="/add" class="p-4 space-y-4">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">客户名称 <span class="text-red-500">*</span></label>
         <input name="customer" required placeholder="例如：某科技有限公司"
@@ -549,7 +549,7 @@ function showToast(msg, type) {
       </button>
     </div>
     <form id="edit-cert-form" class="p-4 space-y-4">
-      <input type="hidden" name="_csrf_token" id="edit-csrf" value="{{ csrf_token() }}">
+      <input type="hidden" name="_csrf_token" id="edit-csrf" value="{{ csrf_token }}">
       <input type="hidden" name="cert_id" id="edit-cert-id" value="">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">客户名称 <span class="text-red-500">*</span></label>
@@ -1146,7 +1146,7 @@ function filterTable() {
 function goPage(p) { currentPage = p; filterTable(); }
 
 // ── CSRF Token ──────────────────────────────────────────
-let _csrfToken = "{{ csrf_token() }}";
+let _csrfToken = "{{ csrf_token }}";
 let currentUser = "{{ current_username }}";
 
 // ── API 操作 ────────────────────────────────────────────
@@ -1279,7 +1279,7 @@ function quickFilter(status) {
       修改密码
     </h3>
     <form method="POST" action="/users/password/{{ session.username }}" id="selfPwdForm" onsubmit="return checkSelfPwd()">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">新密码</label>
         <input type="password" name="new_password" id="selfPwdField" placeholder="至少8位，包含大小写字母和数字"
