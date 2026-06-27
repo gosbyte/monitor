@@ -5,6 +5,7 @@ import os
 import io
 import sys
 import signal
+import time
 import random
 import string
 import re
@@ -140,17 +141,17 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # [FIX] CSP with nonce for inline scripts (removes unsafe-inline)
-    nonce = secrets.token_hex(16)
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'nonce-" + nonce + "'; "
-        "style-src 'self' 'nonce-" + nonce + "'; "
-        "img-src 'self' data:; "
-        "font-src 'self'; "
-        "connect-src 'self'"
-    )
-    response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    # CSP 暂时禁用，避免手机浏览器脚本加载问题
+    # nonce = secrets.token_hex(16)
+    # response.headers["Content-Security-Policy"] = (
+    #     "default-src 'self'; "
+    #     "script-src 'self' 'nonce-XXX' 'unsafe-inline'; "
+    #     "style-src 'self' 'nonce-XXX' 'unsafe-inline'; "
+    #     "img-src 'self' data:; "
+    #     "font-src 'self'; "
+    #     "connect-src 'self'"
+    # )
+    # response.headers["X-Content-Security-Policy-Nonce"] = nonce
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────
@@ -256,7 +257,8 @@ def logout():
     session.clear()
     return redirect(url_for("login_page"))
 
-# ── 配置文件 ──────────────────────────────────────────────
+# ── 仪表盘 ────────────────────────────────────────────────
+@app.route("/")
 @login_required
 def index():
     certs = load_certs()

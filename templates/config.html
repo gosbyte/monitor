@@ -44,7 +44,7 @@
       <span style="font-size:14px"><i data-lucide="bot" class="w-4 h-4 inline-block text-blue-600"></i></span> 钉钉机器人设置
     </h2>
     <form id="dingtalk-form" class="space-y-5">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
         <input name="webhook_url" id="dingtalk-webhook" value="{{ cfg.get('webhook_url', '') }}"
@@ -93,7 +93,7 @@
       <span style="font-size:14px"><i data-lucide="mail" class="w-4 h-4 inline-block text-green-600"></i></span> 邮件提醒设置
     </h2>
     <form id="email-form" class="space-y-4">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">SMTP 服务器</label>
         <input name="smtp_host" id="smtp-host" value="{{ cfg.get('smtp_host', '') }}" placeholder="smtp.qq.com"
@@ -202,7 +202,7 @@
 </main>
 
 <script nonce="{{ csp_nonce }}">
-let _csrfToken = "{{ csrf_token }}";
+let _csrfToken = "{{ csrf_token() }}";
 
 function _showResult(areaId, ok, message) {
   var area = document.getElementById(areaId);

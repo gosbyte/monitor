@@ -72,6 +72,10 @@ def init_db():
                 lock_until TEXT DEFAULT NULL
             );
             
+            -- 插入默认管理员用户（如果不存在）
+            INSERT OR IGNORE INTO users (username, name, password, role)
+            VALUES ('admin', '管理员', 'scrypt:32768:8:1$H5GdKj$8a3f7c2b1e9d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4', 'admin');
+            
             -- 配置表
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
@@ -122,6 +126,15 @@ def init_db():
             INSERT OR IGNORE INTO config (key, value) VALUES ('wecom_enabled', 'false');
             INSERT OR IGNORE INTO config (key, value) VALUES ('wecom_webhook', '');
         """)
+        
+        # 插入默认管理员用户
+        from werkzeug.security import generate_password_hash
+        default_password = generate_password_hash("admin123")
+        conn.execute(
+            "INSERT OR IGNORE INTO users (username, name, password, role) VALUES (?, ?, ?, ?)",
+            ("admin", "管理员", default_password, "admin")
+        )
+        conn.commit()
         logger.info("Database initialized successfully")
 
 

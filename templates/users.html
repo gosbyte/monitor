@@ -95,7 +95,7 @@
       </h2>
     </div>
     <form method="POST" action="/users/add" class="p-5 space-y-3">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <input type="text" name="name" placeholder="姓名" required
           class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
@@ -199,7 +199,7 @@
           <div class="flex items-center gap-1 flex-shrink-0">
             {% if u.locked and is_admin %}
             <form method="POST" action="/users/unlock/{{ u.username }}" style="display:inline">
-              <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="解除锁定">
                 <i data-lucide="unlock" class="w-4 h-4 inline-block"></i>
               </button>
@@ -211,7 +211,7 @@
             </button>
             {% if u.username != 'admin' %}
             <form method="POST" action="/users/delete/{{ u.username }}" style="display:inline" onsubmit="return confirm('确定删除用户 {{ u.username }}？')">
-              <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
               <button type="submit" class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="删除">
                 <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
               </button>
@@ -292,7 +292,7 @@
     </div>
     <!-- 弹窗内容 -->
     <form method="POST" action="" id="editForm" class="p-6 space-y-4 overflow-y-auto">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="username" id="editFormUsername">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

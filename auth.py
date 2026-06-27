@@ -122,8 +122,4 @@ def create_captcha_image(code):
         x1, y1 = random.randint(0, width), random.randint(0, height)
         x2, y2 = random.randint(0, width), random.randint(0, height)
         draw.line([(x1, y1), (x2, y2)], fill=(200, 200, 200), width=1)
-    from io import BytesIO
-    buf = BytesIO()
-    image.save(buf, "PNG")
-    buf.seek(0)
-    return buf
+    return image

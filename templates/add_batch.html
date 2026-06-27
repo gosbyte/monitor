@@ -191,7 +191,7 @@
 </main>
 
 <script nonce="{{ csp_nonce }}">
-let _csrfToken = "{{ csrf_token }}";
+let _csrfToken = "{{ csrf_token() }}";
 let selectedFile = null;
 
 function showResult(success, message, detail) {
