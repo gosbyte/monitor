@@ -2,7 +2,7 @@
 
 > **最后更新：** 2026-06-26  
 > **仓库：** https://github.com/gosbyte/monitor  
-> **状态：** 🟢 所有 P0/P1 已修复，等待部署验证
+> **状态：** 🟢 Phase 4 全部修复完成，等待小白部署验证
 
 ---
 
@@ -126,6 +126,14 @@ elif v.lower() in ("true", "false"):
 || 20 | index() 未定义变量 chart_certs | ✅ 改为 certs |
 || 21 | index() 未定义变量 page_certs/page/per_page 等 | ✅ 改为 certs，移除未定义变量 |
 || 22 | daemon.py 未适配 SQLite | ✅ load_data() 改用 data.py 的 load_certs() |
+
+
+### Phase 4b（部署验证修复）— 已✅
+|| # | 问题 | 修复 |
+||---|------|------|
+|| 23 | captcha() 缺少 @app.route("/captcha") | ✅ 添加路由装饰器 |
+|| 24 | docker-compose healthcheck 路径 / | ✅ 改为 /health |
+|| 25 | 根路径 / 返回 404 | ✅ 添加重定向到 /login |
 
 ## 下一步行动
 

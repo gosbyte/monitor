@@ -156,6 +156,7 @@ def set_security_headers(response):
 # ── CSRF 保护 ──────────────────────────────────────────────
 # [FIX] P1: 轻量级 CSRF 实现（不依赖 Flask-WTF）
 
+@app.route('/captcha')
 def captcha():
     """获取验证码图片"""
     code = generate_captcha()
