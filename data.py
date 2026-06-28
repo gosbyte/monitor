@@ -214,14 +214,22 @@ def _migrate_password(users):
 
 # ── 缓存（防止频繁读盘）────────────────────────────────────
 
+# [FIX] P1-10: 密码迁移标记，只迁移一次
+_password_migration_done = False
+
 def _migrate_password_sqlite(users):
     """[FIX] P0: 自动迁移 SQLite 用户明文密码为哈希"""
+    global _password_migration_done
+    if _password_migration_done:
+        return  # 已经迁移过，跳过
+    changed = False
     for u in users:
         pwd = u.get("password", "")
         if pwd and len(pwd) < 50 and generate_password_hash:
             u["password"] = generate_password_hash(pwd)
-    if any(u.get("password", "") and len(u.get("password", "")) < 50 for u in users):
-        # 有更新则写回
+            changed = True
+    if changed:
+        _password_migration_done = True
         if USE_SQLITE:
             from db import db_save_user
             for u in users:
@@ -375,12 +383,24 @@ def save_certs(certs):
     if USE_SQLITE:
         from db import db_save_cert
         if isinstance(certs, list):
-            for c in certs:
-                # [FIX] P1-4: 过滤掉 id=None 的记录，避免产生重复数据
-                if c.get("id") is None:
-                    logger.warning(f"save_certs: 跳过 id=None 的记录 {c.get('customer', '?')}")
-                    continue
-                db_save_cert(c)
+            # [FIX] P0-8: 批量保存用单事务，避免逐条事务的性能问题
+            from db import db_transaction
+            with db_transaction() as conn:
+                for c in certs:
+                    # [FIX] P1-4: 过滤掉 id=None 的记录
+                    if c.get("id") is None:
+                        logger.warning(f"save_certs: 跳过 id=None 的记录 {c.get('customer', '?')}")
+                        continue
+                    # Direct INSERT/UPDATE in single transaction
+                    conn.execute(
+                        """INSERT OR REPLACE INTO certs (id, customer, domain, expire_date,
+                           created_by, remind_enabled, handled, status, days_left)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (c.get("id"), c.get("customer", ""), c.get("domain", ""),
+                         c.get("expire_date", ""), c.get("created_by", ""),
+                         c.get("remind_enabled", True), c.get("handled", False),
+                         c.get("status", ""), c.get("days_left", 0))
+                    )
         else:
             if certs.get("id") is None:
                 logger.warning(f"save_certs: 跳过 id=None 的单条记录 {certs.get('customer', '?')}")

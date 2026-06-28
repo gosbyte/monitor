@@ -53,15 +53,6 @@ def load_data():
     except Exception:
         return []
 
-def _load_config():
-    """加载配置（带文件锁 + 自动解密敏感字段）"""
-    try:
-        from data import load_config_decrypted
-        return load_config_decrypted()
-    except Exception:
-        result = load_config()
-        return result if result is not None else {"webhook_url": "", "remind_days": [7, 3, 1]}
-
 def load_state():
     """加载已推送状态（带异常处理和文件句柄管理）"""
     state_file = os.path.join(DATA_DIR, "remind_state.json")

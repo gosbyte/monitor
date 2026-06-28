@@ -411,7 +411,7 @@ def add_cert():
     current_user = session.get("username", "?")
     write_log(current_user, "添加记录", request.remote_addr or '')
     if is_ajax:
-        return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session["_csrf_token"])
+        return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session.get("_csrf_token", ""))
     return redirect(url_for("index") + "?success=添加成功")
 
 @app.route("/edit/<int:cert_id>", methods=["GET", "POST"])
@@ -455,7 +455,7 @@ def edit_cert(cert_id):
         save_certs(certs)
         write_log(session.get("username", "?"), "编辑记录 #{cert_id}", request.remote_addr or '')
         if is_ajax:
-            return jsonify({"ok": True, "success": True, "csrf_token": session["_csrf_token"]})
+            return jsonify({"ok": True, "success": True, "csrf_token": session.get("_csrf_token", "")})
         return redirect(url_for("index") + "?success=保存成功")
     return render_template("edit.html", cert=cert, users=users, is_admin=is_admin)
 
@@ -473,7 +473,7 @@ def delete_cert(cert_id):
     current_user = session.get("username", "?")
     write_log(current_user, "删除记录 #{cert_id}", request.remote_addr or '')
     if is_ajax:
-        return jsonify(ok=True, message="删除成功", csrf_token=session["_csrf_token"])
+        return jsonify(ok=True, message="删除成功", csrf_token=session.get("_csrf_token", ""))
     return redirect(url_for("index") + "?success=删除成功")
 
 @app.route("/api/cert/<int:cert_id>", methods=["DELETE"])
@@ -496,11 +496,14 @@ def api_delete_cert(cert_id):
     certs = [c for c in certs if c["id"] != cert_id]
     save_certs(certs)
     write_log(current_username, "删除记录 #{cert_id}", request.remote_addr or '')
-    return jsonify({"ok": True, "message": "删除成功", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": "删除成功", "csrf_token": session.get("_csrf_token", "")})
 
 # ── API 接口 ──────────────────────────────────────────────
 def _check_api_csrf():
     """API 接口 CSRF 检查（支持 Header 和 JSON body）"""
+    # [FIX] P1-8: GET 请求不需要 CSRF token
+    if request.method == "GET":
+        return True
     token = request.headers.get("X-CSRF-Token")
     if not token and request.is_json:
         token = request.json.get("_csrf_token")
@@ -559,7 +562,7 @@ def toggle_status(cert_id):
         if c["id"] == cert_id:
             c["remind_enabled"] = not c.get("remind_enabled", True)
             save_certs(certs)
-            return jsonify({"ok": True, "remind_enabled": c["remind_enabled"], "csrf_token": session["_csrf_token"]})
+            return jsonify({"ok": True, "remind_enabled": c["remind_enabled"], "csrf_token": session.get("_csrf_token", "")})
     return jsonify({"ok": False, "csrf_token": session.get("_csrf_token", "")}), 404
 
 @app.route("/api/handle/<int:cert_id>", methods=["POST"])
@@ -572,24 +575,24 @@ def toggle_handle(cert_id):
         if c["id"] == cert_id:
             c["handled"] = not c.get("handled", False)
             save_certs(certs)
-            return jsonify({"ok": True, "handled": c["handled"], "csrf_token": session["_csrf_token"]})
+            return jsonify({"ok": True, "handled": c["handled"], "csrf_token": session.get("_csrf_token", "")})
     return jsonify({"ok": False, "csrf_token": session.get("_csrf_token", "")}), 404
 
-@app.route("/api/batch_delete", methods=["POST"])
+@app.route("/api/batch_edit", methods=["POST"])
 @login_required
 @admin_required
-def api_batch_delete():
-    """批量删除到期项（幂等：返回实际删除数量）"""
+def api_batch_edit():
+    """批量编辑到期项（启用/禁用提醒、标记已处理）"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     data = request.get_json() or {}
     ids = data.get("ids", [])
-    if not ids:
-        return jsonify({"ok": False, "message": "未选择记录"}), 400
-    certs = load_certs()
-    # 记录将被删除的到期项（用于日志）
-    deleted_certs = [c for c in certs if c["id"] in ids]
-    deleted_names = [c["customer"] for c in deleted_certs]
+    label = data.get("label", "")
+    if not ids or not label:
+        return jsonify({"ok": False, "message": "参数错误"})
+    current_user = session.get("username", "?")
+    write_log(current_user, f"批量{label}", f"{count} 条记录", "", request.remote_addr or '')
+    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
     actual_deleted = len(deleted_certs)
     certs = [c for c in certs if c["id"] not in ids]
     save_certs(certs)
@@ -610,7 +613,7 @@ def api_batch_delete():
         "message": f"删除 {actual_deleted} 条记录",
         "deleted_count": actual_deleted,
         "requested_count": len(ids),
-        "csrf_token": session["_csrf_token"]
+        "csrf_token": session.get("_csrf_token", "")
     })
 
 @app.route("/api/batch_handle", methods=["POST"])
@@ -634,7 +637,7 @@ def api_batch_handle():
     label = "标记已处理" if handled else "取消已处理"
     current_user = session.get("username", "?")
     write_log(current_user, f"批量{label}", f"{count} 条记录", "", request.remote_addr or '')
-    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
 
 @app.route("/api/batch_remind", methods=["POST"])
 @login_required
@@ -657,7 +660,7 @@ def api_batch_remind():
     label = "启用提醒" if remind_enabled else "禁用提醒"
     current_user = session.get("username", "?")
     write_log(current_user, f"批量{label}", f"{count} 条记录", "", request.remote_addr or '')
-    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
 
 @app.route("/api/cert")
 @login_required
@@ -713,7 +716,7 @@ def api_list_certs():
         "page": page,
         "per_page": per_page,
         "pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
-        "csrf_token": session["_csrf_token"]
+        "csrf_token": session.get("_csrf_token", "")
     })
 
 
@@ -739,7 +742,7 @@ def api_save_config():
             elif k != '_csrf_token':
                 cfg[k] = v
         save_config(cfg)
-    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session.get("_csrf_token", "")})
 
 @app.route("/api/test_email", methods=["POST"])
 @login_required
@@ -782,11 +785,11 @@ def api_test_email():
                     server.starttls()
                 server.login(smtp_user, smtp_pass)
                 server.sendmail(smtp_user, recipients, msg.encode("utf-8"))
-        return jsonify({"ok": True, "message": f"测试邮件发送成功！已发送至 {len(recipients)} 个收件人", "csrf_token": session["_csrf_token"]})
+        return jsonify({"ok": True, "message": f"测试邮件发送成功！已发送至 {len(recipients)} 个收件人", "csrf_token": session.get("_csrf_token", "")})
     except Exception as e:
         import traceback
         logger.error(f"测试邮件发送失败: {e}\n{traceback.format_exc()}")
-        return jsonify({"ok": False, "message": f"邮件发送失败：{str(e)}", "csrf_token": session["_csrf_token"]}), 500
+        return jsonify({"ok": False, "message": f"邮件发送失败：{str(e)}", "csrf_token": session.get("_csrf_token", "")}), 500
 
 @app.route("/api/config/wecom", methods=["POST"])
 @login_required
@@ -800,7 +803,7 @@ def api_config_wecom():
     cfg["wecom_enabled"] = bool(data.get("wecom_enabled", False))
     cfg["wecom_webhook"] = data.get("wecom_webhook", "").strip()
     save_config(cfg)
-    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session.get("_csrf_token", "")})
 
 @app.route("/api/test_wecom", methods=["POST"])
 @login_required
@@ -820,10 +823,10 @@ def api_test_wecom():
     try:
         r = requests.post(webhook_url, json=payload, timeout=10)
         if r.status_code == 200 and r.json().get("errcode") == 0:
-            return jsonify({"ok": True, "message": "测试推送成功", "csrf_token": session["_csrf_token"]})
-        return jsonify({"ok": False, "message": f"推送失败：{r.text[:200]}", "csrf_token": session["_csrf_token"]}), 400
+            return jsonify({"ok": True, "message": "测试推送成功", "csrf_token": session.get("_csrf_token", "")})
+        return jsonify({"ok": False, "message": f"推送失败：{r.text[:200]}", "csrf_token": session.get("_csrf_token", "")}), 400
     except Exception as e:
-        return jsonify({"ok": False, "message": f"推送出错：{str(e)}", "csrf_token": session["_csrf_token"]}), 500
+        return jsonify({"ok": False, "message": f"推送出错：{str(e)}", "csrf_token": session.get("_csrf_token", "")}), 500
 
 @app.route("/api/test_push", methods=["POST"])
 @login_required
@@ -839,7 +842,7 @@ def api_test_push():
     test_content = "🧪 这是一条测试消息\n\n到期提醒管理系统连接正常！\n时间：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     secret = cfg.get("secret", "")
     success = send_dingtalk_card(webhook_url, "到期提醒系统 - 测试消息", test_content, secret)
-    return jsonify({"ok": success, "message": "测试消息发送成功" if success else "发送失败", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": success, "message": "测试消息发送成功" if success else "发送失败", "csrf_token": session.get("_csrf_token", "")})
 
 @app.route("/api/push/<int:cert_id>", methods=["POST"])
 @login_required
@@ -868,7 +871,7 @@ def api_push_cert(cert_id):
     success = send_dingtalk_card(webhook_url, title, content, secret, at_user_ids=at_ids if at_ids else None)
     current_user = session.get("username", "?")
     write_log(current_user, "推送提醒", f"推送 {cert['customer']} 的提醒（剩余 {cert['days_left']:.0f} 天）", f"到期项 #{cert_id}", request.remote_addr or '')
-    return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session.get("_csrf_token", "")})
 
 # ââ 批量导入 / 导出 ââââââââââââââââââââââââââââââââââââââ
 @app.route("/import", methods=["POST"])
@@ -1314,7 +1317,7 @@ def restore_data():
         return jsonify({"ok": False, "message": f"写入失败：{e}"})
 
     write_log(session["username"], "恢复数据", "系统", f"从备份恢复（{file.filename}）", request.remote_addr or '')
-    return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session["_csrf_token"]})
+    return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session.get("_csrf_token", "")})
 
 
 
