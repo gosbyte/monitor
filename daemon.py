@@ -78,6 +78,7 @@ def load_state():
 def save_state(state):
     """保存已推送状态（原子写入 + 异常处理）"""
     state_file = os.path.join(DATA_DIR, "remind_state.json")
+    tmp = None  # [FIX] P0-6: 初始化 tmp 防止 open() 失败时 NameError
     try:
         tmp = state_file + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -86,10 +87,11 @@ def save_state(state):
     except IOError as e:
         logger.error(f"保存 remind_state.json 失败: {e}")
         # 清理可能的临时文件
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
 
 def send_email_remind(subject, content_html, cfg):
     """发送邮件提醒（使用全局收件人），返回 (success, message)"""

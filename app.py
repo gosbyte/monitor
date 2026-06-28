@@ -139,8 +139,9 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # CSP 启用（nonce 从 flask.g 读取，线程安全）
-    nonce = getattr(g, 'csp_nonce', secrets.token_hex(16))
+    # [FIX] P1-6: 直接使用 g.csp_nonce 而非 getattr，保持一致性
+    nonce = g.csp_nonce
+    # [FIX] P1-5: 保留 'unsafe-inline' 短期兼容，TODO: 逐步移除
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "

@@ -266,6 +266,14 @@ def save_users(users):
     """保存用户列表（支持 JSON 和 SQLite 双模式）"""
     if USE_SQLITE:
         from db import db_transaction
+        # [FIX] P2-1: 加唯一性校验，防止重复用户名
+        usernames = set()
+        for u in users:
+            uname = u.get("username")
+            if uname in usernames:
+                logger.warning(f"save_users: 跳过重复用户名 '{uname}'")
+                continue
+            usernames.add(uname)
         # 批量插入：使用 executemany 一次完成
         with db_transaction() as conn:
             conn.executemany("""INSERT OR REPLACE INTO users (username, name, password, dingtalk_id,
@@ -278,7 +286,7 @@ def save_users(users):
                   u.get("consecutive_locks", 0),
                   u.get("lock_until"),
                   int(u.get("force_change_password", 1)))
-                 for u in users])
+                 for u in users if u["username"] in usernames])
         return
     for u in users:
         if "name" not in u: u["name"] = u.get("username", "")

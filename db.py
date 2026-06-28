@@ -179,6 +179,8 @@ def migrate_json_to_sqlite():
         if users:
             with db_transaction() as conn:
                 for u in users:
+                    # [FIX] P0-5: 只对 admin 标记强制改密码，普通用户不拦截
+                    force_change = 1 if u.get("role") == "admin" else 0
                     conn.execute(
                         """INSERT OR IGNORE INTO users (username, name, password, dingtalk_id, role, email,
                            failed_attempts, consecutive_locks, lock_until, force_change_password)
@@ -187,7 +189,7 @@ def migrate_json_to_sqlite():
                          u.get("password", ""), u.get("dingtalk_id", ""),
                          u.get("role", "user"), u.get("email", ""),
                          u.get("failed_attempts", 0), u.get("consecutive_locks", 0),
-                         u.get("lock_until"), 1)  # force_change_password = 1 for migrated users
+                         u.get("lock_until"), force_change)
                     )
                 migrated += len(users)
             logger.info(f"Migrated {len(users)} users from JSON")
