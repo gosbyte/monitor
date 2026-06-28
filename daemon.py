@@ -63,13 +63,33 @@ def _load_config():
         return result if result is not None else {"webhook_url": "", "remind_days": [7, 3, 1]}
 
 def load_state():
-    """加载已推送状态（带文件锁）"""
-    result = json.load(open(os.path.join(DATA_DIR, "remind_state.json"), "r", encoding="utf-8-sig")) if os.path.exists(os.path.join(DATA_DIR, "remind_state.json")) else {}
-    return result if result is not None else {}
+    """加载已推送状态（带异常处理和文件句柄管理）"""
+    state_file = os.path.join(DATA_DIR, "remind_state.json")
+    try:
+        if os.path.exists(state_file):
+            with open(state_file, "r", encoding="utf-8-sig") as f:
+                result = json.load(f)
+            return result if result is not None else {}
+    except (json.JSONDecodeError, IOError) as e:
+        logger.warning(f"加载 remind_state.json 失败: {e}，使用空状态")
+    return {}
+
 
 def save_state(state):
-    """保存已推送状态（带文件锁 + 原子写入）"""
-    with open(os.path.join(DATA_DIR, "remind_state.json"), "w", encoding="utf-8") as f: json.dump(state, f, ensure_ascii=False, indent=2)
+    """保存已推送状态（原子写入 + 异常处理）"""
+    state_file = os.path.join(DATA_DIR, "remind_state.json")
+    try:
+        tmp = state_file + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+        os.replace(tmp, state_file)
+    except IOError as e:
+        logger.error(f"保存 remind_state.json 失败: {e}")
+        # 清理可能的临时文件
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 def send_email_remind(subject, content_html, cfg):
     """发送邮件提醒（使用全局收件人），返回 (success, message)"""

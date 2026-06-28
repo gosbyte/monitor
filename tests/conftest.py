@@ -36,6 +36,8 @@ def temp_data_dir(tmp_path):
     # 同时更新 db 模块的路径
     import db
     db.DB_PATH = str(tmp_path / "monitor.db")
+    # 初始化数据库表结构（SQLite 模式需要）
+    db.init_db()
     yield tmp_path
     del os.environ["DATA_DIR"]
 

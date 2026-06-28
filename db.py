@@ -69,7 +69,8 @@ def init_db():
                 email TEXT DEFAULT '',
                 failed_attempts INTEGER DEFAULT 0,
                 consecutive_locks INTEGER DEFAULT 0,
-                lock_until TEXT DEFAULT NULL
+                lock_until TEXT DEFAULT NULL,
+                force_change_password INTEGER DEFAULT 1
             );
             
             -- 插入默认管理员用户（如果不存在）
@@ -180,13 +181,13 @@ def migrate_json_to_sqlite():
                 for u in users:
                     conn.execute(
                         """INSERT OR IGNORE INTO users (username, name, password, dingtalk_id, role, email,
-                           failed_attempts, consecutive_locks, lock_until)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                           failed_attempts, consecutive_locks, lock_until, force_change_password)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                         (u.get("username"), u.get("name", u.get("username", "")),
                          u.get("password", ""), u.get("dingtalk_id", ""),
                          u.get("role", "user"), u.get("email", ""),
                          u.get("failed_attempts", 0), u.get("consecutive_locks", 0),
-                         u.get("lock_until"))
+                         u.get("lock_until"), 1)  # force_change_password = 1 for migrated users
                     )
                 migrated += len(users)
             logger.info(f"Migrated {len(users)} users from JSON")
@@ -319,14 +320,15 @@ def db_save_user(user_data):
     """保存用户"""
     with db_transaction() as conn:
         conn.execute("""INSERT OR REPLACE INTO users (username, name, password, dingtalk_id,
-                       role, email, failed_attempts, consecutive_locks, lock_until)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                       role, email, failed_attempts, consecutive_locks, lock_until, force_change_password)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_data["username"], user_data.get("name", user_data["username"]),
              user_data["password"], user_data.get("dingtalk_id", ""),
              user_data.get("role", "user"), user_data.get("email", ""),
              user_data.get("failed_attempts", 0),
              user_data.get("consecutive_locks", 0),
-             user_data.get("lock_until")))
+             user_data.get("lock_until"),
+             int(user_data.get("force_change_password", 1))))
 
 
 def db_delete_user(username):

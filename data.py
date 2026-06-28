@@ -9,8 +9,11 @@ import re
 import secrets
 import fcntl
 import time
+import logging
 from datetime import datetime, timedelta
 from cryptography.fernet import Fernet
+
+logger = logging.getLogger(__name__)
 
 # ── werkzeug（仅 app.py 需要，daemon 不需要）────────────
 try:
@@ -262,14 +265,20 @@ def load_users():
 def save_users(users):
     """保存用户列表（支持 JSON 和 SQLite 双模式）"""
     if USE_SQLITE:
-        from db import db_save_user
-        for u in users:
-            u.setdefault("name", u.get("username", ""))
-            u.setdefault("dingtalk_id", "")
-            u.setdefault("failed_attempts", 0)
-            u.setdefault("consecutive_locks", 0)
-            u.setdefault("lock_until", None)
-            db_save_user(u)
+        from db import db_transaction
+        # 批量插入：使用 executemany 一次完成
+        with db_transaction() as conn:
+            conn.executemany("""INSERT OR REPLACE INTO users (username, name, password, dingtalk_id,
+                              role, email, failed_attempts, consecutive_locks, lock_until, force_change_password)
+                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                [(u["username"], u.get("name", u.get("username", "")),
+                  u["password"], u.get("dingtalk_id", ""),
+                  u.get("role", "user"), u.get("email", ""),
+                  u.get("failed_attempts", 0),
+                  u.get("consecutive_locks", 0),
+                  u.get("lock_until"),
+                  int(u.get("force_change_password", 1)))
+                 for u in users])
         return
     for u in users:
         if "name" not in u: u["name"] = u.get("username", "")
@@ -331,10 +340,16 @@ def verify_user(username, password):
 # ── 到期项数据 ─────────────────────────────────────────────
 def load_certs():
     """加载到期项（支持 JSON 和 SQLite 双模式）"""
+    global _certs_cache
     if USE_SQLITE:
         from db import db_load_certs
-        return db_load_certs()
-    global _certs_cache
+        # [FIX] P1-3: SQLite 模式也加缓存（与 JSON 模式一致，5s TTL）
+        now = time.time()
+        if _certs_cache["data"] is not None and (now - _certs_cache["mtime"]) < 5:
+            return _certs_cache["data"]
+        certs = db_load_certs()
+        _certs_cache = {"data": certs, "mtime": now}
+        return certs
     now = time.time()
     if _certs_cache["data"] is not None and (now - _certs_cache["mtime"]) < 5:
         return _certs_cache["data"]
@@ -353,8 +368,15 @@ def save_certs(certs):
         from db import db_save_cert
         if isinstance(certs, list):
             for c in certs:
+                # [FIX] P1-4: 过滤掉 id=None 的记录，避免产生重复数据
+                if c.get("id") is None:
+                    logger.warning(f"save_certs: 跳过 id=None 的记录 {c.get('customer', '?')}")
+                    continue
                 db_save_cert(c)
         else:
+            if certs.get("id") is None:
+                logger.warning(f"save_certs: 跳过 id=None 的单条记录 {certs.get('customer', '?')}")
+                return
             db_save_cert(certs)
         return
     global _certs_cache

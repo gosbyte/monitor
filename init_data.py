@@ -20,9 +20,15 @@ def init_data():
 
     # 如果使用 SQLite，初始化数据库
     if USE_SQLITE:
-        from db import init_db
+        from db import init_db, migrate_json_to_sqlite
         init_db()
         print("[INIT] SQLite database initialized")
+        # 自动迁移 JSON 数据到 SQLite
+        migrated = migrate_json_to_sqlite()
+        if migrated > 0:
+            print(f"[INIT] Migrated {migrated} records from JSON to SQLite")
+        else:
+            print("[INIT] No JSON data to migrate")
         return
 
     # JSON 模式下的初始化逻辑（保持兼容）

@@ -119,22 +119,18 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # 生产环境 HTTPS 时启用：
 # app.config["SESSION_COOKIE_SECURE"] = True
 
-# ── 安全 HTTP 头（中间件）──────────────────────────────
-# CSP nonce 注入到模板上下文
-_csp_nonce = ""
+# [FIX] P1-2: CSP nonce 注入 — 使用 flask.g 替代 builtins（线程安全）
+from flask import g
 
 @app.before_request
 def _inject_csp_nonce():
-    """在每个请求前生成 CSP nonce 并注入模板上下文"""
-    global _csp_nonce
-    _csp_nonce = secrets.token_hex(16)
-    import builtins
-    builtins._current_csp_nonce = _csp_nonce
+    """在每个请求前生成 CSP nonce 并注入 Flask g 对象"""
+    g.csp_nonce = secrets.token_hex(16)
 
 @app.context_processor
 def inject_csp_nonce():
-    """向所有模板注入 CSP nonce"""
-    return dict(csp_nonce=_csp_nonce)
+    """向所有模板注入 CSP nonce（从 flask.g 读取）"""
+    return dict(csp_nonce=getattr(g, 'csp_nonce', ''))
 
 @app.after_request
 def set_security_headers(response):
@@ -143,8 +139,8 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # CSP 启用（nonce 注入到模板）
-    nonce = secrets.token_hex(16)
+    # CSP 启用（nonce 从 flask.g 读取，线程安全）
+    nonce = getattr(g, 'csp_nonce', secrets.token_hex(16))
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
@@ -154,7 +150,6 @@ def set_security_headers(response):
         "connect-src 'self'"
     )
     response.headers["X-Content-Security-Policy-Nonce"] = nonce
-    _csp_nonce = nonce
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────
@@ -285,8 +280,9 @@ def change_password():
             return render_template("change_password.html", error="两次密码不一致")
         
         current_user["password"] = generate_password_hash(new_pwd)
+        current_user["force_change_password"] = 0
         save_users(users)
-        write_log(username, "修改密码", "首次登录强制修改密码", "系统", request.remote_addr or '')
+        write_log(username, "修改密码", "首次登录强制修改密码完成", "系统", request.remote_addr or '')
         return redirect(url_for("index"))
     
     return render_template("change_password.html")
@@ -296,12 +292,12 @@ def change_password():
 @app.route("/")
 @login_required
 def index():
-    # 检查是否为默认密码
+    # 检查是否为默认密码（使用 force_change_password 标志位）
     username = session.get("username", "")
     users = load_users()
     current_user = next((u for u in users if u["username"] == username), None)
-    if current_user and current_user.get("password", "").startswith("scrypt:") and len(current_user.get("password", "")) < 60:
-        # 默认密码 admin123 的哈希较短，强制修改
+    if current_user and current_user.get("force_change_password", 0):
+        # 首次登录强制修改密码
         return redirect(url_for("change_password"))
     
     certs = load_certs()
