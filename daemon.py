@@ -14,63 +14,24 @@ from datetime import datetime, timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
-DATA_FILE = os.path.join(DATA_DIR, "certs.json")
-CONFIG_FILE = os.path.join(DATA_DIR, "config.json")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-STATE_FILE = os.path.join(DATA_DIR, "remind_state.json")
 
 import signal
 import requests
 from dingtalk import send_dingtalk_card, send_wecom, build_remind_card
 
-# ── 文件锁（防止并发写入损坏 JSON）─────────────
-import fcntl
+# ── 统一数据层：使用 data.py（支持 JSON/SQLite 双模式）─────────────
+from data import (
+    load_certs, save_certs,
+    load_config, save_config,
+    load_users, save_users,
+    load_logs, write_log,
+    calc_days_left, get_cert_status,
+    encrypt_field, decrypt_field,
+    USE_SQLITE,
+)
 
-def _file_lock(filepath, timeout=10):
-    """轻量级文件锁"""
-    lock_path = filepath + ".lock"
-    fd = open(lock_path, "w")
-    deadline = datetime.now().timestamp() + timeout
-    while True:
-        try:
-            fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            return fd
-        except (IOError, OSError):
-            if datetime.now().timestamp() >= deadline:
-                fd.close()
-                raise TimeoutError(f"Could not acquire lock on {lock_path}")
-            import time
-            time.sleep(0.1)
-
-def _release_lock(fd):
-    fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
-    fd.close()
-    try:
-        os.unlink(fd.name)
-    except OSError:
-        pass
-
-def _locked_load_json(filepath):
-    """带锁读取 JSON"""
-    fd = _file_lock(filepath)
-    try:
-        if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8-sig") as f:
-                return json.load(f)
-        return None
-    finally:
-        _release_lock(fd)
-
-def _locked_save_json(filepath, data):
-    """带锁写入 JSON"""
-    fd = _file_lock(filepath)
-    try:
-        tmp = filepath + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        os.replace(tmp, filepath)
-    finally:
-        _release_lock(fd)
+# 文件锁相关（仅 JSON 模式需要，daemon 单线程不需要锁）
+# SQLite 模式下由 db.py 的事务管理代替文件锁
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,31 +47,29 @@ logger = logging.getLogger(__name__)
 
 
 def load_data():
-    """加载到期项数据（带文件锁，支持 SQLite）"""
+    """加载到期项数据（兼容旧代码名，实际就是 load_certs）"""
     try:
-        from data import load_certs
         return load_certs()
     except Exception:
-        result = _locked_load_json(DATA_FILE)
-        return result if result is not None else []
+        return []
 
-def load_config():
+def _load_config():
     """加载配置（带文件锁 + 自动解密敏感字段）"""
     try:
         from data import load_config_decrypted
         return load_config_decrypted()
     except Exception:
-        result = _locked_load_json(CONFIG_FILE)
+        result = load_config()
         return result if result is not None else {"webhook_url": "", "remind_days": [7, 3, 1]}
 
 def load_state():
     """加载已推送状态（带文件锁）"""
-    result = _locked_load_json(STATE_FILE)
+    result = json.load(open(os.path.join(DATA_DIR, "remind_state.json"), "r", encoding="utf-8-sig")) if os.path.exists(os.path.join(DATA_DIR, "remind_state.json")) else {}
     return result if result is not None else {}
 
 def save_state(state):
     """保存已推送状态（带文件锁 + 原子写入）"""
-    _locked_save_json(STATE_FILE, state)
+    with open(os.path.join(DATA_DIR, "remind_state.json"), "w", encoding="utf-8") as f: json.dump(state, f, ensure_ascii=False, indent=2)
 
 def send_email_remind(subject, content_html, cfg):
     """发送邮件提醒（使用全局收件人），返回 (success, message)"""
@@ -228,11 +187,10 @@ def check_and_remind():
     now = datetime.now()
 
     # 加载用户（用于@人）
-    users_file = USERS_FILE
-    if os.path.exists(users_file):
-        users_data = _locked_load_json(users_file)
+    try:
+        users_data = load_users()
         users_map = {u["username"]: u for u in (users_data or [])}
-    else:
+    except Exception:
         users_map = {}
     
     # 首先清理 remind_state 中已不存在的记录

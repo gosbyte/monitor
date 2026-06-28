@@ -128,6 +128,8 @@ def _inject_csp_nonce():
     """在每个请求前生成 CSP nonce 并注入模板上下文"""
     global _csp_nonce
     _csp_nonce = secrets.token_hex(16)
+    import builtins
+    builtins._current_csp_nonce = _csp_nonce
 
 @app.context_processor
 def inject_csp_nonce():
@@ -141,17 +143,18 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # CSP 暂时禁用，避免手机浏览器脚本加载问题
-    # nonce = secrets.token_hex(16)
-    # response.headers["Content-Security-Policy"] = (
-    #     "default-src 'self'; "
-    #     "script-src 'self' 'nonce-XXX' 'unsafe-inline'; "
-    #     "style-src 'self' 'nonce-XXX' 'unsafe-inline'; "
-    #     "img-src 'self' data:; "
-    #     "font-src 'self'; "
-    #     "connect-src 'self'"
-    # )
-    # response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    # CSP 启用（nonce 注入到模板）
+    nonce = secrets.token_hex(16)
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
+        "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "font-src 'self'; "
+        "connect-src 'self'"
+    )
+    response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    _csp_nonce = nonce
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────
@@ -257,10 +260,50 @@ def logout():
     session.clear()
     return redirect(url_for("login_page"))
 
+# ── 默认密码强制修改 ──────────────────────────────────────
+@app.route("/change_password")
+@login_required
+def change_password():
+    """强制修改默认密码"""
+    username = session.get("username", "")
+    users = load_users()
+    current_user = next((u for u in users if u["username"] == username), None)
+    
+    if request.method == "POST":
+        old_pwd = request.form.get("old_password", "")
+        new_pwd = request.form.get("new_password", "")
+        confirm_pwd = request.form.get("confirm_password", "")
+        
+        if not current_user or not check_password_hash(current_user["password"], old_pwd):
+            return render_template("change_password.html", error="原密码错误")
+        
+        valid, msg = validate_password(new_pwd)
+        if not valid:
+            return render_template("change_password.html", error=msg)
+        
+        if new_pwd != confirm_pwd:
+            return render_template("change_password.html", error="两次密码不一致")
+        
+        current_user["password"] = generate_password_hash(new_pwd)
+        save_users(users)
+        write_log(username, "修改密码", "首次登录强制修改密码", "系统", request.remote_addr or '')
+        return redirect(url_for("index"))
+    
+    return render_template("change_password.html")
+
+
 # ── 仪表盘 ────────────────────────────────────────────────
 @app.route("/")
 @login_required
 def index():
+    # 检查是否为默认密码
+    username = session.get("username", "")
+    users = load_users()
+    current_user = next((u for u in users if u["username"] == username), None)
+    if current_user and current_user.get("password", "").startswith("scrypt:") and len(current_user.get("password", "")) < 60:
+        # 默认密码 admin123 的哈希较短，强制修改
+        return redirect(url_for("change_password"))
+    
     certs = load_certs()
     cfg = load_config()
     for c in certs:
@@ -466,7 +509,9 @@ def _check_api_csrf():
         token = request.json.get("_csrf_token")
     if not token or token != session.get("_csrf_token"):
         return False
-    session["_csrf_token"] = secrets.token_hex(32)
+    # Only rotate CSRF token for state-changing methods (POST/PUT/DELETE), not GET
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        session["_csrf_token"] = secrets.token_hex(32)
     return True
 
 @app.route("/api/cert_status/<int:cert_id>")

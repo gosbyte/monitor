@@ -2,6 +2,7 @@
 """
 初始化数据文件
 首次启动时创建默认的配置文件和用户数据
+支持 JSON 和 SQLite 双模式
 """
 import os
 import json
@@ -9,6 +10,7 @@ import secrets
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
+USE_SQLITE = os.environ.get("USE_SQLITE", "0") == "1"
 
 
 def init_data():
@@ -16,14 +18,20 @@ def init_data():
     # 确保数据目录存在
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    # 初始化到期项数据文件
+    # 如果使用 SQLite，初始化数据库
+    if USE_SQLITE:
+        from db import init_db
+        init_db()
+        print("[INIT] SQLite database initialized")
+        return
+
+    # JSON 模式下的初始化逻辑（保持兼容）
     certs_file = os.path.join(DATA_DIR, "certs.json")
     if not os.path.exists(certs_file):
         with open(certs_file, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
         print(f"[INIT] Created {certs_file}")
 
-    # 初始化配置文件
     config_file = os.path.join(DATA_DIR, "config.json")
     if not os.path.exists(config_file):
         config = {
@@ -39,7 +47,7 @@ def init_data():
             "smtp_from_name": "到期提醒系统",
             "wecom_enabled": False,
             "wecom_webhook": "",
-            "webhook_enabled": True,  # 默认启用钉钉
+            "webhook_enabled": True,
             "backup_enabled": True,
             "backup_interval_hours": 24,
         }
@@ -47,13 +55,11 @@ def init_data():
             json.dump(config, f, ensure_ascii=False, indent=2)
         print(f"[INIT] Created {config_file}")
 
-    # 初始化用户数据文件
     users_file = os.path.join(DATA_DIR, "users.json")
     if not os.path.exists(users_file):
         try:
             from werkzeug.security import generate_password_hash
         except ImportError:
-            # 如果没有 werkzeug，使用简单哈希
             import hashlib
             def generate_password_hash(password):
                 return hashlib.sha256(password.encode()).hexdigest()
@@ -74,21 +80,18 @@ def init_data():
             json.dump(users, f, ensure_ascii=False, indent=2)
         print(f"[INIT] Created {users_file}")
 
-    # 初始化日志文件
     logs_file = os.path.join(DATA_DIR, "logs.json")
     if not os.path.exists(logs_file):
         with open(logs_file, "w", encoding="utf-8") as f:
             json.dump([], f, ensure_ascii=False, indent=2)
         print(f"[INIT] Created {logs_file}")
 
-    # 初始化推送状态文件
     state_file = os.path.join(DATA_DIR, "remind_state.json")
     if not os.path.exists(state_file):
         with open(state_file, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False, indent=2)
         print(f"[INIT] Created {state_file}")
 
-    # 初始化 Secret Key 文件
     secret_file = os.path.join(DATA_DIR, ".secret_key")
     if not os.path.exists(secret_file):
         secret_key = secrets.token_hex(32)
@@ -96,7 +99,6 @@ def init_data():
             f.write(secret_key)
         print(f"[INIT] Created {secret_file}")
 
-    # 初始化 Fernet 加密密钥（用于 SMTP 密码等敏感字段）
     enc_file = os.path.join(DATA_DIR, ".encryption_key")
     if not os.path.exists(enc_file):
         from cryptography.fernet import Fernet

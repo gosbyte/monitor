@@ -350,8 +350,7 @@ def load_certs():
 def save_certs(certs):
     """保存到期项（支持 JSON 和 SQLite 双模式）"""
     if USE_SQLITE:
-        from db import db_save_cert, db_batch_delete_cert_ids
-        # certs 可能是列表（全量保存）或单条（增量保存）
+        from db import db_save_cert
         if isinstance(certs, list):
             for c in certs:
                 db_save_cert(c)
@@ -417,3 +416,17 @@ def calc_stats(certs):
         elif status == "expired": expired += 1
         elif status == "disabled": disabled += 1
     return {"total": len(certs), "normal": normal, "expiring": expiring, "expired": expired, "disabled": disabled}
+
+# ── 辅助函数：供 app.py 直接调用 db.py ──────────────────
+def db_delete_cert(cert_id):
+    """删除到期项（SQLite 模式）"""
+    if USE_SQLITE:
+        from db import db_delete_cert as _del
+        _del(cert_id)
+
+
+def db_batch_delete_cert_ids(ids):
+    """批量删除到期项（SQLite 模式）"""
+    if USE_SQLITE:
+        from db import db_batch_delete_cert_ids as _del
+        _del(ids)

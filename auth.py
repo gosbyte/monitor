@@ -14,7 +14,7 @@ from data import (
 
 # ── 上下文处理器 ─────────────────────────────────────────
 def inject_globals():
-    """向所有模板注入 csrf_token 和 badge_count"""
+    """向所有模板注入 csrf_token, badge_count 和 csp_nonce"""
     badge_count = 0
     if session.get("username"):
         try:
@@ -29,7 +29,11 @@ def inject_globals():
             )
         except Exception:
             badge_count = 0
-    return dict(csrf_token=_generate_csrf_token, badge_count=badge_count)
+    return dict(
+        csrf_token=_generate_csrf_token,
+        badge_count=badge_count,
+        csp_nonce=globals().get("_current_csp_nonce", ""),
+    )
 
 # ── CSRF ─────────────────────────────────────────────────
 def _generate_csrf_token():
