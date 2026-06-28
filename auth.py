@@ -32,7 +32,7 @@ def inject_globals():
     return dict(
         csrf_token=_generate_csrf_token,
         badge_count=badge_count,
-        csp_nonce="",  # CSP nonce 现在由 app.py 的 inject_csp_nonce 通过 flask.g 注入
+        # [FIX] P1-9: 移除 csp_nonce，由 app.py 的 inject_csp_nonce 单独注入
     )
 
 # ── CSRF ─────────────────────────────────────────────────
