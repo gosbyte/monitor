@@ -247,7 +247,7 @@ def db_load_certs():
 
 
 def db_save_cert(cert_data):
-    """保存单条到期项（INSERT OR REPLACE，支持更新）"""
+    """保存单条到期项（先检查存在性，避免 INSERT OR REPLACE 破坏 AUTOINCREMENT ID）"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     cert_id = cert_data.get("id")
     with db_transaction() as conn:
@@ -255,6 +255,7 @@ def db_save_cert(cert_data):
             # 检查是否存在
             existing = conn.execute("SELECT id FROM certs WHERE id=?", (cert_id,)).fetchone()
             if existing:
+                # 存在则 UPDATE，避免破坏 AUTOINCREMENT
                 conn.execute("""UPDATE certs SET customer=?, cert_type=?, domain=?, expire_date=?,
                                note=?, remind_enabled=?, handled=?, responsible_users=?, updated_at=?
                                WHERE id=?""",
@@ -264,7 +265,8 @@ def db_save_cert(cert_data):
                      json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      now, cert_id))
             else:
-                conn.execute("""INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
+                # 不存在则 INSERT
+                conn.execute("""INSERT INTO certs (id, customer, cert_type, domain, expire_date, note,
                               remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (cert_id, cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
@@ -273,7 +275,7 @@ def db_save_cert(cert_data):
                      json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      cert_data.get("created_by", ""), now, now))
         else:
-            conn.execute("""INSERT OR REPLACE INTO certs (customer, cert_type, domain, expire_date, note,
+            conn.execute("""INSERT INTO certs (customer, cert_type, domain, expire_date, note,
                           remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
@@ -319,18 +321,34 @@ def db_load_users():
 
 
 def db_save_user(user_data):
-    """保存用户"""
+    """保存用户（先检查存在性，避免 INSERT OR REPLACE 问题）"""
     with db_transaction() as conn:
-        conn.execute("""INSERT OR REPLACE INTO users (username, name, password, dingtalk_id,
+        existing = conn.execute("SELECT username FROM users WHERE username=?", (user_data["username"],)).fetchone()
+        if existing:
+            # 存在则 UPDATE
+            conn.execute("""UPDATE users SET name=?, password=?, dingtalk_id=?,
+                          role=?, email=?, failed_attempts=?, consecutive_locks=?, lock_until=?, force_change_password=?
+                          WHERE username=?""",
+                (user_data.get("name", user_data["username"]),
+                 user_data["password"], user_data.get("dingtalk_id", ""),
+                 user_data.get("role", "user"), user_data.get("email", ""),
+                 user_data.get("failed_attempts", 0),
+                 user_data.get("consecutive_locks", 0),
+                 user_data.get("lock_until"),
+                 int(user_data.get("force_change_password", 1)),
+                 user_data["username"]))
+        else:
+            # 不存在则 INSERT
+            conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
                        role, email, failed_attempts, consecutive_locks, lock_until, force_change_password)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_data["username"], user_data.get("name", user_data["username"]),
-             user_data["password"], user_data.get("dingtalk_id", ""),
-             user_data.get("role", "user"), user_data.get("email", ""),
-             user_data.get("failed_attempts", 0),
-             user_data.get("consecutive_locks", 0),
-             user_data.get("lock_until"),
-             int(user_data.get("force_change_password", 1))))
+                (user_data["username"], user_data.get("name", user_data["username"]),
+                 user_data["password"], user_data.get("dingtalk_id", ""),
+                 user_data.get("role", "user"), user_data.get("email", ""),
+                 user_data.get("failed_attempts", 0),
+                 user_data.get("consecutive_locks", 0),
+                 user_data.get("lock_until"),
+                 int(user_data.get("force_change_password", 1))))
 
 
 def db_delete_user(username):

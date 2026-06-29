@@ -119,14 +119,14 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # 生产环境 HTTPS 时启用：
 # app.config["SESSION_COOKIE_SECURE"] = True
 
-# [FIX] P1-2: CSP nonce 注入 — 使用模块级变量确保 nonce 一致
-_csp_nonce = None
+# [FIX] P0-2: CSP nonce 注入 — 使用 Flask g 对象确保每请求独立 nonce
+from flask import g
 
 def _get_csp_nonce():
-    global _csp_nonce
-    if _csp_nonce is None:
-        _csp_nonce = secrets.token_hex(16)
-    return _csp_nonce
+    """获取当前请求的 CSP nonce，每个请求生成独立的 nonce"""
+    if not hasattr(g, 'csp_nonce'):
+        g.csp_nonce = secrets.token_hex(16)
+    return g.csp_nonce
 
 @app.context_processor
 def inject_csp_nonce():
@@ -135,22 +135,21 @@ def inject_csp_nonce():
 
 @app.after_request
 def set_security_headers(response):
-    """[FIX] P2: 添加安全 HTTP 头"""
+    """[FIX] P0-1: 启用 CSP 安全头，允许 Tailwind CDN 和 nonce"""
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    nonce = _get_csp_nonce()
-    # [TEMP] CSP 禁用 — tailwind.js (Play CDN) 注入的 style 标签无 nonce，被 CSP 阻止
-    # response.headers["Content-Security-Policy"] = (
-    #     "default-src 'self'; "
-    #     "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
-    #     "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
-    #     "img-src 'self' data:; "
-    #     "font-src 'self'; "
-    #     "connect-src 'self'"
-    # )
-    # response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    nonce = getattr(g, 'csp_nonce', '')
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
+        "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
+        "img-src 'self' data:; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
+    )
+    response.headers["X-Content-Security-Policy-Nonce"] = nonce
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────

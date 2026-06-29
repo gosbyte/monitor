@@ -201,7 +201,7 @@ def validate_password(password):
     return True, ""
 
 def _migrate_password(users):
-    """[FIX] P0: 自动迁移明文密码为哈希"""
+    """[FIX] P0-6: 自动迁移明文密码为哈希，直接在锁内写入避免死锁"""
     changed = False
     for u in users:
         pwd = u.get("password", "")
@@ -209,7 +209,9 @@ def _migrate_password(users):
             u["password"] = generate_password_hash(pwd)
             changed = True
     if changed:
-        save_users(users)
+        # [FIX] P0-6: 直接使用 atomic_write_json 避免 save_users() 再次加锁导致死锁
+        with FileLock(USERS_FILE):
+            atomic_write_json(USERS_FILE, users)
     return users
 
 # ── 缓存（防止频繁读盘）────────────────────────────────────
@@ -218,7 +220,7 @@ def _migrate_password(users):
 _password_migration_done = False
 
 def _migrate_password_sqlite(users):
-    """[FIX] P0: 自动迁移 SQLite 用户明文密码为哈希"""
+    """[FIX] P0-5: 自动迁移 SQLite 用户明文密码为哈希"""
     global _password_migration_done
     if _password_migration_done:
         return  # 已经迁移过，跳过
@@ -229,6 +231,7 @@ def _migrate_password_sqlite(users):
             u["password"] = generate_password_hash(pwd)
             changed = True
     if changed:
+        # [FIX] P0-5: 在迁移过程中立即设置标志位，防止竞态
         _password_migration_done = True
         if USE_SQLITE:
             from db import db_save_user
@@ -282,19 +285,38 @@ def save_users(users):
                 logger.warning(f"save_users: 跳过重复用户名 '{uname}'")
                 continue
             usernames.add(uname)
-        # 批量插入：使用 executemany 一次完成
+        # 批量插入：使用显式 UPDATE/INSERT 逻辑避免 AUTOINCREMENT 问题
         with db_transaction() as conn:
-            conn.executemany("""INSERT OR REPLACE INTO users (username, name, password, dingtalk_id,
-                              role, email, failed_attempts, consecutive_locks, lock_until, force_change_password)
-                              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                [(u["username"], u.get("name", u.get("username", "")),
-                  u["password"], u.get("dingtalk_id", ""),
-                  u.get("role", "user"), u.get("email", ""),
-                  u.get("failed_attempts", 0),
-                  u.get("consecutive_locks", 0),
-                  u.get("lock_until"),
-                  int(u.get("force_change_password", 1)))
-                 for u in users if u["username"] in usernames])
+            for u in users:
+                if u["username"] not in usernames:
+                    continue
+                # 检查是否存在
+                existing = conn.execute("SELECT username FROM users WHERE username=?", (u["username"],)).fetchone()
+                if existing:
+                    # 存在则 UPDATE
+                    conn.execute("""UPDATE users SET name=?, password=?, dingtalk_id=?,
+                                  role=?, email=?, failed_attempts=?, consecutive_locks=?, lock_until=?, force_change_password=?
+                                  WHERE username=?""",
+                        (u.get("name", u.get("username", "")),
+                         u["password"], u.get("dingtalk_id", ""),
+                         u.get("role", "user"), u.get("email", ""),
+                         u.get("failed_attempts", 0),
+                         u.get("consecutive_locks", 0),
+                         u.get("lock_until"),
+                         int(u.get("force_change_password", 1)),
+                         u["username"]))
+                else:
+                    # 不存在则 INSERT
+                    conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
+                               role, email, failed_attempts, consecutive_locks, lock_until, force_change_password)
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (u["username"], u.get("name", u.get("username", "")),
+                         u["password"], u.get("dingtalk_id", ""),
+                         u.get("role", "user"), u.get("email", ""),
+                         u.get("failed_attempts", 0),
+                         u.get("consecutive_locks", 0),
+                         u.get("lock_until"),
+                         int(u.get("force_change_password", 1))))
         return
     for u in users:
         if "name" not in u: u["name"] = u.get("username", "")
@@ -381,28 +403,38 @@ def load_certs():
 def save_certs(certs):
     """保存到期项（支持 JSON 和 SQLite 双模式）"""
     if USE_SQLITE:
-        from db import db_save_cert
+        from db import db_save_cert, db_transaction
         if isinstance(certs, list):
             # [FIX] P0-8: 批量保存用单事务，避免逐条事务的性能问题
-            from db import db_transaction
             with db_transaction() as conn:
                 for c in certs:
                     # [FIX] P1-4: 过滤掉 id=None 的记录
                     if c.get("id") is None:
                         logger.warning(f"save_certs: 跳过 id=None 的记录 {c.get('customer', '?')}")
                         continue
-                    # Direct INSERT/UPDATE in single transaction
-                    conn.execute(
-                        """INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
-                           created_by, remind_enabled, handled, responsible_users, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (c.get("id"), c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
-                         c.get("expire_date", ""), c.get("note", ""), c.get("created_by", ""),
-                         int(c.get("remind_enabled", True)), int(c.get("handled", False)),
-                         json.dumps(c.get("responsible_users", []), ensure_ascii=False),
-                         c.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M")),
-                         datetime.now().strftime("%Y-%m-%d %H:%M"))
-                    )
+                    # 检查是否存在
+                    existing = conn.execute("SELECT id FROM certs WHERE id=?", (c.get("id"),)).fetchone()
+                    if existing:
+                        # 存在则 UPDATE
+                        conn.execute("""UPDATE certs SET customer=?, cert_type=?, domain=?, expire_date=?,
+                                       note=?, remind_enabled=?, handled=?, responsible_users=?, updated_at=?
+                                       WHERE id=?""",
+                            (c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
+                             c.get("expire_date", ""), c.get("note", ""),
+                             int(c.get("remind_enabled", True)), int(c.get("handled", False)),
+                             json.dumps(c.get("responsible_users", []), ensure_ascii=False),
+                             datetime.now().strftime("%Y-%m-%d %H:%M"), c.get("id")))
+                    else:
+                        # 不存在则 INSERT
+                        conn.execute("""INSERT INTO certs (id, customer, cert_type, domain, expire_date, note,
+                                      remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
+                                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                            (c.get("id"), c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
+                             c.get("expire_date", ""), c.get("note", ""), c.get("created_by", ""),
+                             int(c.get("remind_enabled", True)), int(c.get("handled", False)),
+                             json.dumps(c.get("responsible_users", []), ensure_ascii=False),
+                             c.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                             datetime.now().strftime("%Y-%m-%d %H:%M")))
         else:
             if certs.get("id") is None:
                 logger.warning(f"save_certs: 跳过 id=None 的单条记录 {certs.get('customer', '?')}")

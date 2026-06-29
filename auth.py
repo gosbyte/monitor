@@ -20,13 +20,14 @@ def inject_globals():
         try:
             certs = load_certs()
             for c in certs:
-                c["days_left"] = calc_days_left(c.get("expire_date", ""))
-            badge_count = sum(
-                1 for c in certs
-                if c.get("remind_enabled", True)
-                and not c.get("handled")
-                and 0 <= c.get("days_left", 999) <= 7
-            )
+                # [FIX] P1-4: 使用浅拷贝避免修改原始数据
+                cert_copy = dict(c)
+                cert_copy["days_left"] = calc_days_left(cert_copy.get("expire_date", ""))
+                badge_count += 1 if (
+                    cert_copy.get("remind_enabled", True)
+                    and not cert_copy.get("handled")
+                    and 0 <= cert_copy.get("days_left", 999) <= 7
+                ) else 0
         except Exception:
             badge_count = 0
     return dict(
@@ -54,7 +55,9 @@ def csrf_required(f):
     def decorated(*args, **kwargs):
         if not _check_csrf():
             return "CSRF 验证失败，请重新提交", 403
-        session["_csrf_token"] = secrets.token_hex(32)
+        # [FIX] P0-4: 只对状态变更方法旋转 CSRF token
+        if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+            session["_csrf_token"] = secrets.token_hex(32)
         return f(*args, **kwargs)
     return decorated
 
