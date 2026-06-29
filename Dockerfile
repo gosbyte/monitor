@@ -32,7 +32,6 @@ EXPOSE ${PORT}
 
 # 设置环境变量
 ENV DATA_DIR=/app/data \
-    USE_SQLITE=1 \
     FLASK_ENV=production \
     TZ=Asia/Shanghai
 

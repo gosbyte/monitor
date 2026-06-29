@@ -20,7 +20,7 @@ from data import (
     atomic_write_json, save_logs, write_log,
     load_config, save_config, load_certs, save_certs,
     load_users, save_users, verify_user, is_user_locked,
-    get_lock_seconds, do_lock_user, reset_failed_attempts,
+    get_lock_seconds, do_lock_user, reset_failed_attempts, load_logs,
     validate_password, calc_days_left, get_cert_status, calc_stats,
     DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, USERS_FILE,
     LOGS_FILE, SECRET_KEY_FILE,
@@ -119,18 +119,19 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # 生产环境 HTTPS 时启用：
 # app.config["SESSION_COOKIE_SECURE"] = True
 
-# [FIX] P1-2: CSP nonce 注入 — 使用 flask.g 替代 builtins（线程安全）
-from flask import g
+# [FIX] P1-2: CSP nonce 注入 — 使用模块级变量确保 nonce 一致
+_csp_nonce = None
 
-@app.before_request
-def _inject_csp_nonce():
-    """在每个请求前生成 CSP nonce 并注入 Flask g 对象"""
-    g.csp_nonce = secrets.token_hex(16)
+def _get_csp_nonce():
+    global _csp_nonce
+    if _csp_nonce is None:
+        _csp_nonce = secrets.token_hex(16)
+    return _csp_nonce
 
 @app.context_processor
 def inject_csp_nonce():
-    """向所有模板注入 CSP nonce（从 flask.g 读取）"""
-    return dict(csp_nonce=getattr(g, 'csp_nonce', ''))
+    """向所有模板注入 CSP nonce"""
+    return dict(csp_nonce=_get_csp_nonce())
 
 @app.after_request
 def set_security_headers(response):
@@ -139,18 +140,17 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # [FIX] P1-6: 直接使用 g.csp_nonce 而非 getattr，保持一致性
-    nonce = g.csp_nonce
-    # [FIX] P1-5: 保留 'unsafe-inline' 短期兼容，TODO: 逐步移除
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
-        "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
-        "img-src 'self' data:; "
-        "font-src 'self'; "
-        "connect-src 'self'"
-    )
-    response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    nonce = _get_csp_nonce()
+    # [TEMP] CSP 禁用 — tailwind.js (Play CDN) 注入的 style 标签无 nonce，被 CSP 阻止
+    # response.headers["Content-Security-Policy"] = (
+    #     "default-src 'self'; "
+    #     "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
+    #     "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline'; "
+    #     "img-src 'self' data:; "
+    #     "font-src 'self'; "
+    #     "connect-src 'self'"
+    # )
+    # response.headers["X-Content-Security-Policy-Nonce"] = nonce
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────

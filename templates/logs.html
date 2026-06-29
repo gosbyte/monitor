@@ -32,7 +32,7 @@
           <span id="dark-label">暗色模式</span>
         </button>
         <form method="POST" action="/logs/clear" onsubmit="return confirm('确定清空所有日志？此操作不可恢复。')" style="display:inline">
-          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 transition-colors">
             <span style="font-size:14px"><i data-lucide="trash-2" class="w-4 h-4 inline-block"></i></span> 清空日志
           </button>
