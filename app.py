@@ -1127,7 +1127,7 @@ def edit_user(username):
 @app.route("/users/password/<username>", methods=["POST"])
 @login_required
 @csrf_required
-def change_password(username):
+def change_user_password(username):
     new_pwd = request.form.get("new_password", "").strip()
     # [FIX] P2: 密码复杂度验证
     valid, msg = validate_password(new_pwd)

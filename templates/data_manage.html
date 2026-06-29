@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>数据管理</title>
-  <script src="/static/tailwind.js"></script>
+  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}"></script>
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
   <link rel="stylesheet" href="/static/dark.css">
 </head>
@@ -249,5 +249,5 @@ function cancelImport() {
 }
 </script>
 <script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
-<script src="/static/dark.js"></script></body>
+<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
 </html>

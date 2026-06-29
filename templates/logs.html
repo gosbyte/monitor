@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>操作日志</title>
-  <script src="/static/tailwind.js"></script>
+  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}"></script>
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
   <link rel="stylesheet" href="/static/dark.css">
 </head>
@@ -233,7 +233,7 @@ function resetFilter() {
 }
 </script>
 </script>
-<script src="/static/dark.js"></script>
+<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">
 function exportLogs() {
   var rows = document.querySelectorAll('.log-row');
