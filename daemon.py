@@ -22,7 +22,7 @@ from dingtalk import send_dingtalk_card, send_wecom, build_remind_card
 # ── 统一数据层：使用 data.py（支持 JSON/SQLite 双模式）─────────────
 from data import (
     load_certs, save_certs,
-    load_config, save_config,
+    load_config, save_config, load_config_decrypted,
     load_users, save_users,
     load_logs, write_log,
     calc_days_left, get_cert_status,
@@ -188,7 +188,8 @@ def parse_expire_date(date_str):
 
 def check_and_remind():
     """检查并发送提醒"""
-    cfg = load_config()
+    # [FIX] 解密 SMTP 密码
+    cfg = load_config_decrypted()
     has_dingtalk = bool(cfg.get("webhook_url", ""))
     has_wecom = bool(cfg.get("wecom_webhook", "")) and cfg.get("wecom_enabled", False)
     has_email = cfg.get("email_enabled", False)
@@ -309,7 +310,9 @@ def check_and_remind():
         # 邮件推送（如果启用）
         email_ok = True  # 未启用视为通过
         if cfg.get("email_enabled", False):
-            for c in to_remind:
+            # [FIX] 使用浅拷贝避免修改原始 cert 对象
+            to_remind_copies = [dict(c) for c in to_remind]
+            for c in to_remind_copies:
                 c["days_left"] = (parse_expire_date(c["expire_date"]) - datetime.now()).days
             
             # 按负责人分组发送邮件
@@ -317,7 +320,7 @@ def check_and_remind():
             responsible_certs = {}  # {username: [certs]}
             certs_without_responsible = []  # 无负责人的到期项
             
-            for c in to_remind:
+            for c in to_remind_copies:
                 responsible_users = c.get("responsible_users", [])
                 if responsible_users:
                     for uname in responsible_users:

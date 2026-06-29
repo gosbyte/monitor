@@ -70,6 +70,19 @@ def _rate_limit(key, max_requests=10, window=60):
     _request_counts[key].append(now)
     return True
 
+def rate_limit(max_requests=5, window=60):
+    """速率限制装饰器工厂"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            ip = request.remote_addr or "unknown"
+            key = f"{f.__name__}:{ip}"
+            if not _rate_limit(key, max_requests, window):
+                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
 app = Flask(__name__, template_folder="templates")
 
 # ── 安全配置 ──────────────────────────────────────────────
@@ -119,14 +132,14 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 # 生产环境 HTTPS 时启用：
 # app.config["SESSION_COOKIE_SECURE"] = True
 
-# [FIX] P0-2: CSP nonce 注入 — 使用 Flask g 对象确保每请求独立 nonce
-from flask import g
+# [FIX] CSP nonce 注入 — 使用模块级变量确保 nonce 一致
+_csp_nonce = None
 
 def _get_csp_nonce():
-    """获取当前请求的 CSP nonce，每个请求生成独立的 nonce"""
-    if not hasattr(g, 'csp_nonce'):
-        g.csp_nonce = secrets.token_hex(16)
-    return g.csp_nonce
+    global _csp_nonce
+    if _csp_nonce is None:
+        _csp_nonce = secrets.token_hex(16)
+    return _csp_nonce
 
 @app.context_processor
 def inject_csp_nonce():
@@ -140,7 +153,7 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    nonce = getattr(g, 'csp_nonce', '')
+    nonce = _get_csp_nonce()
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
@@ -747,11 +760,15 @@ def api_save_config():
 @app.route("/api/test_email", methods=["POST"])
 @login_required
 @admin_required
+@rate_limit(max_requests=3, window=60)
 def api_test_email():
     """测试邮件发送（真实发送）"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     cfg = load_config()
+    # [FIX] 解密 SMTP 密码
+    if cfg.get("smtp_pass"):
+        cfg["smtp_pass"] = decrypt_field(cfg["smtp_pass"])
     smtp_host = cfg.get("smtp_host", "").strip()
     smtp_port = cfg.get("smtp_port", 465)
     smtp_user = cfg.get("smtp_user", "").strip()
@@ -808,6 +825,7 @@ def api_config_wecom():
 @app.route("/api/test_wecom", methods=["POST"])
 @login_required
 @admin_required
+@rate_limit(max_requests=5, window=60)
 def api_test_wecom():
     """测试企业微信推送"""
     if not _check_api_csrf():
@@ -831,6 +849,7 @@ def api_test_wecom():
 @app.route("/api/test_push", methods=["POST"])
 @login_required
 @admin_required
+@rate_limit(max_requests=5, window=60)
 def api_test_push():
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
