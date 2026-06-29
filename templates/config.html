@@ -120,8 +120,9 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱密码/授权码</label>
-          <input name="smtp_pass" id="smtp-pass" type="password" value="{{ cfg.get('smtp_pass', '') }}" placeholder="邮箱密码或授权码"
-            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <input name="smtp_pass" id="smtp-pass" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            data-original-value="{{ cfg.get('smtp_pass', '') }}">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">收件人地址</label>
@@ -254,11 +255,12 @@ function testDingtalk() {
 
 // ── 邮件 ──
 function saveEmailConfig() {
+  var passField = document.getElementById('smtp-pass');
   var data = {
     smtp_host: document.getElementById('smtp-host').value.trim(),
     smtp_port: document.getElementById('smtp-port').value.trim(),
     smtp_user: document.getElementById('smtp-user').value.trim(),
-    smtp_pass: document.getElementById('smtp-pass').value,
+    smtp_pass: passField.value || passField.getAttribute('data-original-value') || '',
     smtp_to: document.getElementById('smtp-to').value.trim(),
     email_enabled: document.getElementById('email-enabled').checked,
     _csrf_token: _csrfToken

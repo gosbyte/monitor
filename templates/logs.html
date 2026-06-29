@@ -1,4 +1,4 @@
-﻿﻿<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -232,7 +232,6 @@ function resetFilter() {
   document.querySelectorAll('.log-row').forEach(function(row) { row.style.display = ''; });
 }
 </script>
-</script>
 <script src="/static/dark.js" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">
 function exportLogs() {
@@ -254,5 +253,6 @@ function exportLogs() {
   a.href = url; a.download = 'logs_' + new Date().toISOString().slice(0,10) + '.json';
   a.click(); URL.revokeObjectURL(url);
 }
+</script>
 </body>
 </html>
