@@ -30,7 +30,7 @@ def inject_globals():
         except Exception:
             badge_count = 0
     return dict(
-        csrf_token=_generate_csrf_token,
+        csrf_token=_generate_csrf_token(),
         badge_count=badge_count,
         # [FIX] P1-9: 移除 csp_nonce，由 app.py 的 inject_csp_nonce 单独注入
     )
