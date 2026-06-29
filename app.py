@@ -23,7 +23,7 @@ from data import (
     get_lock_seconds, do_lock_user, reset_failed_attempts, load_logs,
     validate_password, calc_days_left, get_cert_status, calc_stats,
     DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, USERS_FILE,
-    LOGS_FILE, SECRET_KEY_FILE,
+    LOGS_FILE, SECRET_KEY_FILE, USE_SQLITE,
     FileLock, locked_read_json, locked_write_json, encrypt_field, decrypt_field,
 )
 from auth import (
@@ -578,41 +578,42 @@ def toggle_handle(cert_id):
             return jsonify({"ok": True, "handled": c["handled"], "csrf_token": session.get("_csrf_token", "")})
     return jsonify({"ok": False, "csrf_token": session.get("_csrf_token", "")}), 404
 
-@app.route("/api/batch_edit", methods=["POST"])
+@app.route("/api/batch_delete", methods=["POST"])
 @login_required
 @admin_required
-def api_batch_edit():
-    """批量编辑到期项（启用/禁用提醒、标记已处理）"""
+def api_batch_delete():
+    """批量删除到期项"""
     if not _check_api_csrf():
         return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
     data = request.get_json() or {}
     ids = data.get("ids", [])
-    label = data.get("label", "")
-    if not ids or not label:
-        return jsonify({"ok": False, "message": "参数错误"})
-    current_user = session.get("username", "?")
-    write_log(current_user, f"批量{label}", f"{count} 条记录", "", request.remote_addr or '')
-    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
-    actual_deleted = len(deleted_certs)
+    if not ids:
+        return jsonify({"ok": False, "message": "未选择记录"}), 400
+    certs = load_certs()
+    deleted_ids = []
+    for c in certs:
+        if c["id"] in ids:
+            deleted_ids.append(c["id"])
     certs = [c for c in certs if c["id"] not in ids]
     save_certs(certs)
-    current_user = session.get("username", "?")
-    write_log(current_user, "批量删除", f"删除 {actual_deleted} 条：{', '.join(deleted_names[:5])}", "", request.remote_addr or '')
     # 清理 daemon remind_state 中已删除记录的状态
     state_file = os.path.join(DATA_DIR, "remind_state.json")
     if os.path.exists(state_file):
-        with open(state_file, "r", encoding="utf-8") as f:
-            state = json.load(f)
-        if isinstance(state, dict):
-            cleaned = {k: v for k, v in state.items() if not any(str(cid) in k for cid in ids)}
-        else:
-            cleaned = state
-        atomic_write_json(state_file, cleaned)
+        try:
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            if isinstance(state, dict):
+                cleaned = {k: v for k, v in state.items()
+                          if not any(str(cid) in k for cid in ids)}
+                atomic_write_json(state_file, cleaned)
+        except Exception:
+            pass
+    current_user = session.get("username", "?")
+    write_log(current_user, "批量删除", f"删除 {len(deleted_ids)} 条记录", "", request.remote_addr or '')
     return jsonify({
         "ok": True,
-        "message": f"删除 {actual_deleted} 条记录",
-        "deleted_count": actual_deleted,
-        "requested_count": len(ids),
+        "message": f"删除 {len(deleted_ids)} 条记录",
+        "deleted_ids": deleted_ids,
         "csrf_token": session.get("_csrf_token", "")
     })
 
@@ -918,6 +919,7 @@ def import_certs():
         return jsonify({"ok": False, "message": str(e)}), 500
 
 @app.route("/export")
+@app.route("/export/json")
 @login_required
 @admin_required
 def export_certs():
@@ -1256,22 +1258,46 @@ def data_manage_page():
 @login_required
 @admin_required
 def backup_data():
-    """打包所有关键数据为 JSON 格式下载"""
+    """打包所有关键数据为 JSON 格式下载（支持 JSON/SQLite 双模式）"""
     def _read_json(path):
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         return None
 
-    backup = {
-        "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "version": "1.0",
-        "cert_data": _read_json(DATA_FILE),
-        "config": _read_json(CONFIG_FILE),
-        "users": _read_json(USERS_FILE),
-        "logs": _read_json(LOGS_FILE),
-        "push_history": _read_json(os.path.join(DATA_DIR, "push_history.json")),
-    }
+    if USE_SQLITE:
+        from db import get_db, db_load_certs, db_load_logs, db_load_push_history, db_load_config
+        # SQLite 模式：从数据库导出
+        certs = db_load_certs()
+        logs = db_load_logs()
+        push_history = db_load_push_history()
+        cfg = db_load_config()
+        users = []
+        with get_db() as conn:
+            rows = conn.execute("SELECT * FROM users").fetchall()
+            users = [dict(r) for r in rows]
+        backup = {
+            "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "2.0",
+            "mode": "sqlite",
+            "cert_data": certs,
+            "config": cfg,
+            "users": users,
+            "logs": logs,
+            "push_history": push_history,
+        }
+    else:
+        # JSON 模式：从文件读取
+        backup = {
+            "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "2.0",
+            "mode": "json",
+            "cert_data": _read_json(DATA_FILE),
+            "config": _read_json(CONFIG_FILE),
+            "users": _read_json(USERS_FILE),
+            "logs": _read_json(LOGS_FILE),
+            "push_history": _read_json(os.path.join(DATA_DIR, "push_history.json")),
+        }
     filename = "backup_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".json"
     return Response(
         json.dumps(backup, ensure_ascii=False, indent=2),
@@ -1302,19 +1328,88 @@ def restore_data():
 
 
     try:
-        if "cert_data" in data and data["cert_data"]:
-            atomic_write_json(DATA_FILE, data["cert_data"])
-        if "config" in data and data["config"]:
-            atomic_write_json(CONFIG_FILE, data["config"])
-        if "users" in data and data["users"]:
-            atomic_write_json(USERS_FILE, data["users"])
-        if "logs" in data and data["logs"]:
-            atomic_write_json(LOGS_FILE, data["logs"])
-        ph_file = os.path.join(DATA_DIR, "push_history.json")
-        if "push_history" in data and data["push_history"]:
-            atomic_write_json(ph_file, data["push_history"])
+        if USE_SQLITE:
+            from db import (get_db, db_save_cert, db_load_users, db_save_user,
+                            db_load_config, db_save_config, db_write_log,
+                            db_save_push_history)
+            # 恢复证书
+            if "cert_data" in data and data["cert_data"]:
+                with get_db() as conn:
+                    for cert in data["cert_data"]:
+                        cert_id = cert.get("id", 0)
+                        # Check if exists
+                        existing = conn.execute("SELECT id FROM certs WHERE id=?", (cert_id,)).fetchone()
+                        if existing:
+                            conn.execute("""UPDATE certs SET customer=?, cert_type=?, domain=?, expire_date=?,
+                                           note=?, remind_enabled=?, handled=?, responsible_users=?, updated_at=?
+                                           WHERE id=?""",
+                                (cert.get("customer", ""), cert.get("cert_type", ""), cert.get("domain", ""),
+                                 cert.get("expire_date", ""), cert.get("note", ""),
+                                 int(cert.get("remind_enabled", True)), int(cert.get("handled", False)),
+                                 json.dumps(cert.get("responsible_users", []), ensure_ascii=False),
+                                 datetime.now().strftime("%Y-%m-%d %H:%M"), cert_id))
+                        else:
+                            conn.execute("""INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
+                                          remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
+                                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (cert_id, cert.get("customer", ""), cert.get("cert_type", ""), cert.get("domain", ""),
+                                 cert.get("expire_date", ""), cert.get("note", ""),
+                                 int(cert.get("remind_enabled", True)), int(cert.get("handled", False)),
+                                 json.dumps(cert.get("responsible_users", []), ensure_ascii=False),
+                                 cert.get("created_by", ""), cert.get("created_at", ""), datetime.now().strftime("%Y-%m-%d %H:%M")))
+            # 恢复配置
+            if "config" in data and data["config"]:
+                db_save_config(data["config"])
+            # 恢复用户
+            if "users" in data and data["users"]:
+                existing_users = {u["username"] for u in db_load_users()}
+                for user in data["users"]:
+                    uname = user.get("username", "")
+                    if uname in existing_users:
+                        # Update existing
+                        db_save_user(user)
+                    else:
+                        # Insert new
+                        with get_db() as conn:
+                            conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
+                                           role, email, failed_attempts, consecutive_locks, lock_until,
+                                           force_change_password)
+                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (uname, user.get("name", uname), user.get("password", ""),
+                                 user.get("dingtalk_id", ""), user.get("role", "user"),
+                                 user.get("email", ""), user.get("failed_attempts", 0),
+                                 user.get("consecutive_locks", 0), user.get("lock_until"),
+                                 int(user.get("force_change_password", 1))))
+            # 恢复日志（限制数量）
+            if "logs" in data and data["logs"]:
+                logs = data["logs"][-1000:]  # 最多保留1000条
+                for log in logs:
+                    db_write_log(log.get("username", ""), log.get("action", ""),
+                               log.get("detail", ""), log.get("target", ""), log.get("ip", ""))
+            # 恢复推送历史
+            if "push_history" in data and data["push_history"]:
+                for ph in data["push_history"]:
+                    db_save_push_history(
+                        ph.get("cert_customer", ""), ph.get("cert_domain", ""),
+                        ph.get("channels", []), ph.get("status", ""), ph.get("message", "")
+                    )
+        else:
+            # JSON 模式：写入文件
+            if "cert_data" in data and data["cert_data"]:
+                atomic_write_json(DATA_FILE, data["cert_data"])
+            if "config" in data and data["config"]:
+                atomic_write_json(CONFIG_FILE, data["config"])
+            if "users" in data and data["users"]:
+                atomic_write_json(USERS_FILE, data["users"])
+            if "logs" in data and data["logs"]:
+                atomic_write_json(LOGS_FILE, data["logs"])
+            ph_file = os.path.join(DATA_DIR, "push_history.json")
+            if "push_history" in data and data["push_history"]:
+                atomic_write_json(ph_file, data["push_history"])
     except Exception as e:
-        return jsonify({"ok": False, "message": f"写入失败：{e}"})
+        import traceback
+        logger.error(f"restore_data 失败: {e}\n{traceback.format_exc()}")
+        return jsonify({"ok": False, "message": f"恢复失败：{e}"})
 
     write_log(session["username"], "恢复数据", "系统", f"从备份恢复（{file.filename}）", request.remote_addr or '')
     return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session.get("_csrf_token", "")})

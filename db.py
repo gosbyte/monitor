@@ -374,12 +374,14 @@ def db_save_config(cfg_dict):
 
 # ── 日志 CRUD ──────────────────────────────────────────────
 def db_write_log(username, action, detail="", target="", ip=""):
-    """写操作日志"""
+    """写操作日志（自动限制最近1000条）"""
     with db_transaction() as conn:
         conn.execute(
             "INSERT INTO logs (time, username, action, target, detail, ip) VALUES (?, ?, ?, ?, ?, ?)",
             (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username, action, target, detail, ip)
         )
+        # 清理超过1000条的旧日志
+        conn.execute("DELETE FROM logs WHERE rowid NOT IN (SELECT rowid FROM logs ORDER BY rowid DESC LIMIT 1000)")
 
 
 def db_load_logs(limit=200):

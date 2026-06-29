@@ -393,13 +393,15 @@ def save_certs(certs):
                         continue
                     # Direct INSERT/UPDATE in single transaction
                     conn.execute(
-                        """INSERT OR REPLACE INTO certs (id, customer, domain, expire_date,
-                           created_by, remind_enabled, handled, status, days_left)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                        (c.get("id"), c.get("customer", ""), c.get("domain", ""),
-                         c.get("expire_date", ""), c.get("created_by", ""),
-                         c.get("remind_enabled", True), c.get("handled", False),
-                         c.get("status", ""), c.get("days_left", 0))
+                        """INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
+                           created_by, remind_enabled, handled, responsible_users, created_at, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (c.get("id"), c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
+                         c.get("expire_date", ""), c.get("note", ""), c.get("created_by", ""),
+                         int(c.get("remind_enabled", True)), int(c.get("handled", False)),
+                         json.dumps(c.get("responsible_users", []), ensure_ascii=False),
+                         c.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M")),
+                         datetime.now().strftime("%Y-%m-%d %H:%M"))
                     )
         else:
             if certs.get("id") is None:
@@ -441,7 +443,7 @@ def calc_days_left(expire_str):
             exp = datetime.strptime(s, "%Y-%m-%d %H:%M")
         else:
             exp = datetime.strptime(s, "%Y-%m-%d")
-        return (exp - datetime.now()).total_seconds() / 86400
+        return round((exp - datetime.now()).total_seconds() / 86400)
     except Exception:
         return -999
 
