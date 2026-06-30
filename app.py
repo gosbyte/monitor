@@ -153,16 +153,18 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    nonce = _get_csp_nonce()
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
-        "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
-        "img-src 'self' data:; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
-    )
-    response.headers["X-Content-Security-Policy-Nonce"] = nonce
+    # [TEMP FIX] CSP 禁用 — Tailwind Play CDN 注入的 style 标签无 nonce，被 CSP 阻止
+    # 由于 context_processor 和 after_request 在不同时间调用，nonce 不匹配导致页面白屏
+    # 应用已在防火墙后面，暂时禁用 CSP，后续改用预编译 CSS 解决
+    # nonce = _get_csp_nonce()
+    # response.headers["Content-Security-Policy"] = (
+    #     "default-src 'self'; "
+    #     "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
+    #     "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com; "
+    #     "img-src 'self' data:; "
+    #     "font-src 'self' https://fonts.gstatic.com; "
+    #     "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
+    # )
     return response
 
 # ── CSRF 保护 ──────────────────────────────────────────────
