@@ -20,6 +20,15 @@
       sunIcon.classList.toggle('hidden', isDark);
       moonIcon.classList.toggle('hidden', !isDark);
     }
+    // Mobile menu icons
+    var sunM = document.getElementById('dark-icon-sun-m');
+    var moonM = document.getElementById('dark-icon-moon-m');
+    if (sunM && moonM) {
+      sunM.classList.toggle('hidden', isDark);
+      moonM.classList.toggle('hidden', !isDark);
+    }
+    var labelM = document.getElementById('dark-label-m');
+    if (labelM) labelM.textContent = isDark ? '亮色模式' : '暗色模式';
   }
 
   _applyDarkIcons(d);
