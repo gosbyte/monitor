@@ -53,12 +53,13 @@ CFGEOF
     fi
     if [[ ! -f "${DATA_DIR}/users.json" ]]; then
         INIT_PASS=$(openssl rand -base64 12 2>/dev/null || echo "admin123")
+        INIT_HASH=$(python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('$INIT_PASS'))")
         cat > "${DATA_DIR}/users.json" << USREOF
 [
   {
     "username": "admin",
     "name": "Administrator",
-    "password": "${INIT_PASS}",
+    "password": "${INIT_HASH}",
     "dingtalk_id": "",
     "role": "admin",
     "failed_attempts": 0,

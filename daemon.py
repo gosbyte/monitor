@@ -389,6 +389,8 @@ def main():
             check_and_remind()
         except Exception as e:
             logger.error(f"检查异常: {e}")
+            # [FIX] P1-3: 异常后短暂退避，避免日志风暴
+            time.sleep(5)
 
         for _ in range(60):
             if not _running:

@@ -244,10 +244,13 @@ def _migrate_password_sqlite(users):
                 db_save_user(u)
 
 # 用户缓存（30s TTL）
-_users_cache = {"data": None, "mtime": 0}
+_users_cache = {"data": None, "mtime": 0, "ttl": 30}
 
 # 到期项缓存（5s TTL）
-_certs_cache = {"data": None, "mtime": 0}
+_certs_cache = {"data": None, "mtime": 0, "ttl": 5}
+
+# 配置缓存（60s TTL）
+_config_cache = {"data": None, "mtime": 0, "ttl": 60}
 
 def load_users():
     """加载用户列表（支持 JSON 和 SQLite 双模式）"""
@@ -258,18 +261,18 @@ def load_users():
         return users
     global _users_cache
     if not os.path.exists(USERS_FILE):
-        _users_cache = {"data": [], "mtime": 0}
+        _users_cache = {"data": [], "mtime": 0, "ttl": 30}
         return []
     try:
         mt = os.path.getmtime(USERS_FILE)
     except OSError:
         mt = 0
-    if _users_cache["data"] is not None and _users_cache["mtime"] == mt:
+    if _users_cache["data"] is not None and (_users_cache["mtime"] == mt or time.time() - _users_cache["mtime"] < _users_cache["ttl"]):
         return _users_cache["data"]
     with FileLock(USERS_FILE):
         with open(USERS_FILE, "r", encoding="utf-8-sig") as f:
             users = json.load(f)
-    _users_cache = {"data": users, "mtime": mt}
+    _users_cache = {"data": users, "mtime": time.time(), "ttl": 30}
     _migrate_password(users)
     return users
 
@@ -451,11 +454,18 @@ def load_config():
     if USE_SQLITE:
         from db import db_load_config
         return db_load_config()
+    global _config_cache
+    now = time.time()
+    if _config_cache["data"] is not None and (now - _config_cache["mtime"]) < _config_cache["ttl"]:
+        return _config_cache["data"]
     with FileLock(CONFIG_FILE):
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
-                return json.load(f)
-    return {"webhook_url": "", "remind_days": [7, 3, 1]}
+                data = json.load(f)
+            _config_cache = {"data": data, "mtime": now}
+            return data
+    _config_cache = {"data": {"webhook_url": "", "remind_days": [7, 3, 1]}, "mtime": now}
+    return _config_cache["data"]
 
 def save_config(cfg):
     """保存配置（支持 JSON 和 SQLite 双模式）"""
@@ -463,8 +473,10 @@ def save_config(cfg):
         from db import db_save_config
         db_save_config(cfg)
         return
+    global _config_cache
     with FileLock(CONFIG_FILE):
         atomic_write_json(CONFIG_FILE, cfg)
+    _config_cache = {"data": None, "mtime": 0}
 
 def calc_days_left(expire_str):
     try:
@@ -475,7 +487,7 @@ def calc_days_left(expire_str):
             exp = datetime.strptime(s, "%Y-%m-%d %H:%M")
         else:
             exp = datetime.strptime(s, "%Y-%m-%d")
-        return round((exp - datetime.now()).total_seconds() / 86400)
+        return int((exp - datetime.now()).total_seconds() / 86400)  # [FIX] P2-4: 向下取整替代四舍五入
     except Exception:
         return -999
 
