@@ -162,7 +162,11 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    nonce = getattr(g, 'csp_nonce', '')
+    # 从响应 HTML 中提取 nonce，确保与模板中使用的一致
+    import re
+    html_body = response.get_data(as_text=True)
+    nonces = re.findall(r'nonce="([a-f0-9]{32})"', html_body)
+    nonce = nonces[-1] if nonces else getattr(g, 'csp_nonce', '')
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
