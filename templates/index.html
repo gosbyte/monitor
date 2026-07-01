@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>到期提醒管理系统</title>
-  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}">
+  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}"></script>
+<script nonce="{{ csp_nonce }}">
 
 // ── 键盘快捷键 (P3-10) ──────────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -1337,7 +1338,7 @@ function quickFilter(status) {
     </form>
   </div>
 </div>
-<script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
 <script src="/static/dark.js" nonce="{{ csp_nonce }}"></script>
 

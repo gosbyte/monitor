@@ -447,7 +447,7 @@ def save_certs(certs):
     global _certs_cache
     with FileLock(DATA_FILE):
         atomic_write_json(DATA_FILE, certs)
-    _certs_cache = {"data": None, "mtime": 0}
+    _certs_cache = {"data": None, "mtime": 0, "ttl": 5}
 
 def load_config():
     """加载配置（支持 JSON 和 SQLite 双模式）"""
@@ -462,9 +462,9 @@ def load_config():
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, "r", encoding="utf-8-sig") as f:
                 data = json.load(f)
-            _config_cache = {"data": data, "mtime": now}
+            _config_cache = {"data": data, "mtime": now, "ttl": 60}
             return data
-    _config_cache = {"data": {"webhook_url": "", "remind_days": [7, 3, 1]}, "mtime": now}
+    _config_cache = {"data": {"webhook_url": "", "remind_days": [7, 3, 1]}, "mtime": now, "ttl": 60}
     return _config_cache["data"]
 
 def save_config(cfg):
@@ -476,7 +476,7 @@ def save_config(cfg):
     global _config_cache
     with FileLock(CONFIG_FILE):
         atomic_write_json(CONFIG_FILE, cfg)
-    _config_cache = {"data": None, "mtime": 0}
+    _config_cache = {"data": None, "mtime": 0, "ttl": 60}
 
 def calc_days_left(expire_str):
     try:

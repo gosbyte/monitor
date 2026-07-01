@@ -133,7 +133,7 @@
 
 </main>
 
-<script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">
 let _csrfToken = "{{ csrf_token }}";
 let previewData = null;

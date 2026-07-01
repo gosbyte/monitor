@@ -129,7 +129,7 @@ function toggleRespLabel(username, checked) {
   }
 }
 </script>
-<script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
+<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
 <script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
 </html>
