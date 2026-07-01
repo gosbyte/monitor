@@ -162,20 +162,18 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # 只对 HTML 响应设置 CSP（静态文件响应不能调用 get_data()）
+    # 只对 HTML 响应设置 CSP
     if response.content_type and 'text/html' in response.content_type:
-        import re
-        html_body = response.get_data(as_text=True)
-        nonces = re.findall(r'nonce="([a-f0-9]{32})"', html_body)
-        nonce = nonces[-1] if nonces else getattr(g, 'csp_nonce', '')
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
-            "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
-            "img-src 'self' data:; "
-            "font-src 'self' https://fonts.gstatic.com; "
-            "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
-        )
+        nonce = getattr(g, 'csp_nonce', '')
+        if nonce:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+                "style-src 'self' 'nonce-" + nonce + "' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+                "img-src 'self' data:; "
+                "font-src 'self' https://fonts.gstatic.com; "
+                "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
+            )
     return response
 
 @app.route('/captcha')
