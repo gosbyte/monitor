@@ -1237,13 +1237,19 @@ document.addEventListener('click', function(e) {
   }
 });
 function confirmDelete(certId, customerName) {
+  console.log('confirmDelete called:', certId, customerName);
   showConfirmModal('确认删除', '确定删除「' + customerName + '」的记录？此操作不可恢复。', '确认删除', function() {
+    console.log('Deleting cert:', certId, 'csrf:', _csrfToken ? 'yes' : 'NO');
     fetch('/api/cert/' + certId, {
       method: 'DELETE',
       headers: { 'X-CSRF-Token': _csrfToken }
     })
-    .then(function(r) { return r.json(); })
+    .then(function(r) { 
+      console.log('DELETE response status:', r.status);
+      return r.json(); 
+    })
     .then(function(data) {
+      console.log('DELETE response data:', data);
       if (data.csrf_token) _csrfToken = data.csrf_token;
       if (data.ok) {
         var row = document.querySelector('tr[data-id="' + certId + '"]');
@@ -1251,7 +1257,10 @@ function confirmDelete(certId, customerName) {
         showToast('删除成功', 'success');
       } else { showToast(data.message || '删除失败', 'error'); }
     })
-    .catch(function(e) { showToast('网络错误：' + e.message, 'error'); });
+    .catch(function(e) { 
+      console.error('Delete error:', e);
+      showToast('网络错误：' + e.message, 'error'); 
+    });
   });
 }
 
@@ -1288,8 +1297,15 @@ function batchDelete() {
       }
       else { showToast(data.message || '删除失败', 'error'); }
     })
-    .catch(function(e) { showToast('网络错误：' + e.message, 'error'); });
-  });
+    .catch(function(e) { 
+        console.error('Delete error:', e);
+        showToast('网络错误：' + e.message, 'error'); 
+      });
+    });
+  } catch(e) {
+    console.error('confirmDelete error:', e);
+    showToast('删除失败：' + e.message, 'error');
+  }
 }
 
 function batchHandle(handled) {
