@@ -392,35 +392,51 @@ function showToast(msg, type) {
       </label>
       <span class="text-sm text-gray-400">|</span>
       <span id="selected-count" class="text-sm text-gray-500">已选 0 条</span>
-      <span class="text-sm text-gray-400">|</span>
-      <button onclick="batchHandle(true)" id="btn-batch-handle" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors batch-btn">
-        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 inline-block"></i> 标记已处理
-      </button>
-      <button onclick="batchHandle(false)" id="btn-batch-unhandle" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors batch-btn">
-        <i data-lucide="circle" class="w-3.5 h-3.5 inline-block"></i> 取消已处理
-      </button>
-      <button onclick="batchRemind(true)" id="btn-batch-remind-on" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors batch-btn">
-        <i data-lucide="bell" class="w-3.5 h-3.5 inline-block"></i> 启用提醒
-      </button>
-      <button onclick="batchRemind(false)" id="btn-batch-remind-off" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors batch-btn">
-        <i data-lucide="bell-off" class="w-3.5 h-3.5 inline-block"></i> 禁用提醒
-      </button>
-      <button onclick="batchDelete()" id="btn-batch-delete" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors batch-btn">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 批量删除
+      <span class="text-sm text-gray-400 hidden sm:inline">|</span>
+      <!-- 状态操作（下拉分组） -->
+      <div class="relative group">
+        <button onclick="toggleBatchDropdown()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
+          <i data-lucide="settings-2" class="w-3.5 h-3.5 inline-block"></i> 状态操作
+          <i data-lucide="chevron-down" class="w-3 h-3 inline-block"></i>
+        </button>
+        <div id="batch-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-40">
+          <button onclick="batchHandle(true)" id="btn-batch-handle" disabled
+            class="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-3.5 h-3.5 inline-block"></i> 标记已处理
+          </button>
+          <button onclick="batchHandle(false)" id="btn-batch-unhandle" disabled
+            class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
+            <i data-lucide="circle" class="w-3.5 h-3.5 inline-block"></i> 取消已处理
+          </button>
+          <div class="border-t border-gray-100 my-1"></div>
+          <button onclick="batchRemind(true)" id="btn-batch-remind-on" disabled
+            class="w-full text-left px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
+            <i data-lucide="bell" class="w-3.5 h-3.5 inline-block"></i> 启用提醒
+          </button>
+          <button onclick="batchRemind(false)" id="btn-batch-remind-off" disabled
+            class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
+            <i data-lucide="bell-off" class="w-3.5 h-3.5 inline-block"></i> 禁用提醒
+          </button>
+          <div class="border-t border-gray-100 my-1"></div>
+          <button onclick="batchDelete()" id="btn-batch-delete" disabled
+            class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 批量删除
+          </button>
+        </div>
+      </div>
+      <!-- 批量删除按钮（单独显示） -->
+      <button onclick="batchDelete()" id="btn-batch-delete-float" disabled
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 删除
       </button>
     </div>
   </div>
   {% endif %}
 
   <!-- 记录列表 -->
-  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="bg-white rounded-xl border border-gray-200 overflow-x-auto md:overflow-x-visible">
     {% if certs %}
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto md:overflow-x-visible">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -479,31 +495,40 @@ function showToast(msg, type) {
             <td class="px-4 py-3 text-gray-500 text-sm max-w-xs truncate hidden md:table-cell" title="{{ c.note }}">{{ c.note or '-' }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end gap-0.5 md:gap-1">
-                {% if is_admin %}
-                <button onclick='pushCert({{ c.id }}, {{ c.customer|tojson }})' title="发送推送"
-                  class="p-2.5 md:p-3 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" id="btn-push-{{ c.id }}">
-                  <i data-lucide="upload" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% endif %}
-                <button onclick="toggleStatus({{ c.id }})" title="切换提醒" id="btn-status-{{ c.id }}"
-                  class="remind-btn p-2.5 md:p-3 rounded-lg transition-colors {% if c.remind_enabled %}text-blue-600 hover:bg-blue-50{% else %}text-gray-300 hover:bg-gray-100{% endif %}">
-                  <i data-lucide="{% if c.remind_enabled %}bell{% else %}bell-off{% endif %}" class="w-4 h-4"></i>
-                </button>
-                <button onclick="toggleHandled({{ c.id }})" title="{% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}" id="btn-handled-{{ c.id }}"
-                  class="handled-btn p-2.5 md:p-3 rounded-lg transition-colors {% if c.get('handled') %}text-teal-600 hover:bg-teal-50{% else %}text-gray-300 hover:bg-gray-100{% endif %}">
-                  <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-4 h-4"></i>
-                </button>
+                <!-- 常用操作直接显示 -->
                 <button onclick="openEditModal({{ c.id }})" class="p-2.5 md:p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
                   <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
                 </button>
-                <button onclick="duplicateCert({{ c.id }}, this)" class="p-2.5 md:p-3 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="复制">
-                  <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% if is_admin %}
-                <button onclick='confirmDelete({{ c.id }}, {{ c.customer|tojson }})' class="p-2.5 md:p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="删除">
-                  <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% endif %}
+                <!-- 更多操作下拉菜单 -->
+                <div class="relative group">
+                  <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="p-2.5 md:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
+                    <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
+                  </button>
+                  <div id="row-menu-{{ c.id }}" class="hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
+                    {% if is_admin %}
+                    <button onclick="pushCert({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
+                    </button>
+                    {% endif %}
+                    <button onclick="toggleStatus({{ c.id }})" class="w-full text-left px-3 py-2 text-sm {% if c.remind_enabled %}text-blue-600 hover:bg-blue-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
+                      <i data-lucide="{% if c.remind_enabled %}bell{% else %}bell-off{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
+                      {% if c.remind_enabled %}禁用提醒{% else %}启用提醒{% endif %}
+                    </button>
+                    <button onclick="toggleHandled({{ c.id }})" class="w-full text-left px-3 py-2 text-sm {% if c.get('handled') %}text-teal-600 hover:bg-teal-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
+                      <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
+                      {% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}
+                    </button>
+                    <button onclick="duplicateCert({{ c.id }}, this)" class="w-full text-left px-3 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="copy" class="w-3.5 h-3.5 inline-block"></i> 复制记录
+                    </button>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    {% if is_admin %}
+                    <button onclick="confirmDelete({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 删除记录
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
               </div>
             </td>
           </tr>
@@ -578,6 +603,16 @@ function showToast(msg, type) {
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
           <input name="expire_time" id="add-expire-time" type="time" required
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-500">快捷</span>
+            <div class="flex gap-1 flex-wrap">
+              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+            </div>
+          </div>
         </div>
       </div>
       <div>
@@ -642,12 +677,27 @@ function showToast(msg, type) {
           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
       </div>
       <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">域名/链接</label>
+        <input name="domain" id="edit-domain" placeholder="例如：example.com 或 https://..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">到期时间 <span class="text-red-500">*</span></label>
         <div class="flex gap-2">
           <input name="expire_date" id="edit-expire-date" type="date" required
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
           <input name="expire_time" id="edit-expire-time" type="time" required
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-500">快捷</span>
+            <div class="flex gap-1 flex-wrap">
+              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+            </div>
+          </div>
         </div>
       </div>
       <div>
@@ -696,6 +746,19 @@ function showToast(msg, type) {
 <datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
 <script nonce="{{ csp_nonce }}">
 // ── 弹窗控制 ──────────────────────────────────────────
+function setExpiryDays(days) {
+  var dateInput = document.getElementById('add-expire-date') || document.getElementById('edit-expire-date');
+  var timeInput = document.getElementById('add-expire-time') || document.getElementById('edit-expire-time');
+  if (!dateInput || !timeInput) return;
+  var today = new Date();
+  today.setDate(today.getDate() + days);
+  var y = today.getFullYear();
+  var m = String(today.getMonth() + 1).padStart(2, '0');
+  var d = String(today.getDate()).padStart(2, '0');
+  dateInput.value = y + '-' + m + '-' + d;
+  timeInput.value = today.toTimeString().slice(0, 5);
+}
+
 function openAddModal() {
   document.getElementById('add-modal').classList.remove('hidden');
   document.getElementById('add-modal').classList.add('flex');
@@ -724,14 +787,25 @@ function duplicateCert(certId, btnEl) {
       form.querySelector('input[name="cert_type"]').value = data.cert_type || '';
       // 到期时间加30天作为建议
       if (data.expire_date) {
-        var d = new Date(data.expire_date.replace(' ', 'T'));
+        // 统一格式：支持 T 和空格分隔
+        var dt = data.expire_date.replace('T', ' ').trim();
+        var parts = dt.split(' ');
+        var baseDate = parts[0] || '';
+        var baseTime = parts[1] || '00:00';
+        var d = new Date(baseDate.replace('-', '/', 'g').replace('/', '-', 1) + 'T' + baseTime);
+        if (isNaN(d.getTime())) {
+          // 尝试直接解析
+          d = new Date(dt.replace(' ', 'T'));
+        }
         d.setDate(d.getDate() + 30);
         var y = d.getFullYear();
         var m = String(d.getMonth() + 1).padStart(2, '0');
         var day = String(d.getDate()).padStart(2, '0');
         var hh = String(d.getHours()).padStart(2, '0');
         var mm = String(d.getMinutes()).padStart(2, '0');
-        form.querySelector('input[name="expire_date"]').value = y + '-' + m + '-' + day + 'T' + hh + ':' + mm;
+        // 拆分到 date 和 time 两个 input
+        form.querySelector('input[name="expire_date"]').value = y + '-' + m + '-' + day;
+        form.querySelector('input[name="expire_time"]').value = hh + ':' + mm;
       }
       form.querySelector('textarea[name="note"]').value = data.note || '';
       form.querySelector('input[name="remind_enabled"]').checked = data.remind_enabled !== false;
@@ -759,7 +833,13 @@ function openEditModal(certId) {
       // 使用API返回的完整数据填充表单
       document.getElementById('edit-customer').value = data.customer || '';
       document.getElementById('edit-cert-type').value = data.cert_type || '';
-      document.getElementById('edit-expire-date').value = (data.expire_date || '').replace(' ', 'T');
+      document.getElementById('edit-domain').value = data.domain || '';
+      // 统一日期格式：支持 "2026-07-15T10:00" 和 "2026-07-15 10:00"
+      var dt = data.expire_date || '';
+      dt = dt.replace('T', ' ').trim();
+      var parts = dt.split(' ');
+      document.getElementById('edit-expire-date').value = parts[0] || '';
+      document.getElementById('edit-expire-time').value = parts[1] || '00:00';
       document.getElementById('edit-note').value = data.note || '';
       document.getElementById('edit-remind-enabled').checked = data.remind_enabled !== false;
       document.getElementById('edit-handled').checked = data.handled === true;
@@ -812,6 +892,14 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
   // Handle checkboxes properly
   payload['remind_enabled'] = document.getElementById('edit-remind-enabled').checked;
   payload['handled'] = document.getElementById('edit-handled').checked;
+  // 合并日期和时间（格式: YYYY-MM-DD HH:mm）
+  var dateVal = document.getElementById('edit-expire-date').value;
+  var timeVal = document.getElementById('edit-expire-time').value;
+  if (dateVal && timeVal) {
+    payload['expire_date'] = dateVal + ' ' + timeVal;
+  } else if (dateVal) {
+    payload['expire_date'] = dateVal;
+  }
   var respUsers = [];
   document.querySelectorAll('#edit-responsible-users input[name="responsible_users"]:checked').forEach(function(cb) {
     respUsers.push(cb.value);
@@ -890,6 +978,23 @@ document.getElementById('add-modal').querySelector('form').addEventListener('sub
   btn.disabled = true;
   btn.textContent = '添加中…';
 
+  // 合并日期和时间（格式: YYYY-MM-DD HH:mm）
+  // 注意：不要修改DOM中的expire_date输入框，否则后端再次拼接会导致"2027-07-02 10:30 10:30"
+  var dateVal = document.getElementById('add-expire-date').value;
+  var timeVal = document.getElementById('add-expire-time').value;
+  var combined = '';
+  if (dateVal && timeVal) {
+    combined = dateVal + ' ' + timeVal;
+  } else if (dateVal) {
+    combined = dateVal;
+  }
+  // 通过隐藏字段传递合并后的值（不修改DOM）
+  var hiddenField = document.createElement('input');
+  hiddenField.type = 'hidden';
+  hiddenField.name = 'expire_date_combined';
+  hiddenField.value = combined;
+  form.appendChild(hiddenField);
+
   fetch(form.action, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': _csrfToken },
@@ -918,6 +1023,7 @@ document.getElementById('add-modal').querySelector('form').addEventListener('sub
       form.querySelector('input[name="customer"]').value = '';
       form.querySelector('input[name="cert_type"]').value = '';
       form.querySelector('input[name="expire_date"]').value = '';
+      form.querySelector('input[name="expire_time"]').value = '';
       form.querySelector('textarea[name="note"]').value = '';
       form.querySelectorAll('input[name="responsible_users"]').forEach(function(cb) { cb.checked = false; });
       form.querySelector('input[name="customer"]').focus();
@@ -990,10 +1096,17 @@ function updateBatchUI() {
   var countEl = document.getElementById('selected-count');
   if (countEl) countEl.textContent = '已选 ' + count + ' 条';
 
-  var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete'];
+  var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete', 'btn-batch-delete-float'];
   btns.forEach(function(id) {
     var btn = document.getElementById(id);
-    if (btn) btn.disabled = count === 0;
+    if (btn) {
+      btn.disabled = count === 0;
+      if (id === 'btn-batch-delete-float') {
+        // 浮动删除按钮：无选中时隐藏，有选中时显示
+        if (count === 0) btn.classList.add('hidden');
+        else btn.classList.remove('hidden');
+      }
+    }
   });
 
   // Update select-all checkbox state
@@ -1035,6 +1148,64 @@ function closeConfirmModal() {
   document.getElementById('confirm-modal').classList.remove('flex');
   document.body.classList.remove('modal-open');
 }
+
+// ESC 键关闭确认弹窗
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    var confirmModal = document.getElementById('confirm-modal');
+    if (confirmModal && !confirmModal.classList.contains('hidden')) {
+      closeConfirmModal();
+    }
+  }
+});
+
+// ── 行操作下拉菜单 ────────────────────────────────────────
+function toggleRowMenu(certId, btnEl, evt) {
+  var dd = document.getElementById('row-menu-' + certId);
+  if (!dd) return;
+  var wasHidden = dd.classList.contains('hidden');
+  // 先关闭所有其他菜单
+  document.querySelectorAll('[id^="row-menu-"]').forEach(function(m) {
+    if (m.id !== 'row-menu-' + certId) m.classList.add('hidden');
+  });
+  if (wasHidden) dd.classList.remove('hidden');
+  else dd.classList.add('hidden');
+  // 按钮点击反馈
+  if (btnEl) {
+    btnEl.classList.add('bg-gray-100');
+    setTimeout(function() { btnEl.classList.remove('bg-gray-100'); }, 200);
+  }
+  // 阻止事件冒泡到 document 的关闭逻辑（移动端必须）
+  if (evt) evt.stopPropagation();
+}
+// 关闭行操作菜单（点击外部时）
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('[id^="row-menu-"]').forEach(function(dd) {
+    if (dd.classList.contains('hidden')) return;
+    var group = dd.closest('.relative.group');
+    if (!group) return;
+    var btn = group.querySelector('button');
+    // 点击菜单内部或按钮本身都不关闭
+    if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
+    // 点击确认弹窗也不关闭
+    var confirmModal = document.getElementById('confirm-modal');
+    if (confirmModal && !confirmModal.classList.contains('hidden')) return;
+    dd.classList.add('hidden');
+  });
+});
+
+// ── 批量下拉菜单 ────────────────────────────────────────
+function toggleBatchDropdown() {
+  var dd = document.getElementById('batch-dropdown');
+  dd.classList.toggle('hidden');
+}
+document.addEventListener('click', function(e) {
+  var dd = document.getElementById('batch-dropdown');
+  var btn = document.querySelector('[onclick="toggleBatchDropdown()"]');
+  if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
+    dd.classList.add('hidden');
+  }
+});
 function confirmDelete(certId, customerName) {
   showConfirmModal('确认删除', '确定删除「' + customerName + '」的记录？此操作不可恢复。', '确认删除', function() {
     fetch('/api/cert/' + certId, {
@@ -1382,6 +1553,17 @@ function quickFilter(status) {
   }
   currentPage = 1;
   filterTable();
+  // 视觉反馈：高亮当前筛选的统计卡片
+  document.querySelectorAll('[onclick^="quickFilter"]').forEach(function(card) {
+    card.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
+  });
+  if (status !== 'all') {
+    var map = { normal: 'green', expiring: 'orange', expired: 'red' };
+    var color = map[status];
+    var selector = '[onclick="quickFilter(\'' + status + '\')"]';
+    var activeCard = document.querySelector(selector);
+    if (activeCard) activeCard.classList.add('ring-2', 'ring-offset-2', 'ring-' + color + '-500');
+  }
   // 滚动到表格
   document.getElementById('cert-tbody').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
