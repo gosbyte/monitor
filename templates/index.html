@@ -504,7 +504,7 @@ function showToast(msg, type) {
                   <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="p-2.5 md:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
                     <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
                   </button>
-                  <div id="row-menu-{{ c.id }}" class="hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
+                  <div id="row-menu-{{ c.id }}" class="hidden absolute right-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
                     {% if is_admin %}
                     <button onclick="pushCert({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
                       <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
@@ -1168,8 +1168,33 @@ function toggleRowMenu(certId, btnEl, evt) {
   document.querySelectorAll('[id^="row-menu-"]').forEach(function(m) {
     if (m.id !== 'row-menu-' + certId) m.classList.add('hidden');
   });
-  if (wasHidden) dd.classList.remove('hidden');
-  else dd.classList.add('hidden');
+  if (wasHidden) {
+    dd.classList.remove('hidden');
+    // 智能定位：检测菜单距屏幕底部的距离，不够就向上展开
+    dd.style.top = '';
+    dd.style.bottom = '';
+    dd.classList.remove('top-full', 'bottom-full');
+    // 强制浏览器计算布局
+    void dd.offsetWidth;
+    var rect = dd.getBoundingClientRect();
+    var viewportH = window.innerHeight || document.documentElement.clientHeight;
+    if (rect.bottom > viewportH - 10) {
+      // 底部空间不足，改为向上展开
+      dd.classList.add('bottom-full');
+      dd.classList.remove('top-full');
+      dd.style.top = 'auto';
+      dd.style.bottom = '100%';
+    } else {
+      dd.classList.add('top-full');
+      dd.classList.remove('bottom-full');
+      dd.style.top = '';
+      dd.style.bottom = '';
+    }
+  } else {
+    dd.classList.add('hidden');
+    dd.style.top = '';
+    dd.style.bottom = '';
+  }
   // 按钮点击反馈
   if (btnEl) {
     btnEl.classList.add('bg-gray-100');
