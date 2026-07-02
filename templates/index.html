@@ -504,7 +504,7 @@ function showToast(msg, type) {
                   <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="p-2.5 md:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
                     <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
                   </button>
-                  <div id="row-menu-{{ c.id }}" class="hidden absolute right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
+                  <div id="row-menu-{{ c.id }}" class="hidden bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
                     {% if is_admin %}
                     <button onclick="pushCert({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
                       <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
@@ -1170,35 +1170,32 @@ function toggleRowMenu(certId, btnEl, evt) {
   });
   if (wasHidden) {
     dd.classList.remove('hidden');
-    // 智能定位：根据按钮位置决定向上还是向下展开
-    dd.style.position = 'absolute';
-    dd.style.right = '0';
-    dd.style.top = '';
-    dd.style.bottom = '';
-    // 强制浏览器计算布局
-    void dd.offsetWidth;
+    // 使用 fixed 定位，不受父容器 overflow 影响
     var btnRect = btnEl ? btnEl.getBoundingClientRect() : null;
-    var menuH = dd.offsetHeight || 200; // 预估高度
-    var viewportH = window.innerHeight || document.documentElement.clientHeight;
     if (btnRect) {
-      var btnBottom = btnRect.bottom;
-      var spaceBelow = viewportH - btnBottom;
-      if (spaceBelow < menuH) {
-        // 下方空间不足，向上展开
-        dd.style.bottom = '100%';
-        dd.style.top = 'auto';
-        dd.style.marginBottom = '4px';
-      } else {
-        // 下方空间充足，向下展开
-        dd.style.top = '100%';
-        dd.style.bottom = 'auto';
-        dd.style.marginTop = '4px';
+      dd.style.position = 'fixed';
+      dd.style.left = (btnRect.right - 176) + 'px'; // w-44 = 176px, 右对齐
+      dd.style.top = (btnRect.bottom + 4) + 'px';
+      dd.style.right = 'auto';
+      dd.style.bottom = 'auto';
+      
+      // 检测是否超出屏幕右侧
+      var menuW = 176;
+      var menuRight = btnRect.right;
+      if (menuRight + menuW > window.innerWidth) {
+        dd.style.left = (window.innerWidth - menuW - 8) + 'px';
+      }
+      
+      // 检测是否超出屏幕底部
+      var menuH = dd.offsetHeight || 200;
+      if (btnRect.bottom + menuH > window.innerHeight) {
+        // 改为向上展开
+        dd.style.top = (btnRect.top - menuH - 4) + 'px';
       }
     } else {
-      // 没有按钮元素，默认向下
+      dd.style.position = 'absolute';
       dd.style.top = '100%';
-      dd.style.bottom = 'auto';
-      dd.style.marginTop = '4px';
+      dd.style.right = '0';
     }
   } else {
     dd.classList.add('hidden');
