@@ -1170,12 +1170,36 @@ function toggleRowMenu(certId, btnEl, evt) {
   });
   if (wasHidden) {
     dd.classList.remove('hidden');
-    // 始终向上展开，避免被屏幕底部裁掉
+    // 智能定位：根据按钮位置决定向上还是向下展开
     dd.style.position = 'absolute';
     dd.style.right = '0';
-    dd.style.top = 'auto';
-    dd.style.bottom = '100%';
-    dd.style.marginBottom = '4px'; // mt-1 equivalent
+    dd.style.top = '';
+    dd.style.bottom = '';
+    // 强制浏览器计算布局
+    void dd.offsetWidth;
+    var btnRect = btnEl ? btnEl.getBoundingClientRect() : null;
+    var menuH = dd.offsetHeight || 200; // 预估高度
+    var viewportH = window.innerHeight || document.documentElement.clientHeight;
+    if (btnRect) {
+      var btnBottom = btnRect.bottom;
+      var spaceBelow = viewportH - btnBottom;
+      if (spaceBelow < menuH) {
+        // 下方空间不足，向上展开
+        dd.style.bottom = '100%';
+        dd.style.top = 'auto';
+        dd.style.marginBottom = '4px';
+      } else {
+        // 下方空间充足，向下展开
+        dd.style.top = '100%';
+        dd.style.bottom = 'auto';
+        dd.style.marginTop = '4px';
+      }
+    } else {
+      // 没有按钮元素，默认向下
+      dd.style.top = '100%';
+      dd.style.bottom = 'auto';
+      dd.style.marginTop = '4px';
+    }
   } else {
     dd.classList.add('hidden');
   }
