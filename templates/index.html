@@ -434,9 +434,9 @@ function showToast(msg, type) {
   {% endif %}
 
   <!-- 记录列表 -->
-  <div class="bg-white rounded-xl border border-gray-200 overflow-x-auto md:overflow-x-visible">
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     {% if certs %}
-    <div class="overflow-x-auto md:overflow-x-visible">
+    <div class="overflow-x-auto">
       <table class="w-full">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -501,10 +501,10 @@ function showToast(msg, type) {
                 </button>
                 <!-- 更多操作下拉菜单 -->
                 <div class="relative group">
-                  <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="p-2.5 md:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
+                  <button onclick="toggleRowMenu({{ c.id }}, this)" class="p-2.5 md:p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
                     <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
                   </button>
-                  <div id="row-menu-{{ c.id }}" class="hidden bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
+                  <div id="row-menu-{{ c.id }}" class="hidden absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44">
                     {% if is_admin %}
                     <button onclick="pushCert({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
                       <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
@@ -603,16 +603,6 @@ function showToast(msg, type) {
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
           <input name="expire_time" id="add-expire-time" type="time" required
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-gray-500">快捷</span>
-            <div class="flex gap-1 flex-wrap">
-              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
-              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
-              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
-              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
-              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
-            </div>
-          </div>
         </div>
       </div>
       <div>
@@ -688,16 +678,6 @@ function showToast(msg, type) {
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
           <input name="expire_time" id="edit-expire-time" type="time" required
             class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-gray-500">快捷</span>
-            <div class="flex gap-1 flex-wrap">
-              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
-              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
-              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
-              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
-              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
-            </div>
-          </div>
         </div>
       </div>
       <div>
@@ -746,19 +726,6 @@ function showToast(msg, type) {
 <datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
 <script nonce="{{ csp_nonce }}">
 // ── 弹窗控制 ──────────────────────────────────────────
-function setExpiryDays(days) {
-  var dateInput = document.getElementById('add-expire-date') || document.getElementById('edit-expire-date');
-  var timeInput = document.getElementById('add-expire-time') || document.getElementById('edit-expire-time');
-  if (!dateInput || !timeInput) return;
-  var today = new Date();
-  today.setDate(today.getDate() + days);
-  var y = today.getFullYear();
-  var m = String(today.getMonth() + 1).padStart(2, '0');
-  var d = String(today.getDate()).padStart(2, '0');
-  dateInput.value = y + '-' + m + '-' + d;
-  timeInput.value = today.toTimeString().slice(0, 5);
-}
-
 function openAddModal() {
   document.getElementById('add-modal').classList.remove('hidden');
   document.getElementById('add-modal').classList.add('flex');
@@ -979,21 +946,13 @@ document.getElementById('add-modal').querySelector('form').addEventListener('sub
   btn.textContent = '添加中…';
 
   // 合并日期和时间（格式: YYYY-MM-DD HH:mm）
-  // 注意：不要修改DOM中的expire_date输入框，否则后端再次拼接会导致"2027-07-02 10:30 10:30"
   var dateVal = document.getElementById('add-expire-date').value;
   var timeVal = document.getElementById('add-expire-time').value;
-  var combined = '';
   if (dateVal && timeVal) {
-    combined = dateVal + ' ' + timeVal;
+    form.querySelector('input[name="expire_date"]').value = dateVal + ' ' + timeVal;
   } else if (dateVal) {
-    combined = dateVal;
+    form.querySelector('input[name="expire_date"]').value = dateVal;
   }
-  // 通过隐藏字段传递合并后的值（不修改DOM）
-  var hiddenField = document.createElement('input');
-  hiddenField.type = 'hidden';
-  hiddenField.name = 'expire_date_combined';
-  hiddenField.value = combined;
-  form.appendChild(hiddenField);
 
   fetch(form.action, {
     method: 'POST',
@@ -1099,14 +1058,7 @@ function updateBatchUI() {
   var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete', 'btn-batch-delete-float'];
   btns.forEach(function(id) {
     var btn = document.getElementById(id);
-    if (btn) {
-      btn.disabled = count === 0;
-      if (id === 'btn-batch-delete-float') {
-        // 浮动删除按钮：无选中时隐藏，有选中时显示
-        if (count === 0) btn.classList.add('hidden');
-        else btn.classList.remove('hidden');
-      }
-    }
+    if (btn) btn.disabled = count === 0;
   });
 
   // Update select-all checkbox state
@@ -1160,7 +1112,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── 行操作下拉菜单 ────────────────────────────────────────
-function toggleRowMenu(certId, btnEl, evt) {
+function toggleRowMenu(certId, btnEl) {
   var dd = document.getElementById('row-menu-' + certId);
   if (!dd) return;
   var wasHidden = dd.classList.contains('hidden');
@@ -1168,59 +1120,22 @@ function toggleRowMenu(certId, btnEl, evt) {
   document.querySelectorAll('[id^="row-menu-"]').forEach(function(m) {
     if (m.id !== 'row-menu-' + certId) m.classList.add('hidden');
   });
-  if (wasHidden) {
-    dd.classList.remove('hidden');
-    // 使用 fixed 定位，不受父容器 overflow 影响
-    var btnRect = btnEl ? btnEl.getBoundingClientRect() : null;
-    if (btnRect) {
-      dd.style.position = 'fixed';
-      dd.style.left = (btnRect.right - 176) + 'px'; // w-44 = 176px, 右对齐
-      dd.style.top = (btnRect.bottom + 4) + 'px';
-      dd.style.right = 'auto';
-      dd.style.bottom = 'auto';
-      
-      // 检测是否超出屏幕右侧
-      var menuW = 176;
-      var menuRight = btnRect.right;
-      if (menuRight + menuW > window.innerWidth) {
-        dd.style.left = (window.innerWidth - menuW - 8) + 'px';
-      }
-      
-      // 检测是否超出屏幕底部
-      var menuH = dd.offsetHeight || 200;
-      if (btnRect.bottom + menuH > window.innerHeight) {
-        // 改为向上展开
-        dd.style.top = (btnRect.top - menuH - 4) + 'px';
-      }
-    } else {
-      dd.style.position = 'absolute';
-      dd.style.top = '100%';
-      dd.style.right = '0';
-    }
-  } else {
-    dd.classList.add('hidden');
-  }
+  if (wasHidden) dd.classList.remove('hidden');
+  else dd.classList.add('hidden');
   // 按钮点击反馈
   if (btnEl) {
     btnEl.classList.add('bg-gray-100');
     setTimeout(function() { btnEl.classList.remove('bg-gray-100'); }, 200);
   }
-  // 阻止事件冒泡到 document 的关闭逻辑（移动端必须）
-  if (evt) evt.stopPropagation();
 }
 // 关闭行操作菜单（点击外部时）
 document.addEventListener('click', function(e) {
   document.querySelectorAll('[id^="row-menu-"]').forEach(function(dd) {
     if (dd.classList.contains('hidden')) return;
-    var group = dd.closest('.relative.group');
-    if (!group) return;
-    var btn = group.querySelector('button');
-    // 点击菜单内部或按钮本身都不关闭
-    if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
-    // 点击确认弹窗也不关闭
-    var confirmModal = document.getElementById('confirm-modal');
-    if (confirmModal && !confirmModal.classList.contains('hidden')) return;
-    dd.classList.add('hidden');
+    var btn = dd.previousElementSibling;
+    if (!dd.contains(e.target) && btn && !btn.contains(e.target)) {
+      dd.classList.add('hidden');
+    }
   });
 });
 
@@ -1237,19 +1152,13 @@ document.addEventListener('click', function(e) {
   }
 });
 function confirmDelete(certId, customerName) {
-  console.log('confirmDelete called:', certId, customerName);
   showConfirmModal('确认删除', '确定删除「' + customerName + '」的记录？此操作不可恢复。', '确认删除', function() {
-    console.log('Deleting cert:', certId, 'csrf:', _csrfToken ? 'yes' : 'NO');
     fetch('/api/cert/' + certId, {
       method: 'DELETE',
       headers: { 'X-CSRF-Token': _csrfToken }
     })
-    .then(function(r) { 
-      console.log('DELETE response status:', r.status);
-      return r.json(); 
-    })
+    .then(function(r) { return r.json(); })
     .then(function(data) {
-      console.log('DELETE response data:', data);
       if (data.csrf_token) _csrfToken = data.csrf_token;
       if (data.ok) {
         var row = document.querySelector('tr[data-id="' + certId + '"]');
@@ -1257,10 +1166,7 @@ function confirmDelete(certId, customerName) {
         showToast('删除成功', 'success');
       } else { showToast(data.message || '删除失败', 'error'); }
     })
-    .catch(function(e) { 
-      console.error('Delete error:', e);
-      showToast('网络错误：' + e.message, 'error'); 
-    });
+    .catch(function(e) { showToast('网络错误：' + e.message, 'error'); });
   });
 }
 
@@ -1297,15 +1203,8 @@ function batchDelete() {
       }
       else { showToast(data.message || '删除失败', 'error'); }
     })
-    .catch(function(e) { 
-        console.error('Delete error:', e);
-        showToast('网络错误：' + e.message, 'error'); 
-      });
-    });
-  } catch(e) {
-    console.error('confirmDelete error:', e);
-    showToast('删除失败：' + e.message, 'error');
-  }
+    .catch(function(e) { showToast('网络错误：' + e.message, 'error'); });
+  });
 }
 
 function batchHandle(handled) {

@@ -210,10 +210,9 @@ def login():
         logger.warning(f"IP {client_ip} 登录频率超限")
         return render_template("login.html", error="请求过于频繁，请稍后再试")
 
-    # 验证码已禁用 — 用户反馈移动端输入困难
-    # if captcha_code != session.get("captcha", ""):
-    #     _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
-    #     return render_template("login.html", error="验证码错误")
+    if captcha_code != session.get("captcha", ""):
+        _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
+        return render_template("login.html", error="验证码错误")
 
     if is_user_locked(username):
         secs = get_lock_seconds(username)
@@ -226,10 +225,7 @@ def login():
 
     if verify_user(username, password):
         reset_failed_attempts(username)
-        # 保留 _csrf_token 避免前端token失效
-        csrf_token = session.get("_csrf_token", "")
         session.clear()
-        session["_csrf_token"] = csrf_token
         session["logged_in"] = True
         session["username"] = username
         session["login_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -400,7 +396,7 @@ def add_cert():
             "customer": request.form.get("customer", "").strip(),
             "cert_type": (request.form.get("cert_type", "").strip() or request.form.get("cert_type_custom", "").strip()),
             "domain": request.form.get("domain", "").strip(),
-            "expire_date": request.form.get("expire_date_combined", "").strip() or (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
+            "expire_date": (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
             "note": request.form.get("note", "").strip(),
             "remind_enabled": request.form.get("remind_enabled", "on") == "on",
             "handled": False,
@@ -427,7 +423,7 @@ def add_cert():
             "customer": customer,
             "cert_type": cert_type,
             "domain": request.form.get("domain", "").strip(),
-            "expire_date": request.form.get("expire_date_combined", "").strip() or (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
+            "expire_date": (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
             "note": request.form.get("note", "").strip(),
             "remind_enabled": request.form.get("remind_enabled", "on") == "on",
             "handled": False,
@@ -533,8 +529,8 @@ def _check_api_csrf():
         token = request.json.get("_csrf_token")
     if not token or token != session.get("_csrf_token"):
         return False
-    # 不再每次API调用都旋转token，避免前端来不及更新导致后续请求失败
-    # token旋转只在登录/登出时进行
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        session["_csrf_token"] = secrets.token_hex(32)
     return True
 
 @app.route("/api/cert_status/<int:cert_id>")
