@@ -212,6 +212,10 @@
 {% endblock %}
 
 {% block scripts %}
+document.addEventListener('DOMContentLoaded', function() {
+  var skeleton = document.getElementById('skeleton-loading');
+  if (skeleton) skeleton.classList.add('hidden');
+});
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
 function applyFilter() {
   var user = document.getElementById('filterUser').value;

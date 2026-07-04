@@ -93,7 +93,7 @@ document.addEventListener('keydown', function(e) {
 <body class="bg-gray-50 min-h-screen">
 
 <!-- Toast 提示 -->
-<div id="toast-container" class="fixed top-16 right-4 z-[60] space-y-2 max-w-xs"></div>
+<div id="toast-container" class="fixed top-16 right-4 z-[60] space-y-2 max-w-xs" role="status" aria-live="polite"></div>
 <script nonce="{{ csp_nonce }}">
 function showToast(msg, type) {
   var container = document.getElementById('toast-container');
@@ -253,6 +253,43 @@ function showToast(msg, type) {
 
 <main class="max-w-7xl mx-auto px-4 py-6">
 
+  <!-- Skeleton Loading (shown initially) -->
+  <div id="skeleton-loading" class="mb-6 space-y-6">
+    <!-- Stats skeleton -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-white rounded-xl p-4 border border-gray-200 animate-pulse">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-gray-200 rounded-lg"></div>
+          <div class="space-y-2">
+            <div class="h-6 w-16 bg-gray-200 rounded"></div>
+            <div class="h-3 w-20 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-gray-200 rounded-lg"></div><div class="space-y-2"><div class="h-6 w-16 bg-gray-200 rounded"></div><div class="h-3 w-20 bg-gray-200 rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-gray-200 rounded-lg"></div><div class="space-y-2"><div class="h-6 w-16 bg-gray-200 rounded"></div><div class="h-3 w-20 bg-gray-200 rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-gray-200 rounded-lg"></div><div class="space-y-2"><div class="h-6 w-16 bg-gray-200 rounded"></div><div class="h-3 w-20 bg-gray-200 rounded"></div></div></div></div>
+    </div>
+    <!-- Chart skeleton -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+      <div class="h-4 w-32 bg-gray-200 rounded mb-3"></div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="h-20 bg-gray-200 rounded"></div>
+        <div class="h-20 bg-gray-200 rounded"></div>
+        <div class="h-20 bg-gray-200 rounded"></div>
+      </div>
+    </div>
+    <!-- Table skeleton -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4 animate-pulse">
+      <div class="h-4 w-48 bg-gray-200 rounded mb-3"></div>
+      <div class="space-y-3">
+        <div class="h-10 bg-gray-100 rounded"></div>
+        <div class="h-10 bg-gray-100 rounded"></div>
+        <div class="h-10 bg-gray-100 rounded"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 页面标题栏 -->
   <div class="flex items-center justify-between mb-6">
     <div>
@@ -382,13 +419,13 @@ function showToast(msg, type) {
   <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
     <div class="relative">
       <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-      <input type="text" id="search-input" placeholder="搜索客户名称、类型…"
+      <input type="text" id="search-input" placeholder="搜索客户名称、类型…" aria-label="搜索客户名称或提醒类型" autocomplete="off"
         oninput="filterTable(); showSearchSuggestions(this.value)" onkeydown="if(event.key==='Enter')filterTable(); if(event.key==='ArrowDown')selectSuggestion(1); if(event.key==='ArrowUp')selectSuggestion(-1); if(event.key==='Escape')hideSearchSuggestions();"
         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" autocomplete="off">
     </div>
     <div id="search-suggestions" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 hidden max-h-48 overflow-y-auto"></div>
     <div class="flex flex-wrap gap-2 mt-3">
-      <select id="filter-status" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="filter-status" aria-label="筛选状态" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">全部状态</option>
         <option value="mine">我负责的</option>
         <option value="normal">正常</option>
@@ -397,18 +434,19 @@ function showToast(msg, type) {
         <option value="handled">已处理</option>
         <option value="unhandled">未处理</option>
       </select>
-      <select id="filter-type" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="filter-type" aria-label="筛选提醒类型" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">全部类型</option>
         {% for t in cert_types %}
         <option value="{{ t }}">{{ t }}</option>
         {% endfor %}
       </select>
-      <input type="date" id="filter-date-from" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" title="到期起始日期">
-      <input type="date" id="filter-date-to" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" title="到期截止日期">
+      <input type="date" id="filter-date-from" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期起始日期">
+      <input type="date" id="filter-date-to" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期截止日期">
       <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline-block"></i> 重置筛选
       </button>
-    </div>
+    </div><!-- /relative -->
+    </div><!-- /relative -->
   </div>
 
   <!-- 批量操作工具栏（仅管理员） -->
@@ -466,13 +504,13 @@ function showToast(msg, type) {
           <tr>
             {% if is_admin %}
             <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 w-10">
-              <input type="checkbox" id="select-all-header" onchange="toggleSelectAll()" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+              <input type="checkbox" id="select-all-header" onchange="toggleSelectAll()" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" aria-label="全选所有记录">
             </th>
             {% endif %}
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('customer')">客户名称 <span class="sort-icon" data-col="customer"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('cert_type')">提醒类型 <span class="sort-icon" data-col="cert_type"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('expire_date')">到期时间 <span class="sort-icon" data-col="expire_date"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('days_left')">状态 <span class="sort-icon" data-col="days_left"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('customer')" aria-label="按客户名称排序">客户名称 <span class="sort-icon" data-col="customer"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('cert_type')" aria-label="按提醒类型排序">提醒类型 <span class="sort-icon" data-col="cert_type"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('expire_date')" aria-label="按到期时间排序">到期时间 <span class="sort-icon" data-col="expire_date"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('days_left')" aria-label="按状态排序">状态 <span class="sort-icon" data-col="days_left"></span></th>
             <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">备注</th>
             <th class="px-4 py-3 text-center text-sm font-medium text-gray-600">操作</th>
           </tr>
@@ -485,7 +523,7 @@ function showToast(msg, type) {
               data-id="{{ c.id }}" data-note="{{ c.get("note","") }}" data-expire="{{ c.expire_date }}" data-createdby="{{ c.get("created_by", "") }}">
             {% if is_admin %}
             <td class="px-4 py-3 text-center">
-              <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ c.id }}" onchange="onRowSelect(this, {{ c.id }})">
+              <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ c.id }}" aria-label="选择 {{ c.customer }} 的记录" onchange="onRowSelect(this, {{ c.id }})">
             </td>
             {% endif %}
             <td class="px-4 py-3">

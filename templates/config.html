@@ -51,7 +51,7 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
-        <input name="webhook_url" id="dingtalk-webhook" value="{{ cfg.get('webhook_url', '') }}"
+        <input name="webhook_url" id="dingtalk-webhook" aria-label="钉钉 Webhook 地址" value="{{ cfg.get('webhook_url', '') }}"
           placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
         <p class="mt-1.5 text-xs text-gray-500 leading-relaxed">
@@ -60,7 +60,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">加签密钥（Secret）</label>
-        <input name="secret" id="dingtalk-secret" value="{{ cfg.get('secret', '') }}"
+        <input name="secret" id="dingtalk-secret" aria-label="加签密钥 Secret" value="{{ cfg.get('secret', '') }}"
           placeholder="安全设置 → 加签 → 复制密钥"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
         <p class="mt-1.5 text-xs text-gray-500">如已开启加签，请填写机器人安全设置的密钥；无加签可留空</p>
@@ -100,37 +100,37 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">SMTP 服务器</label>
-        <input name="smtp_host" id="smtp-host" value="{{ cfg.get('smtp_host', '') }}" placeholder="smtp.qq.com"
+        <input name="smtp_host" id="smtp-host" aria-label="SMTP 服务器地址" value="{{ cfg.get('smtp_host', '') }}" placeholder="smtp.qq.com"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">端口</label>
-          <input name="smtp_port" id="smtp-port" value="{{ cfg.get('smtp_port', '465') }}" placeholder="465"
+          <input name="smtp_port" id="smtp-port" aria-label="SMTP 端口" value="{{ cfg.get('smtp_port', '465') }}" placeholder="465"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱账号</label>
-          <input name="smtp_user" id="smtp-user" value="{{ cfg.get('smtp_user', '') }}" placeholder="your@email.com"
+          <input name="smtp_user" id="smtp-user" aria-label="邮箱账号" value="{{ cfg.get('smtp_user', '') }}" placeholder="your@email.com"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         </div>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">发件人显示名称</label>
-        <input name="smtp_from_name" id="smtp-from-name" value="{{ cfg.get('smtp_from_name', '到期提醒系统') }}" placeholder="到期提醒系统"
+        <input name="smtp_from_name" id="smtp-from-name" aria-label="发件人显示名称" value="{{ cfg.get('smtp_from_name', '到期提醒系统') }}" placeholder="到期提醒系统"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         <p class="mt-1 text-xs text-gray-500">收件人看到的发件人名称，留空默认显示邮箱账号</p>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱密码/授权码</label>
-          <input name="smtp_pass" id="smtp-pass" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
+          <input name="smtp_pass" id="smtp-pass" aria-label="邮箱密码或授权码" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             data-original-value="{{ cfg.get('smtp_pass', '') }}">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">收件人地址</label>
-          <input name="smtp_to" id="smtp-to" value="{{ cfg.get('smtp_to', '') }}" placeholder="多个用逗号分隔"
+          <input name="smtp_to" id="smtp-to" aria-label="收件人地址" value="{{ cfg.get('smtp_to', '') }}" placeholder="多个用逗号分隔"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         </div>
       </div>
@@ -174,7 +174,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
-        <input type="text" id="wecom-webhook" value="{{ cfg.get('wecom_webhook', '') }}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+        <input type="text" id="wecom-webhook" aria-label="企业微信 Webhook 地址" value="{{ cfg.get('wecom_webhook', '') }}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         <p class="mt-1 text-xs text-gray-400">在企业微信机器人设置中获取 Webhook 地址</p>
       </div>

@@ -64,7 +64,7 @@
           <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
           <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 Excel 文件（.xlsx）</p>
           <p class="text-gray-400 text-xs">支持 .xlsx 格式，必填字段：客户名称、到期日期</p>
-          <input type="file" id="excel-file" accept=".xlsx" class="hidden" onchange="onExcelSelected(event)">
+          <input type="file" id="excel-file" aria-label="上传 Excel 文件" accept=".xlsx" class="hidden" onchange="onExcelSelected(event)">
         </div>
         <div class="flex gap-3 mt-4">
           <a href="/import/template" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
@@ -122,7 +122,7 @@
           <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
           <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 CSV 文件</p>
           <p class="text-gray-400 text-xs">支持 UTF-8 / GBK 编码，自动检测分隔符（逗号/制表符/分号）</p>
-          <input type="file" id="csv-file" accept=".csv,.tsv,.txt" class="hidden" onchange="onCsvSelected(event)">
+          <input type="file" id="csv-file" aria-label="上传 CSV 文件" accept=".csv,.tsv,.txt" class="hidden" onchange="onCsvSelected(event)">
         </div>
         <div class="flex gap-3 mt-4 flex-wrap">
           <a href="/export/csv" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
@@ -179,7 +179,7 @@
 
       <form id="import-form" onsubmit="return doJsonImport(event)">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">粘贴 JSON 格式记录数据</label>
-        <textarea id="json-input"
+        <textarea id="json-input" aria-label="JSON 格式记录数据"
           placeholder='[{"customer": "华联超市", "cert_type": "年报截止", "domain": "", "expire_date": "2025-12-31", "note": "需提前处理"}]'
           class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono resize-y min-h-[160px] leading-relaxed"></textarea>
         <div class="flex gap-3 mt-3 flex-wrap items-center">

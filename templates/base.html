@@ -2,14 +2,39 @@
 <html lang="zh-CN" class="">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="color-scheme" content="light dark">
   <title>{% block title %}证书到期提醒系统{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='dark.css') }}">
   {% block head %}{% endblock %}
+  <style>
+    /* Focus visible for keyboard navigation */
+    *:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    /* Skip link for accessibility */
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: #3b82f6;
+      color: white;
+      padding: 8px 16px;
+      z-index: 100;
+      transition: top 0.2s;
+    }
+    .skip-link:focus {
+      top: 0;
+    }
+  </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+  <!-- Skip to main content -->
+  <a href="#main-content" class="skip-link">跳转到主要内容</a>
   <!-- Mobile Header -->
   <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden">
     <div class="flex items-center justify-between px-4 h-14">
@@ -84,13 +109,13 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 p-4 md:p-6 lg:p-8">
+    <main id="main-content" class="flex-1 p-4 md:p-6 lg:p-8">
       <!-- Flash Messages -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
           <div id="flash-container" class="mb-4 space-y-2">
             {% for category, message in messages %}
-              <div class="flex items-center gap-2 px-4 py-3 rounded-lg border {{ 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300' if category == 'success' else 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300' if category == 'error' else 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300' if category == 'info' else 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300' }}">
+              <div role="alert" aria-live="assertive" class="flex items-center gap-2 px-4 py-3 rounded-lg border {{ 'bg-green-50 border-green-200 text-green-800 dark:bg-green-900/30 dark:border-green-800 dark:text-green-300' if category == 'success' else 'bg-red-50 border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300' if category == 'error' else 'bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300' if category == 'info' else 'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-800 dark:text-yellow-300' }}">
                 <span class="flex-1 text-sm">{{ message }}</span>
                 <button onclick="this.parentElement.remove()" class="opacity-60 hover:opacity-100">&times;</button>
               </div>
@@ -104,12 +129,42 @@
   </div>
 
   <!-- Toast Container -->
-  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite"></div>
 
   <script src="{{ url_for('static', filename='dark.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
   <script>lucide.createIcons();</script>
 
   {% block scripts %}{% endblock %}
+
+  <!-- Global Loading Overlay -->
+  <div id="global-loading" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm" aria-live="polite">
+    <div class="text-center">
+      <div class="inline-block w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+      <p class="mt-3 text-sm text-gray-600 dark:text-gray-300" id="loading-text">加载中...</p>
+    </div>
+  </div>
+
+  <script>
+    // Global loading helpers
+    window.showLoading = function(text) {
+      var el = document.getElementById('global-loading');
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      if (text) document.getElementById('loading-text').textContent = text;
+    };
+    window.hideLoading = function() {
+      var el = document.getElementById('global-loading');
+      el.classList.remove('flex');
+      el.classList.add('hidden');
+    };
+    // Auto-hide after 30s to prevent stuck loaders
+    window._loadingTimer = null;
+    window.showLoading.autoHide = function(text) {
+      showLoading(text);
+      clearTimeout(window._loadingTimer);
+      window._loadingTimer = setTimeout(hideLoading, 30000);
+    };
+  </script>
 </body>
 </html>
