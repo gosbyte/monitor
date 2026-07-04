@@ -453,11 +453,6 @@ function showToast(msg, type) {
           </button>
         </div>
       </div>
-      <!-- 批量删除按钮（单独显示） -->
-      <button onclick="batchDelete()" id="btn-batch-delete-float" disabled
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-red-50 text-red-700 hover:bg-red-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
-        <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 删除
-      </button>
     </div>
   </div>
   {% endif %}
@@ -524,31 +519,40 @@ function showToast(msg, type) {
             <td class="px-4 py-3 text-gray-500 text-sm max-w-xs truncate hidden md:table-cell" title="{{ c.note }}">{{ c.note or '-' }}</td>
             <td class="px-4 py-3 text-right">
               <div class="flex items-center justify-end gap-0.5 md:gap-1">
-                {% if is_admin %}
-                <button onclick='pushCert({{ c.id }}, {{ c.customer|tojson }})' title="发送推送"
-                  class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors" id="btn-push-{{ c.id }}">
-                  <i data-lucide="upload" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% endif %}
-                <button onclick="toggleStatus({{ c.id }})" title="切换提醒" id="btn-status-{{ c.id }}"
-                  class="action-btn remind-btn p-1.5 md:p-2 rounded-lg transition-colors {% if c.remind_enabled %}text-blue-600 hover:bg-blue-50{% else %}text-gray-300 hover:bg-gray-100{% endif %}">
-                  <i data-lucide="{% if c.remind_enabled %}bell{% else %}bell-off{% endif %}" class="w-4 h-4"></i>
-                </button>
-                <button onclick="toggleHandled({{ c.id }})" title="{% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}" id="btn-handled-{{ c.id }}"
-                  class="action-btn handled-btn p-1.5 md:p-2 rounded-lg transition-colors {% if c.get('handled') %}text-teal-600 hover:bg-teal-50{% else %}text-gray-300 hover:bg-gray-100{% endif %}">
-                  <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-4 h-4"></i>
-                </button>
+                <!-- 常用操作直接显示 -->
                 <button onclick="openEditModal({{ c.id }})" class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
                   <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
                 </button>
-                <button onclick="duplicateCert({{ c.id }})" class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="复制">
-                  <i data-lucide="copy" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% if is_admin %}
-                <button onclick='confirmDelete({{ c.id }}, {{ c.customer|tojson }})' class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="删除">
-                  <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
-                </button>
-                {% endif %}
+                <!-- 更多操作下拉菜单 -->
+                <div class="relative group">
+                  <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
+                    <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
+                  </button>
+                  <div id="row-menu-{{ c.id }}" class="hidden fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44" style="right:auto;left:auto;top:auto;">
+                    {% if is_admin %}
+                    <button onclick="closeRowMenu({{ c.id }});pushCert({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
+                    </button>
+                    {% endif %}
+                    <button onclick="closeRowMenu({{ c.id }});toggleStatus({{ c.id }})" class="w-full text-left px-3 py-2 text-sm {% if c.remind_enabled %}text-blue-600 hover:bg-blue-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
+                      <i data-lucide="{% if c.remind_enabled %}bell{% else %}bell-off{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
+                      {% if c.remind_enabled %}禁用提醒{% else %}启用提醒{% endif %}
+                    </button>
+                    <button onclick="closeRowMenu({{ c.id }});toggleHandled({{ c.id }})" class="w-full text-left px-3 py-2 text-sm {% if c.get('handled') %}text-teal-600 hover:bg-teal-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
+                      <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
+                      {% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}
+                    </button>
+                    <button onclick="closeRowMenu({{ c.id }});duplicateCert({{ c.id }})" class="w-full text-left px-3 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="copy" class="w-3.5 h-3.5 inline-block"></i> 复制记录
+                    </button>
+                    <div class="border-t border-gray-100 my-1"></div>
+                    {% if is_admin %}
+                    <button onclick="closeRowMenu({{ c.id }});confirmDelete({{ c.id }}, {{ c.customer|tojson }})" class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 删除记录
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
               </div>
             </td>
           </tr>
@@ -1116,17 +1120,10 @@ function updateBatchUI() {
   var countEl = document.getElementById('selected-count');
   if (countEl) countEl.textContent = '已选 ' + count + ' 条';
 
-  var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete', 'btn-batch-delete-float'];
+  var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete'];
   btns.forEach(function(id) {
     var btn = document.getElementById(id);
-    if (btn) {
-      btn.disabled = count === 0;
-      if (id === 'btn-batch-delete-float') {
-        // 浮动删除按钮：无选中时隐藏，有选中时显示
-        if (count === 0) btn.classList.add('hidden');
-        else btn.classList.remove('hidden');
-      }
-    }
+    if (btn) btn.disabled = count === 0;
   });
 
   // Update select-all checkbox state
@@ -1180,6 +1177,11 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── 行操作下拉菜单 ────────────────────────────────────────
+function closeRowMenu(certId) {
+  var dd = document.getElementById('row-menu-' + certId);
+  if (dd) dd.classList.add('hidden');
+}
+
 function toggleRowMenu(certId, btnEl, evt) {
   var dd = document.getElementById('row-menu-' + certId);
   if (!dd) return;
@@ -1190,29 +1192,36 @@ function toggleRowMenu(certId, btnEl, evt) {
   });
   if (wasHidden) {
     dd.classList.remove('hidden');
-    dd.style.top = '';
-    dd.style.bottom = '';
-  } else {
-    dd.classList.add('hidden');
+    // 计算按钮位置，用 fixed 定位菜单
+    var rect = btnEl.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.right = 'auto';
+    dd.style.left = rect.left + 'px';
+    // 边界检测：如果菜单超出视口底部，往上弹
+    var ddRect = dd.getBoundingClientRect();
+    if (ddRect.bottom > window.innerHeight) {
+      dd.style.top = (rect.top - ddRect.height - 4) + 'px';
+    }
+    // 如果菜单超出视口右侧，靠右对齐
+    if (ddRect.right > window.innerWidth) {
+      dd.style.left = '';
+      dd.style.right = (window.innerWidth - rect.right) + 'px';
+    }
   }
   // 按钮点击反馈
   if (btnEl) {
     btnEl.classList.add('bg-gray-100');
     setTimeout(function() { btnEl.classList.remove('bg-gray-100'); }, 200);
   }
-  // 阻止事件冒泡到 document 的关闭逻辑（移动端必须）
   if (evt) evt.stopPropagation();
 }
+
 // 关闭行操作菜单（点击外部时）
 document.addEventListener('click', function(e) {
   document.querySelectorAll('[id^="row-menu-"]').forEach(function(dd) {
     if (dd.classList.contains('hidden')) return;
-    var group = dd.closest('.relative.group');
-    if (!group) return;
-    var btn = group.querySelector('button');
-    // 点击菜单内部或按钮本身都不关闭
-    if (dd.contains(e.target) || (btn && btn.contains(e.target))) return;
-    // 点击确认弹窗也不关闭
+    // 点击菜单内部不关闭
+    if (dd.contains(e.target)) return;
     var confirmModal = document.getElementById('confirm-modal');
     if (confirmModal && !confirmModal.classList.contains('hidden')) return;
     dd.classList.add('hidden');
@@ -1233,7 +1242,7 @@ document.addEventListener('click', function(e) {
 });
 function confirmDelete(certId, customerName) {
   showConfirmModal('确认删除', '确定删除「' + customerName + '」的记录？此操作不可恢复。', '确认删除', function() {
-    var btn = document.querySelector('[onclick*="confirmDelete"]');
+    var btn = document.querySelector('button[title="删除"]');
     if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
     fetch('/api/cert/' + certId, {
       method: 'DELETE',
