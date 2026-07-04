@@ -872,7 +872,9 @@ function duplicateCert(certId) {
       showToast('已复制到表单，修改到期时间后提交', 'info');
     })
     .catch(function(e) { showToast('加载失败', 'error'); });
+  });
 }
+
 function closeAddModal() {
   document.getElementById('add-modal').classList.add('hidden');
   document.getElementById('add-modal').classList.remove('flex');
