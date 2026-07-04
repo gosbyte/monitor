@@ -7,6 +7,9 @@ body.dark-mode .bg-orange-50, body.dark-mode .bg-orange-100 { background: #78350
 body.dark-mode .bg-yellow-100 { background: #78350f !important; }
 body.dark-mode .bg-blue-100 { background: #1e3a5f !important; }
 body.dark-mode .bg-gray-100 { background: #374151 !important; }
+body.dark-mode .bg-teal-50 { background: #134e4a !important; }
+body.dark-mode .bg-purple-50 { background: #3b0764 !important; }
+body.dark-mode .bg-gray-200 { background: #374151 !important; }
 body.dark-mode .border-gray-200, body.dark-mode .border-gray-100 { border-color: #374151 !important; }
 body.dark-mode .border-gray-300 { border-color: #4b5563 !important; }
 body.dark-mode .text-gray-900 { color: #f9fafb !important; }
@@ -18,22 +21,22 @@ body.dark-mode .text-gray-400, body.dark-mode .text-gray-300, body.dark-mode .te
 body.dark-mode input, body.dark-mode textarea, body.dark-mode select { background: #1f2937 !important; border-color: #4b5563 !important; color: #f3f4f6 !important; }
 body.dark-mode .hover\:bg-gray-50:hover { background: #374151 !important; }
 body.dark-mode .hover\:bg-gray-100:hover { background: #4b5563 !important; }
-/* 表格 */
 body.dark-mode table { color: #f3f4f6 !important; }
 body.dark-mode thead.bg-gray-50 { background: #1f2937 !important; }
 body.dark-mode thead th { color: #9ca3af !important; border-color: #374151 !important; }
 body.dark-mode tbody tr { border-color: #374151 !important; }
-body.dark-mode tbody tr:hover { background: #374151 !important; }
-/* Badge */
+body.dark-mode tbody tr:hover { background: #1e3a5f !important; }
 body.dark-mode .bg-teal-50 { background: #134e4a !important; }
 body.dark-mode .bg-purple-50 { background: #3b0764 !important; }
 body.dark-mode .bg-gray-200 { background: #374151 !important; }
-/* 统计卡片 hover */
-body.dark-mode .cursor-pointer:hover { border-color: #4b5563 !important; }
-/* 自定义确认弹窗 */
+body.dark-mode .cursor-pointer:hover { border-color: #60a5fa !important; }
 body.dark-mode #confirm-modal > div { background: #1f2937 !important; }
 body.dark-mode #confirm-modal h3 { color: #f9fafb !important; }
-/* 分页按钮 */
 body.dark-mode button.border { border-color: #374151 !important; color: #d1d5db !important; }
 body.dark-mode button.border:hover { background: #374151 !important; }
-
+body.dark-mode #admin-menu { background: #1f2937 !important; border-color: #374151 !important; }
+body.dark-mode #admin-menu a { color: #d1d5db !important; }
+body.dark-mode #admin-menu a:hover { background: #374151 !important; color: #60a5fa !important; }
+body.dark-mode #mobile-menu { background: #1f2937 !important; border-color: #374151 !important; }
+body.dark-mode tr.selected-row { background: #1e3a5f !important; }
+tr.selected-row { background: #dbeafe !important; }

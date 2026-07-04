@@ -155,6 +155,11 @@ def _before_request_setup():
 def inject_csp_nonce():
     return dict(csp_nonce=getattr(g, 'csp_nonce', ''))
 
+# [FIX] Inject CSRF token and badge count into all templates
+@app.context_processor
+def inject_template_globals():
+    return inject_globals()
+
 # [FIX] P0-2: 重新启用 CSP
 @app.after_request
 def set_security_headers(response):
@@ -298,6 +303,10 @@ def index():
     certs = load_certs()
     cfg = load_config()
     for c in certs:
+        # [FIX] 统一日期格式：确保 expire_date 格式正确
+        ed = c.get("expire_date", "")
+        if ed and "T" in ed:
+            c["expire_date"] = ed.replace("T", " ")
         c["days_left"] = calc_days_left(c["expire_date"])
         c["status"] = get_cert_status(c, c["days_left"])
     certs.sort(key=lambda x: x["days_left"])
@@ -387,7 +396,7 @@ def add_cert():
             "customer": request.form.get("customer", "").strip(),
             "cert_type": (request.form.get("cert_type", "").strip() or request.form.get("cert_type_custom", "").strip()),
             "domain": request.form.get("domain", "").strip(),
-            "expire_date": request.form.get("expire_date", "").strip(),
+            "expire_date": (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
             "note": request.form.get("note", "").strip(),
             "remind_enabled": request.form.get("remind_enabled", "on") == "on",
             "handled": False,
@@ -414,7 +423,7 @@ def add_cert():
             "customer": customer,
             "cert_type": cert_type,
             "domain": request.form.get("domain", "").strip(),
-            "expire_date": request.form.get("expire_date", "").strip(),
+            "expire_date": (request.form.get("expire_date", "").strip() + " " + request.form.get("expire_time", "").strip()).strip(),
             "note": request.form.get("note", "").strip(),
             "remind_enabled": request.form.get("remind_enabled", "on") == "on",
             "handled": False,
@@ -534,7 +543,8 @@ def get_cert_status_api(cert_id):
             status = get_cert_status(c, days_left)
             enabled = c.get("remind_enabled", True)
             handled = c.get("handled", False)
-            expire_str = c["expire_date"].replace("T", " ")
+            # 统一日期格式用于显示
+            expire_str = c.get("expire_date", "").replace("T", " ").strip()
             if status == "disabled":
                 badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>'
             elif status == "expired":
