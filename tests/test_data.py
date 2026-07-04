@@ -8,21 +8,11 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data import (
-    atomic_write_json, load_certs, save_certs,
+    load_certs, save_certs,
     load_config, save_config, load_users, save_users,
     verify_user, validate_password, calc_days_left,
     get_cert_status, calc_stats, write_log, load_logs,
 )
-
-
-def test_atomic_write_json(temp_data_dir):
-    """原子写入：临时文件 + os.replace"""
-    test_file = os.path.join(temp_data_dir, "test.json")
-    data = {"key": "value", "num": 42}
-    atomic_write_json(test_file, data)
-    assert os.path.exists(test_file)
-    with open(test_file) as f:
-        assert json.load(f) == data
 
 
 def test_load_save_certs(temp_data_dir):
@@ -39,9 +29,6 @@ def test_load_save_certs(temp_data_dir):
 
 def test_empty_certs(temp_data_dir):
     """空到期项列表"""
-    # 清除之前测试留下的缓存
-    import data
-    data._certs_cache = {"data": None, "mtime": 0}
     loaded = load_certs()
     assert loaded == []
 
@@ -50,7 +37,7 @@ def test_load_config_defaults(temp_data_dir):
     """默认配置"""
     cfg = load_config()
     assert cfg["webhook_url"] == ""
-    assert cfg["remind_days"] == [7, 3, 1]
+    assert cfg["remind_days"] == [30, 14, 7, 3, 1]
 
 
 def test_save_config(temp_data_dir):
@@ -64,20 +51,20 @@ def test_save_config(temp_data_dir):
 
 def test_validate_password_strength():
     """密码强度验证"""
-    ok, msg = validate_password("Abc12345")
+    ok, msg, score, label = validate_password("Abc123456789")
     assert ok is True
-    assert msg == ""
+    assert "强度" in msg
     
-    ok, msg = validate_password("short")
+    ok, msg = validate_password("short")[:2]
     assert ok is False
     
-    ok, msg = validate_password("nouppercase1")
+    ok, msg = validate_password("nouppercase12345")[:2]
     assert ok is False
     
-    ok, msg = validate_password("NOLOWERCASE1")
+    ok, msg = validate_password("NOLOWERCASE12345")[:2]
     assert ok is False
     
-    ok, msg = validate_password("NoDigits")
+    ok, msg = validate_password("NoDigitsHere!")[:2]
     assert ok is False
 
 

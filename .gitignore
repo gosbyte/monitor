@@ -18,3 +18,22 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Minified JS (using CDN now)
+static/*.min.js
+
+# Node modules (if building locally)
+node_modules/
+
+# Logs
+daemon.log
+flask.log
+audit.log
+
+# SQLite database
+monitor.db

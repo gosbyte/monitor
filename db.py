@@ -3,11 +3,14 @@
 数据库层 - SQLite 替代 JSON 文件
 支持索引、事务、并发查询
 """
+from __future__ import annotations
+
 import os
 import sqlite3
 import json
 import logging
 from datetime import datetime
+from typing import Any
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
@@ -15,7 +18,7 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.path.join(os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__))), "monitor.db")
 
 
-def get_db():
+def get_db() -> sqlite3.Connection:
     """获取数据库连接"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -27,7 +30,7 @@ def get_db():
 @contextmanager
 def db_transaction():
     """数据库事务上下文管理器"""
-    conn = get_db()
+    conn: sqlite3.Connection = get_db()
     try:
         yield conn
         conn.commit()
@@ -39,7 +42,7 @@ def db_transaction():
         conn.close()
 
 
-def init_db():
+def init_db() -> None:
     """初始化数据库表结构"""
     with db_transaction() as conn:
         conn.executescript("""
@@ -139,7 +142,7 @@ def init_db():
         logger.info("Database initialized successfully")
 
 
-def migrate_json_to_sqlite():
+def migrate_json_to_sqlite() -> int:
     """从 JSON 文件迁移数据到 SQLite"""
     import json as json_mod
     
@@ -232,11 +235,11 @@ def migrate_json_to_sqlite():
 
 
 # ── 到期项 CRUD ──────────────────────────────────────────────
-def db_load_certs():
+def db_load_certs() -> list[dict[str, Any]]:
     """加载所有到期项"""
     with db_transaction() as conn:
         rows = conn.execute("SELECT * FROM certs ORDER BY expire_date ASC").fetchall()
-        certs = []
+        certs: list[dict[str, Any]] = []
         for r in rows:
             cert = dict(r)
             cert["responsible_users"] = json.loads(cert.get("responsible_users", "[]"))
@@ -246,7 +249,7 @@ def db_load_certs():
         return certs
 
 
-def db_save_cert(cert_data):
+def db_save_cert(cert_data: dict[str, Any]) -> None:
     """保存单条到期项（先检查存在性，避免 INSERT OR REPLACE 破坏 AUTOINCREMENT ID）"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     cert_id = cert_data.get("id")
@@ -285,13 +288,13 @@ def db_save_cert(cert_data):
                  cert_data.get("created_by", ""), now, now))
 
 
-def db_delete_cert(cert_id):
+def db_delete_cert(cert_id: int) -> None:
     """删除到期项"""
     with db_transaction() as conn:
         conn.execute("DELETE FROM certs WHERE id=?", (cert_id,))
 
 
-def db_batch_delete_cert_ids(ids):
+def db_batch_delete_cert_ids(ids: list[int]) -> int:
     """批量删除到期项，返回实际删除数量"""
     with db_transaction() as conn:
         placeholders = ",".join("?" * len(ids))
@@ -299,7 +302,7 @@ def db_batch_delete_cert_ids(ids):
         return cursor.rowcount
 
 
-def db_get_cert(cert_id):
+def db_get_cert(cert_id: int) -> dict[str, Any] | None:
     """获取单条到期项"""
     with db_transaction() as conn:
         row = conn.execute("SELECT * FROM certs WHERE id=?", (cert_id,)).fetchone()
@@ -313,14 +316,14 @@ def db_get_cert(cert_id):
 
 
 # ── 用户 CRUD ──────────────────────────────────────────────
-def db_load_users():
+def db_load_users() -> list[dict[str, Any]]:
     """加载所有用户"""
     with db_transaction() as conn:
         rows = conn.execute("SELECT * FROM users").fetchall()
         return [dict(r) for r in rows]
 
 
-def db_save_user(user_data):
+def db_save_user(user_data: dict[str, Any]) -> None:
     """保存用户（先检查存在性，避免 INSERT OR REPLACE 问题）"""
     with db_transaction() as conn:
         existing = conn.execute("SELECT username FROM users WHERE username=?", (user_data["username"],)).fetchone()
@@ -351,18 +354,18 @@ def db_save_user(user_data):
                  int(user_data.get("force_change_password", 1))))
 
 
-def db_delete_user(username):
+def db_delete_user(username: str) -> None:
     """删除用户"""
     with db_transaction() as conn:
         conn.execute("DELETE FROM users WHERE username=?", (username,))
 
 
 # ── 配置 CRUD ──────────────────────────────────────────────
-def db_load_config():
+def db_load_config() -> dict[str, Any]:
     """加载配置"""
     with db_transaction() as conn:
         rows = conn.execute("SELECT key, value FROM config").fetchall()
-        cfg = {}
+        cfg: dict[str, Any] = {}
         for r in rows:
             v = r["value"]
             # 尝试解析 JSON 数组
@@ -377,7 +380,7 @@ def db_load_config():
         return cfg
 
 
-def db_save_config(cfg_dict):
+def db_save_config(cfg_dict: dict[str, Any]) -> None:
     """保存配置"""
     with db_transaction() as conn:
         for k, v in cfg_dict.items():
@@ -391,7 +394,7 @@ def db_save_config(cfg_dict):
 
 
 # ── 日志 CRUD ──────────────────────────────────────────────
-def db_write_log(username, action, detail="", target="", ip=""):
+def db_write_log(username: str, action: str, detail: str = "", target: str = "", ip: str = "") -> None:
     """写操作日志（自动限制最近1000条）"""
     with db_transaction() as conn:
         conn.execute(
@@ -402,7 +405,7 @@ def db_write_log(username, action, detail="", target="", ip=""):
         conn.execute("DELETE FROM logs WHERE rowid NOT IN (SELECT rowid FROM logs ORDER BY rowid DESC LIMIT 1000)")
 
 
-def db_load_logs(limit=200):
+def db_load_logs(limit: int = 200) -> list[dict[str, Any]]:
     """加载日志"""
     with db_transaction() as conn:
         rows = conn.execute(
@@ -411,14 +414,14 @@ def db_load_logs(limit=200):
         return [dict(r) for r in rows]
 
 
-def db_clear_logs():
+def db_clear_logs() -> None:
     """清空日志"""
     with db_transaction() as conn:
         conn.execute("DELETE FROM logs")
 
 
 # ── 推送历史 CRUD ──────────────────────────────────────────
-def db_save_push_history(customer, domain, channels, status, message=""):
+def db_save_push_history(customer: str, domain: str, channels: list[str], status: str, message: str = "") -> None:
     """保存推送历史"""
     with db_transaction() as conn:
         conn.execute(
@@ -428,7 +431,7 @@ def db_save_push_history(customer, domain, channels, status, message=""):
         )
 
 
-def db_load_push_history(limit=100):
+def db_load_push_history(limit: int = 100) -> list[dict[str, Any]]:
     """加载推送历史"""
     with db_transaction() as conn:
         rows = conn.execute(
@@ -438,7 +441,7 @@ def db_load_push_history(limit=100):
 
 
 # ── 统计 ───────────────────────────────────────────────────
-def db_calc_stats():
+def db_calc_stats() -> dict[str, int]:
     """计算统计信息"""
     with db_transaction() as conn:
         total = conn.execute("SELECT COUNT(*) FROM certs").fetchone()[0]

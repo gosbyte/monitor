@@ -3,17 +3,27 @@
 认证层 - CSRF、验证码、登录/权限装饰器（依赖 Flask）
 注意：login_required 使用 url_for("index")，需在 app.py 注册路由后使用
 """
-import secrets, random, string, os
+from __future__ import annotations
+
+import secrets
+import random
+import string
+import os
 from functools import wraps
-from flask import session, redirect, url_for, request
+from typing import Any
+from PIL import Image
+
+from flask import session, redirect, url_for, request, Response
+
 from data import (
     load_certs, calc_days_left, load_users, save_users,
     verify_user, is_user_locked, get_lock_seconds,
     do_lock_user, reset_failed_attempts,
 )
 
+
 # ── 上下文处理器 ─────────────────────────────────────────
-def inject_globals():
+def inject_globals() -> dict[str, Any]:
     """向所有模板注入 csrf_token, badge_count 和 csp_nonce"""
     badge_count = 0
     if session.get("username"):
@@ -21,7 +31,7 @@ def inject_globals():
             certs = load_certs()
             for c in certs:
                 # [FIX] P1-4: 使用浅拷贝避免修改原始数据
-                cert_copy = dict(c)
+                cert_copy: dict[str, Any] = dict(c)
                 cert_copy["days_left"] = calc_days_left(cert_copy.get("expire_date", ""))
                 badge_count += 1 if (
                     cert_copy.get("remind_enabled", True)
@@ -36,23 +46,26 @@ def inject_globals():
         # [FIX] P1-9: 移除 csp_nonce，由 app.py 的 inject_csp_nonce 单独注入
     )
 
+
 # ── CSRF ─────────────────────────────────────────────────
-def _generate_csrf_token():
+def _generate_csrf_token() -> str:
     if "_csrf_token" not in session:
         session["_csrf_token"] = secrets.token_hex(32)
     return session["_csrf_token"]
 
-def _check_csrf():
+
+def _check_csrf() -> bool:
     if request.is_json:
-        token = request.json.get("_csrf_token")
+        token: str | None = request.json.get("_csrf_token")  # type: ignore[union-attr]
     else:
         token = request.form.get("_csrf_token") or request.headers.get("X-CSRF-Token")
-    return token and token == session.get("_csrf_token")
+    return bool(token and token == session.get("_csrf_token"))
 
-def csrf_required(f):
+
+def csrf_required(f: Any) -> Any:
     """CSRF 验证装饰器，所有 POST 路由使用"""
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if not _check_csrf():
             return "CSRF 验证失败，请重新提交", 403
         # [FIX] P0-4: 只对状态变更方法旋转 CSRF token
@@ -61,11 +74,12 @@ def csrf_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
 # ── 登录/权限装饰器 ─────────────────────────────────────
-def login_required(f):
+def login_required(f: Any) -> Any:
     """登录装饰器，含 8 小时会话超时检查"""
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if "logged_in" not in session:
             return redirect(url_for("login_page"))
         login_time = session.get("login_time")
@@ -81,10 +95,11 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
-def admin_required(f):
+
+def admin_required(f: Any) -> Any:
     """管理员权限装饰器"""
     @wraps(f)
-    def decorated(*args, **kwargs):
+    def decorated(*args: Any, **kwargs: Any) -> Any:
         if "logged_in" not in session:
             return redirect(url_for("login_page"))
         current_user = session.get("username", "")
@@ -95,13 +110,15 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+
 # ── 验证码 ───────────────────────────────────────────────
-def generate_captcha():
+def generate_captcha() -> str:
     chars = string.ascii_uppercase + string.digits
     return "".join(random.choices(chars, k=4))
 
-def create_captcha_image(code):
-    from PIL import Image, ImageDraw, ImageFont
+
+def create_captcha_image(code: str) -> Image.Image:
+    from PIL import ImageDraw, ImageFont
     width, height = 140, 44
     image = Image.new("RGB", (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
@@ -111,7 +128,7 @@ def create_captcha_image(code):
         "C:/Windows/Fonts/arialbd.ttf",
         "C:/Windows/Fonts/simsunb.ttf",
     ]
-    font = None
+    font: Any = None
     for fp in font_paths:
         try:
             font = ImageFont.truetype(fp, 28)

@@ -1,16 +1,20 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
+{% extends 'base.html' %}
+
+{% block title %}编辑证书{% endblock %}
+
+{% block head %}
+>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑记录</title>
-  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}"></script>
-    <style nonce="{{ csp_nonce }}">
+  <style nonce="{{ csp_nonce }}">
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
   </style>
   <link rel="stylesheet" href="/static/dark.css">
-</head>
-<body class="bg-gray-50 min-h-screen">
+{% endblock %}
+
+{% block content %}
+<div class="md:ml-64 p-4 md:p-6 lg:p-8">
 
 <!-- 顶部导航 -->
 <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
@@ -118,7 +122,9 @@
 </main>
 
 <datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
-<script nonce="{{ csp_nonce }}">
+{% endblock %}
+
+{% block scripts %}
 function toggleRespLabel(username, checked) {
   var label = document.getElementById('resp-label-' + username);
   if (!label) return;
@@ -128,8 +134,5 @@ function toggleRespLabel(username, checked) {
     label.classList.remove('border-blue-400', 'bg-blue-50');
   }
 }
-</script>
-<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
-<script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
-<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
-</html>
+document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+{% endblock %}

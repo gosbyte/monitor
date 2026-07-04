@@ -1,43 +1,78 @@
-FROM python:3.11-slim
+##############################################
+# Stage 1: Builder — install dependencies
+##############################################
+FROM python:3.13-slim AS builder
 
-WORKDIR /app
-
-# 安装依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-
-# 安装 supervisor（进程管理）+ 中文字体（验证码用）
+# Install build-time dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    supervisor \
+    gcc \
+    libc-dev \
     fonts-dejavu-core \
     fonts-wqy-microhei \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制应用代码
-COPY . .
+# Create and activate a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# 创建数据目录和日志目录
-RUN mkdir -p /app/data /var/log/supervisor
+# Install Python dependencies into the venv
+WORKDIR /build
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
-# 首次启动时初始化空白数据（仅当 /app/data 为空时）
-RUN python init_data.py
+##############################################
+# Stage 2: Runtime — minimal production image
+##############################################
+FROM python:3.13-slim AS runtime
 
-# 配置 supervisor
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+LABEL maintainer="monitor-team" \
+      description="Item Monitor — Flask web + background daemon"
 
-# 暴露端口（默认 5188，可通过环境变量覆盖）
-ENV PORT=5188
-ENV PORT=${PORT}
-EXPOSE ${PORT}
+# Copy the virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# 设置环境变量
-ENV DATA_DIR=/app/data \
+# Create non-root user
+RUN groupadd -r appgroup && useradd -r -g appgroup -d /app -s /sbin/nologin appuser
+
+WORKDIR /app
+
+# Copy application files
+COPY app.py .
+COPY app_init.py .
+COPY routes/ ./routes/
+COPY data.py .
+COPY db.py .
+COPY daemon.py .
+COPY dingtalk.py .
+COPY webhook.py .
+COPY auth.py .
+COPY init_data.py .
+COPY supervisord.conf .
+COPY templates/ ./templates/
+COPY static/ ./static/
+
+# Create data directory and set ownership
+RUN mkdir -p /app/data /var/log/supervisor \
+    && chown -R appuser:appgroup /app \
+    && chmod -R 755 /app
+
+# Environment variables
+ENV TZ=Asia/Shanghai \
+    PORT=5188 \
+    DATA_DIR=/app/data \
     FLASK_ENV=production \
-    TZ=Asia/Shanghai
+    USE_SQLITE=1
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/')" || exit 1
+# Expose port
+EXPOSE 5188
 
-# 启动 supervisor（管理 web + daemon）
-ENTRYPOINT ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Healthcheck (matches docker-compose.yml)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5188/health')" || exit 1
+
+# Switch to non-root user
+USER appuser
+
+# Start supervisord (manages web + daemon)
+ENTRYPOINT ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]

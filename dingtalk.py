@@ -3,6 +3,8 @@
 钉钉推送模块
 支持自定义机器人（加签模式）和企业微信机器人
 """
+from __future__ import annotations
+
 import hashlib
 import hmac
 import base64
@@ -10,12 +12,20 @@ import json
 import logging
 import time
 import urllib.parse
+from typing import Any
+
 import requests
 
 logger = logging.getLogger(__name__)
 
 
-def send_dingtalk_card(webhook_url, title, content, secret="", at_user_ids=None):
+def send_dingtalk_card(
+    webhook_url: str,
+    title: str,
+    content: str,
+    secret: str = "",
+    at_user_ids: list[str] | None = None,
+) -> bool:
     """
     发送钉钉 Markdown 卡片消息
     
@@ -31,7 +41,7 @@ def send_dingtalk_card(webhook_url, title, content, secret="", at_user_ids=None)
     """
     try:
         # 构建消息体
-        message = {
+        message: dict[str, Any] = {
             "msgtype": "markdown",
             "markdown": {
                 "title": title,
@@ -81,7 +91,10 @@ def send_dingtalk_card(webhook_url, title, content, secret="", at_user_ids=None)
         return False
 
 
-def build_remind_card(certs, users_map):
+def build_remind_card(
+    certs: list[dict[str, Any]],
+    users_map: dict[str, dict[str, Any]],
+) -> tuple[str, str, list[str]]:
     """
     构建钉钉提醒卡片内容
     
@@ -95,8 +108,8 @@ def build_remind_card(certs, users_map):
     title = "🔔 到期项到期提醒"
     
     # 收集需要 @ 的用户
-    at_user_ids = []
-    content_parts = [f"## {title}\\n\\n"]
+    at_user_ids: list[str] = []
+    content_parts: list[str] = [f"## {title}\\n\\n"]
     
     for cert in certs:
         customer = cert.get("customer", "")
@@ -139,7 +152,7 @@ def build_remind_card(certs, users_map):
     return title, "".join(content_parts), at_user_ids
 
 
-def send_wecom(webhook_url, message):
+def send_wecom(webhook_url: str, message: str) -> bool:
     """
     发送企业微信消息
     
@@ -151,7 +164,7 @@ def send_wecom(webhook_url, message):
         bool: 发送是否成功
     """
     try:
-        payload = {
+        payload: dict[str, Any] = {
             "msgtype": "text",
             "text": {
                 "content": message

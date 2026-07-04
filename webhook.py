@@ -2,15 +2,19 @@
 """
 Webhook 回调模块 - 支持第三方系统接入
 """
+from __future__ import annotations
+
 import json
 import logging
-import requests
 from datetime import datetime
+from typing import Any
+
+import requests
 
 logger = logging.getLogger(__name__)
 
 
-def send_webhook(url, payload, timeout=10):
+def send_webhook(url: str, payload: dict[str, Any], timeout: int = 10) -> bool:
     """发送 Webhook 回调"""
     try:
         response = requests.post(
@@ -30,7 +34,7 @@ def send_webhook(url, payload, timeout=10):
         return False
 
 
-def build_item_expiry_payload(cert, days_left):
+def build_item_expiry_payload(cert: dict[str, Any], days_left: int) -> dict[str, Any]:
     """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_expiry",
@@ -48,7 +52,7 @@ def build_item_expiry_payload(cert, days_left):
     }
 
 
-def build_item_added_payload(cert):
+def build_item_added_payload(cert: dict[str, Any]) -> dict[str, Any]:
     """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_added",
@@ -64,7 +68,7 @@ def build_item_added_payload(cert):
     }
 
 
-def build_item_deleted_payload(cert_id, customer):
+def build_item_deleted_payload(cert_id: int | None, customer: str) -> dict[str, Any]:
     """构建到期提醒 Webhook 载荷"""
     return {
         "event": "item_deleted",

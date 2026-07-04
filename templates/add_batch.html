@@ -1,14 +1,18 @@
-﻿<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
+{% extends 'base.html' %}
+
+{% block title %}批量添加{% endblock %}
+
+{% block head %}
+>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>批量添加记录</title>
-  <script src="/static/tailwind.js" nonce="{{ csp_nonce }}"></script>
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
   <link rel="stylesheet" href="/static/dark.css">
-</head>
-<body class="bg-gray-50 min-h-screen">
+{% endblock %}
+
+{% block content %}
+<div class="md:ml-64 p-4 md:p-6 lg:p-8">
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
   <div class="max-w-7xl mx-auto px-4 py-4">
@@ -31,171 +35,278 @@
   </div>
 </header>
 
-<main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+<main class="max-w-4xl mx-auto px-4 py-8 space-y-6">
 
-  <!-- Excel 导入区域 -->
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-    <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <span style="font-size:14px"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block"></i></span> Excel 导入
-    </h2>
+  <!-- Tab 切换 -->
+  <div class="flex border-b border-gray-200">
+    <button onclick="switchTab('excel')" id="tab-excel" class="px-6 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px">
+      <i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block mr-2"></i>Excel 导入
+    </button>
+    <button onclick="switchTab('csv')" id="tab-csv" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+      <i data-lucide="file-text" class="w-4 h-4 inline-block mr-2"></i>CSV 导入
+    </button>
+    <button onclick="switchTab('json')" id="tab-json" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+      <i data-lucide="file-json" class="w-4 h-4 inline-block mr-2"></i>JSON 导入
+    </button>
+  </div>
 
-    <!-- 结果提示 -->
-    <div id="result-area" class="hidden p-3 rounded-lg text-sm mb-4"></div>
+  <!-- ── Excel 导入面板 ── -->
+  <div id="panel-excel" class="space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <span style="font-size:14px"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block"></i></span> Excel 导入
+      </h2>
 
-    <!-- 上传区域 -->
-    <div id="upload-area">
-      <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer" onclick="document.getElementById('excel-file').click()">
-        <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
-        <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 Excel 文件（.xlsx）</p>
-        <p class="text-gray-400 text-xs">支持 .xlsx 格式，必填字段：客户名称、到期日期</p>
-        <input type="file" id="excel-file" accept=".xlsx" class="hidden" onchange="onFileSelected(event)">
-      </div>
-      <div class="flex gap-3 mt-4">
-        <a href="/import/template" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
-          <i data-lucide="download" class="w-4 h-4 inline-block"></i> 下载模板
-        </a>
-      </div>
-    </div>
+      <div id="result-area" class="hidden p-3 rounded-lg text-sm mb-4"></div>
 
-    <!-- 预览区域 -->
-    <div id="preview-area" class="hidden mt-4">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-medium text-gray-700">数据预览（前5条）</h3>
-        <span id="preview-info" class="text-xs text-gray-400"></span>
+      <div id="upload-area">
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer" onclick="document.getElementById('excel-file').click()">
+          <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
+          <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 Excel 文件（.xlsx）</p>
+          <p class="text-gray-400 text-xs">支持 .xlsx 格式，必填字段：客户名称、到期日期</p>
+          <input type="file" id="excel-file" accept=".xlsx" class="hidden" onchange="onExcelSelected(event)">
+        </div>
+        <div class="flex gap-3 mt-4">
+          <a href="/import/template" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="download" class="w-4 h-4 inline-block"></i> 下载模板
+          </a>
+        </div>
       </div>
-      <div class="overflow-x-auto border border-gray-200 rounded-lg">
-        <table class="w-full text-sm" id="preview-table">
-          <thead class="bg-gray-50">
-            <tr>
-              <th class="px-3 py-2 text-left font-medium text-gray-600">客户名称</th>
-              <th class="px-3 py-2 text-left font-medium text-gray-600">提醒类型</th>
-              <th class="px-3 py-2 text-left font-medium text-gray-600">域名</th>
-              <th class="px-3 py-2 text-left font-medium text-gray-600">到期日期</th>
-              <th class="px-3 py-2 text-left font-medium text-gray-600">备注</th>
-            </tr>
-          </thead>
-          <tbody id="preview-tbody" class="divide-y divide-gray-100"></tbody>
-        </table>
-      </div>
-      <div class="flex gap-3 mt-4">
-        <button onclick="confirmImport()" id="confirm-btn"
-          class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-          <i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入
-        </button>
-        <button onclick="resetUpload()"
-          class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
-          <i data-lucide="x" class="w-4 h-4 inline-block"></i> 取消
-        </button>
+
+      <!-- 预览区域 -->
+      <div id="preview-area" class="hidden mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-gray-700">数据预览（前10条）</h3>
+          <span id="preview-info" class="text-xs text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+          <table class="w-full text-sm" id="preview-table">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">客户名称</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">提醒类型</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">域名</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">到期日期</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">备注</th>
+              </tr>
+            </thead>
+            <tbody id="preview-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+        <div id="validation-summary" class="hidden mt-3 p-3 rounded-lg text-xs"></div>
+        <div class="flex gap-3 mt-4">
+          <button onclick="confirmImport()" id="confirm-btn"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+            <i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入
+          </button>
+          <button onclick="resetUpload()"
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="x" class="w-4 h-4 inline-block"></i> 取消
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- JSON 导入区域 -->
-  <details class="bg-white rounded-xl border border-gray-200 shadow-sm">
-    <summary class="p-6 cursor-pointer">
-      <h2 class="text-base font-semibold text-gray-900 inline-flex items-center gap-2">
+  <!-- ── CSV 导入面板 ── -->
+  <div id="panel-csv" class="hidden space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <i data-lucide="file-text" class="w-4 h-4 inline-block"></i> CSV 导入
+      </h2>
+
+      <div id="result-area-csv" class="hidden p-3 rounded-lg text-sm mb-4"></div>
+
+      <div id="upload-area-csv">
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer" onclick="document.getElementById('csv-file').click()">
+          <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
+          <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 CSV 文件</p>
+          <p class="text-gray-400 text-xs">支持 UTF-8 / GBK 编码，自动检测分隔符（逗号/制表符/分号）</p>
+          <input type="file" id="csv-file" accept=".csv,.tsv,.txt" class="hidden" onchange="onCsvSelected(event)">
+        </div>
+        <div class="flex gap-3 mt-4 flex-wrap">
+          <a href="/export/csv" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="download" class="w-4 h-4 inline-block"></i> 下载 CSV 模板
+          </a>
+        </div>
+      </div>
+
+      <!-- CSV 字段映射 -->
+      <div id="csv-mapping-area" class="hidden mt-4">
+        <h3 class="text-sm font-medium text-gray-700 mb-2">字段映射</h3>
+        <div id="mapping-table" class="overflow-x-auto border border-gray-200 rounded-lg"></div>
+      </div>
+
+      <!-- CSV 预览 -->
+      <div id="csv-preview-area" class="hidden mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-gray-700">数据预览（前10条）</h3>
+          <span id="csv-preview-info" class="text-xs text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto border border-gray-200 rounded-lg max-h-80 overflow-y-auto">
+          <table class="w-full text-sm" id="csv-preview-table">
+            <thead class="bg-gray-50 sticky top-0" id="csv-preview-thead"></thead>
+            <tbody id="csv-preview-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+        <div id="csv-validation-summary" class="hidden mt-3 p-3 rounded-lg text-xs"></div>
+        <div class="flex gap-3 mt-4">
+          <select id="import-mode" class="px-3 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm border border-gray-200">
+            <option value="full">全量导入</option>
+            <option value="incremental">增量导入（跳过重复）</option>
+          </select>
+          <button onclick="confirmCsvImport()" id="csv-confirm-btn"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+            <i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入
+          </button>
+          <button onclick="resetCsvUpload()"
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="x" class="w-4 h-4 inline-block"></i> 取消
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── JSON 导入面板 ── -->
+  <div id="panel-json" class="hidden space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
         <i data-lucide="file-json" class="w-4 h-4 inline-block"></i> JSON 导入（高级）
       </h2>
-    </summary>
-    <div class="px-6 pb-6">
-      <form id="import-form" onsubmit="return doImport(event)">
+
+      <div id="result-area-json" class="hidden p-3 rounded-lg text-sm mb-4"></div>
+
+      <form id="import-form" onsubmit="return doJsonImport(event)">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">粘贴 JSON 格式记录数据</label>
         <textarea id="json-input"
           placeholder='[{"customer": "华联超市", "cert_type": "年报截止", "domain": "", "expire_date": "2025-12-31", "note": "需提前处理"}]'
           class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono resize-y min-h-[160px] leading-relaxed"></textarea>
-        <div class="flex gap-3 mt-3">
+        <div class="flex gap-3 mt-3 flex-wrap items-center">
           <button type="submit" id="json-submit-btn"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
-            <i data-lucide="send" class="w-4 h-4 inline-block"></i> 导入 JSON
+            <i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入
           </button>
+          <select id="json-import-mode" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm border border-gray-200">
+            <option value="full">全量导入</option>
+            <option value="incremental">增量导入（跳过重复）</option>
+          </select>
           <button type="button" onclick="document.getElementById('json-input').value=''"
             class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
             <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i> 清空
           </button>
         </div>
       </form>
-    </div>
-  </details>
 
-  <!-- 字段说明 -->
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-    <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <i data-lucide="book-open" class="w-4 h-4 inline-block"></i> Excel 模板字段说明
-    </h2>
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-200">
-            <th class="px-3 py-2 text-left font-medium text-gray-600">列名</th>
-            <th class="px-3 py-2 text-left font-medium text-gray-600">必填</th>
-            <th class="px-3 py-2 text-left font-medium text-gray-600">说明</th>
-            <th class="px-3 py-2 text-left font-medium text-gray-600">示例</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          <tr><td class="px-3 py-2">序号</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">行号，自动忽略</td><td class="px-3 py-2 text-gray-500 text-xs">1</td></tr>
-          <tr><td class="px-3 py-2">客户名称</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">必填</span></td><td class="px-3 py-2 text-gray-600">客户/企业名称</td><td class="px-3 py-2 text-gray-500 text-xs">华联超市</td></tr>
-          <tr><td class="px-3 py-2">提醒类型</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">如：SSL到期、年报截止</td><td class="px-3 py-2 text-gray-500 text-xs">年报截止</td></tr>
-          <tr><td class="px-3 py-2">域名</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">关联域名</td><td class="px-3 py-2 text-gray-500 text-xs">example.com</td></tr>
-          <tr><td class="px-3 py-2">到期日期</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">必填</span></td><td class="px-3 py-2 text-gray-600">格式：YYYY-MM-DD</td><td class="px-3 py-2 text-gray-500 text-xs">2026-12-31</td></tr>
-          <tr><td class="px-3 py-2">备注</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">其他备注</td><td class="px-3 py-2 text-gray-500 text-xs">需提前处理</td></tr>
-          <tr><td class="px-3 py-2">提醒启用</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">是/否，默认"是"</td><td class="px-3 py-2 text-gray-500 text-xs">是</td></tr>
-          <tr><td class="px-3 py-2">已处理</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">是/否，默认"否"</td><td class="px-3 py-2 text-gray-500 text-xs">否</td></tr>
-          <tr><td class="px-3 py-2">负责人</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">多个用逗号分隔</td><td class="px-3 py-2 text-gray-500 text-xs">admin,user1</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- Excel 导出区域 -->
-  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-    <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-      <span style="font-size:14px"><i data-lucide="file-down" class="w-4 h-4 inline-block"></i></span> Excel 导出
-    </h2>
-    <p class="text-sm text-gray-600 mb-4">导出当前所有记录到 Excel 文件（.xlsx 格式）</p>
-    <div class="flex gap-3">
-      <a href="/export/excel" class="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
-        <i data-lucide="download" class="w-4 h-4 inline-block"></i> 导出 Excel
-      </a>
-      <a href="/export/json" class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-        <i data-lucide="download" class="w-4 h-4 inline-block"></i> 导出 JSON
-      </a>
-    </div>
-  </div>
-
-  <!-- JSON 导出区域 -->
-  <details class="bg-white rounded-xl border border-gray-200 shadow-sm">
-    <summary class="p-6 cursor-pointer">
-      <h2 class="text-base font-semibold text-gray-900 inline-flex items-center gap-2">
-        <i data-lucide="code-2" class="w-4 h-4 inline-block"></i> JSON 导出预览（高级）
-      </h2>
-    </summary>
-    <div class="px-6 pb-6">
-      <button onclick="previewJSON()" id="preview-json-btn"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm mb-3">
-        <i data-lucide="eye" class="w-4 h-4 inline-block"></i> 预览 JSON 数据
-      </button>
-      <div id="json-preview-area" class="hidden">
-        <textarea id="json-preview" readonly
-          class="w-full px-3 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm font-mono resize-y min-h-[200px] leading-relaxed"></textarea>
-        <div class="flex gap-3 mt-3">
-          <button onclick="copyJSON()"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
-            <i data-lucide="copy" class="w-4 h-4 inline-block"></i> 复制
+      <!-- JSON 预览区域 -->
+      <div id="json-preview-area" class="hidden mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-gray-700">导入预览</h3>
+          <span id="json-preview-info" class="text-xs text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto border border-gray-200 rounded-lg max-h-80 overflow-y-auto">
+          <table class="w-full text-sm" id="json-preview-table">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">#</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">客户名称</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">提醒类型</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">域名</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">到期日期</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">状态</th>
+              </tr>
+            </thead>
+            <tbody id="json-preview-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+        <div id="json-validation-summary" class="hidden mt-3 p-3 rounded-lg text-xs"></div>
+        <div class="flex gap-3 mt-4">
+          <button onclick="confirmJsonImport()" id="json-confirm-btn"
+            class="inline-flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+            <i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入
+          </button>
+          <button onclick="cancelJsonPreview()"
+            class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="x" class="w-4 h-4 inline-block"></i> 取消
           </button>
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 字段说明 -->
+  <details class="bg-white rounded-xl border border-gray-200 shadow-sm">
+    <summary class="p-6 cursor-pointer">
+      <h2 class="text-base font-semibold text-gray-900 inline-flex items-center gap-2">
+        <i data-lucide="book-open" class="w-4 h-4 inline-block"></i> 字段说明 & 导入指南
+      </h2>
+    </summary>
+    <div class="px-6 pb-6">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-gray-200">
+              <th class="px-3 py-2 text-left font-medium text-gray-600">字段</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-600">必填</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-600">说明</th>
+              <th class="px-3 py-2 text-left font-medium text-gray-600">示例</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr><td class="px-3 py-2">customer</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">必填</span></td><td class="px-3 py-2 text-gray-600">客户/企业名称</td><td class="px-3 py-2 text-gray-500 text-xs">华联超市</td></tr>
+            <tr><td class="px-3 py-2">cert_type</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">如：SSL到期、年报截止</td><td class="px-3 py-2 text-gray-500 text-xs">年报截止</td></tr>
+            <tr><td class="px-3 py-2">domain</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">关联域名</td><td class="px-3 py-2 text-gray-500 text-xs">example.com</td></tr>
+            <tr><td class="px-3 py-2">expire_date</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-red-50 text-red-600 rounded text-xs">必填</span></td><td class="px-3 py-2 text-gray-600">格式：YYYY-MM-DD</td><td class="px-3 py-2 text-gray-500 text-xs">2026-12-31</td></tr>
+            <tr><td class="px-3 py-2">note</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">其他备注</td><td class="px-3 py-2 text-gray-500 text-xs">需提前处理</td></tr>
+            <tr><td class="px-3 py-2">remind_enabled</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">true/false，默认 true</td><td class="px-3 py-2 text-gray-500 text-xs">true</td></tr>
+            <tr><td class="px-3 py-2">handled</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">true/false，默认 false</td><td class="px-3 py-2 text-gray-500 text-xs">false</td></tr>
+            <tr><td class="px-3 py-2">responsible_users</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-green-50 text-green-600 rounded text-xs">选填</span></td><td class="px-3 py-2 text-gray-600">数组，如 ["admin","user1"]</td><td class="px-3 py-2 text-gray-500 text-xs">["admin"]</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-4 p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+        <strong>💡 提示：</strong>
+        <ul class="list-disc list-inside mt-1 space-y-1">
+          <li><strong>全量导入</strong>：检查重复后导入所有有效记录</li>
+          <li><strong>增量导入</strong>：基于 (domain, ip) 或 cert_id 判断重复，只导入新增记录</li>
+          <li>CSV 文件支持 UTF-8 / GBK 编码，自动检测分隔符</li>
+        </ul>
+      </div>
+    </div>
   </details>
 
-</main>
+  <!-- 导出区域 -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <i data-lucide="download" class="w-4 h-4 inline-block"></i> 导出
+    </h2>
+    <div class="flex gap-3 flex-wrap">
+      <a href="/export/excel" class="inline-flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block"></i> 导出 Excel
+      </a>
+      <a href="/export/json" class="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+        <i data-lucide="file-json" class="w-4 h-4 inline-block"></i> 导出 JSON
+      </a>
+      <a href="/export/csv" class="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+        <i data-lucide="file-text" class="w-4 h-4 inline-block"></i> 导出 CSV
+      </a>
+    </div>
+  </div>
 
-<script nonce="{{ csp_nonce }}">
+</main>
+{% endblock %}
+
+{% block scripts %}
 let _csrfToken = "{{ csrf_token }}";
 let selectedFile = null;
+let previewData = null;
+let csvPreviewData = null;
+let csvFieldMapping = {};
+let csvHeaders = [];
+let jsonPreviewData = null;
 
-function showResult(success, message, detail) {
-  var area = document.getElementById('result-area');
+function showResult(areaId, success, message, detail) {
+  var area = document.getElementById(areaId);
   area.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200');
   if (success) {
     area.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
@@ -210,128 +321,360 @@ function showResult(success, message, detail) {
   lucide.createIcons();
 }
 
-function onFileSelected(event) {
+// ── Tab 切换 ──
+function switchTab(tab) {
+  ['excel','csv','json'].forEach(t => {
+    document.getElementById('panel-'+t).classList.add('hidden');
+    const el = document.getElementById('tab-'+t);
+    el.classList.remove('border-blue-600','text-blue-600');
+    el.classList.add('border-transparent','text-gray-500');
+  });
+  document.getElementById('panel-'+tab).classList.remove('hidden');
+  const activeTab = document.getElementById('tab-'+tab);
+  activeTab.classList.remove('border-transparent','text-gray-500');
+  activeTab.classList.add('border-blue-600','text-blue-600');
+}
+
+// ═══════════════════════════════════════════════════════════
+// Excel 导入
+// ═══════════════════════════════════════════════════════════
+function onExcelSelected(event) {
   var file = event.target.files[0];
   if (!file) return;
   if (!file.name.endsWith('.xlsx')) {
-    showResult(false, '请选择 .xlsx 格式的文件');
+    showResult('result-area', false, '请选择 .xlsx 格式的文件');
     return;
   }
   selectedFile = file;
 
-  // Preview
   var formData = new FormData();
   formData.append('file', file);
-  fetch('/import/preview', { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(data => {
-      if (!data.ok) { showResult(false, data.message || '预览失败'); return; }
-      var tbody = document.getElementById('preview-tbody');
-      tbody.innerHTML = '';
-      data.preview.forEach(function(item) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td class="px-3 py-2 text-gray-900">' + (item['客户名称']||'') + '</td>' +
-          '<td class="px-3 py-2 text-gray-600">' + (item['提醒类型']||'-') + '</td>' +
-          '<td class="px-3 py-2 text-gray-600">' + (item['域名']||'-') + '</td>' +
-          '<td class="px-3 py-2 text-gray-600">' + (item['到期日期']||'') + '</td>' +
-          '<td class="px-3 py-2 text-gray-500">' + (item['备注']||'-') + '</td>';
-        tbody.appendChild(tr);
-      });
-      document.getElementById('preview-info').textContent = '共 ' + data.total_rows + ' 行数据';
-      document.getElementById('preview-area').classList.remove('hidden');
-      lucide.createIcons();
-    })
-    .catch(e => showResult(false, '预览失败：' + e.message));
+  formData.append('_csrf_token', _csrfToken);
+
+  fetch('/api/preview_import', {
+    method: 'POST',
+    headers: {'X-CSRF-Token': _csrfToken},
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!data.ok) { showResult('result-area', false, data.message || '预览失败'); return; }
+    if (data.csrf_token) _csrfToken = data.csrf_token;
+    previewData = data.data;
+    document.getElementById('upload-area').classList.add('hidden');
+    document.getElementById('result-area').classList.add('hidden');
+    document.getElementById('preview-area').classList.remove('hidden');
+    document.getElementById('preview-info').textContent = '共 ' + data.total + ' 条记录';
+    var tbody = document.getElementById('preview-tbody');
+    tbody.innerHTML = '';
+    data.data.slice(0, 10).forEach(function(item) {
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td class="px-3 py-2">'+(item.customer||'')+'</td>'+
+        '<td class="px-3 py-2">'+(item.cert_type||'-')+'</td>'+
+        '<td class="px-3 py-2">'+(item.domain||'-')+'</td>'+
+        '<td class="px-3 py-2">'+(item.expiry_date||item.expire_date||'')+'</td>'+
+        '<td class="px-3 py-2">'+(item.note||'-')+'</td>';
+      tbody.appendChild(tr);
+    });
+    lucide.createIcons();
+  })
+  .catch(e => showResult('result-area', false, '预览失败：'+e.message));
 }
 
 function confirmImport() {
-  if (!selectedFile) return;
+  if (!previewData) return;
   var btn = document.getElementById('confirm-btn');
-  btn.disabled = true; btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 导入中...';
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 导入中...';
 
-  var formData = new FormData();
-  formData.append('file', selectedFile);
-  formData.append('_csrf_token', _csrfToken);
-  fetch('/import/excel', { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(result => {
-      if (result.ok) {
-        showResult(true, '成功导入 ' + result.imported + ' 条记录', result.errors.length ? result.errors : null);
-        setTimeout(function() { window.location.href = '/'; }, 2500);
-      } else {
-        showResult(false, result.message || '导入失败');
-      }
-    })
-    .catch(err => showResult(false, '网络错误：' + err.message))
-    .finally(() => {
-      btn.disabled = false; btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+  fetch('/api/import_excel', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken},
+    body: JSON.stringify({data: previewData, _csrf_token: _csrfToken})
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.csrf_token) _csrfToken = result.csrf_token;
+    if (result.ok) {
+      showResult('result-area', true, '成功导入 '+result.imported+' 条记录', result.errors.length ? result.errors : null);
+      setTimeout(function() { window.location.href = '/'; }, 2500);
+    } else {
+      showResult('result-area', false, result.message || '导入失败');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
       lucide.createIcons();
-    });
+    }
+  })
+  .catch(err => {
+    showResult('result-area', false, '网络错误：'+err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+    lucide.createIcons();
+  });
 }
 
 function resetUpload() {
   selectedFile = null;
+  previewData = null;
   document.getElementById('excel-file').value = '';
   document.getElementById('preview-area').classList.add('hidden');
+  document.getElementById('upload-area').classList.remove('hidden');
   document.getElementById('result-area').classList.add('hidden');
 }
 
-function doImport(e) {
+// ═══════════════════════════════════════════════════════════
+// CSV 导入
+// ═══════════════════════════════════════════════════════════
+function onCsvSelected(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+
+  var formData = new FormData();
+  formData.append('file', file);
+  formData.append('_csrf_token', _csrfToken);
+
+  showResult('result-area-csv', true, '正在解析 CSV 文件...');
+
+  fetch('/api/import-csv', {
+    method: 'POST',
+    headers: {'X-CSRF-Token': _csrfToken},
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.csrf_token) _csrfToken = data.csrf_token;
+    if (!data.ok) { showResult('result-area-csv', false, data.message || '解析失败'); return; }
+
+    csvPreviewData = data.valid_records;
+    csvFieldMapping = data.field_mapping || {};
+    csvHeaders = data.csv_headers || [];
+
+    document.getElementById('upload-area-csv').classList.add('hidden');
+    document.getElementById('result-area-csv').classList.add('hidden');
+    document.getElementById('csv-preview-area').classList.remove('hidden');
+
+    // 显示字段映射
+    if (Object.keys(csvFieldMapping).length > 0) {
+      document.getElementById('csv-mapping-area').classList.remove('hidden');
+      var mapHtml = '<table class="w-full text-sm"><thead><tr class="border-b"><th class="px-3 py-2 text-left">CSV 列名</th><th class="px-3 py-2 text-left">映射字段</th></tr></thead><tbody class="divide-y">';
+      for (var col in csvFieldMapping) {
+        mapHtml += '<tr><td class="px-3 py-2">'+col+'</td><td class="px-3 py-2"><span class="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">'+csvFieldMapping[col]+'</span></td></tr>';
+      }
+      mapHtml += '</tbody></table>';
+      document.getElementById('mapping-table').innerHTML = mapHtml;
+    }
+
+    // 显示预览
+    document.getElementById('csv-preview-info').textContent = '共 ' + data.total + ' 条，有效 ' + data.valid_count + ' 条，无效 ' + data.invalid_count + ' 条';
+
+    // 表头
+    var thead = document.getElementById('csv-preview-thead');
+    thead.innerHTML = '<tr>';
+    (csvHeaders || ['customer','cert_type','domain','expire_date','note']).forEach(function(h) {
+      thead.innerHTML += '<th class="px-3 py-2 text-left font-medium text-gray-600">'+h+'</th>';
+    });
+    thead.innerHTML += '</tr>';
+
+    // 行
+    var tbody = document.getElementById('csv-preview-tbody');
+    tbody.innerHTML = '';
+    var displayData = data.valid_records.slice(0, 10);
+    displayData.forEach(function(item) {
+      var tr = document.createElement('tr');
+      var html = '';
+      (csvHeaders || ['customer','cert_type','domain','expire_date','note']).forEach(function(h) {
+        html += '<td class="px-3 py-2">'+(item[h]||'-')+'</td>';
+      });
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    });
+
+    // 验证摘要
+    if (data.invalid_count > 0 && data.invalid_records.length > 0) {
+      var vs = document.getElementById('csv-validation-summary');
+      vs.classList.remove('hidden');
+      vs.classList.add('bg-red-50', 'text-red-700');
+      vs.innerHTML = '<strong>⚠ 无效记录 (' + data.invalid_count + ' 条):</strong><div class="mt-1 space-y-0.5">' +
+        data.invalid_records.map(function(r) { return '<div>' + r.errors.join('; ') + '</div>'; }).join('') + '</div>';
+    }
+
+    lucide.createIcons();
+  })
+  .catch(e => showResult('result-area-csv', false, '网络错误：'+e.message));
+}
+
+function confirmCsvImport() {
+  if (!csvPreviewData || csvPreviewData.length === 0) return;
+  var btn = document.getElementById('csv-confirm-btn');
+  var mode = document.getElementById('import-mode').value;
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 导入中...';
+
+  fetch('/api/import-confirm', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken},
+    body: JSON.stringify({
+      records: csvPreviewData,
+      mode: mode,
+      field_mapping: csvFieldMapping,
+      _csrf_token: _csrfToken
+    })
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.csrf_token) _csrfToken = result.csrf_token;
+    if (result.ok) {
+      var msg = '成功导入 ' + result.imported + ' 条';
+      if (result.skipped > 0) msg += ', 跳过 ' + result.skipped + ' 条重复';
+      if (result.errors.length > 0) msg += ', ' + result.errors.length + ' 条失败';
+      showResult('result-area-csv', true, msg, result.errors.length > 0 ? result.errors : null);
+      setTimeout(function() { window.location.href = '/'; }, 2500);
+    } else {
+      showResult('result-area-csv', false, result.message || '导入失败');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+      lucide.createIcons();
+    }
+  })
+  .catch(err => {
+    showResult('result-area-csv', false, '网络错误：'+err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+    lucide.createIcons();
+  });
+}
+
+function resetCsvUpload() {
+  csvPreviewData = null;
+  csvFieldMapping = {};
+  csvHeaders = [];
+  document.getElementById('csv-file').value = '';
+  document.getElementById('csv-preview-area').classList.add('hidden');
+  document.getElementById('csv-mapping-area').classList.add('hidden');
+  document.getElementById('upload-area-csv').classList.remove('hidden');
+  document.getElementById('result-area-csv').classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════════════════════
+// JSON 导入（含预览）
+// ═══════════════════════════════════════════════════════════
+function doJsonImport(e) {
   e.preventDefault();
   var input = document.getElementById('json-input').value.trim();
   var btn = document.getElementById('json-submit-btn');
-  if (!input) { showResult(false, '请先粘贴 JSON 数据'); return false; }
+  if (!input) { showResult('result-area-json', false, '请先粘贴 JSON 数据'); return false; }
+
   var data;
-  try { data = JSON.parse(input); } catch (err) { showResult(false, 'JSON 格式错误:' + err.message); return false; }
-  if (!Array.isArray(data)) { showResult(false, '数据必须是 JSON 数组 []'); return false; }
-  if (data.length === 0) { showResult(false, '数组为空'); return false; }
+  try { data = JSON.parse(input); } catch (err) { showResult('result-area-json', false, 'JSON 格式错误: '+err.message); return false; }
+  if (!Array.isArray(data)) { showResult('result-area-json', false, '数据必须是 JSON 数组 []'); return false; }
+  if (data.length === 0) { showResult('result-area-json', false, '数组为空'); return false; }
 
   btn.disabled = true;
-  fetch('/import/json', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken}, body: JSON.stringify(data) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.ok) {
-        showResult(true, '成功导入 ' + result.imported + ' 条记录', result.errors.length ? result.errors : null);
-        setTimeout(function() { window.location.href = '/'; }, 2500);
-      } else {
-        showResult(false, result.message || '导入失败');
-      }
-    })
-    .catch(err => showResult(false, '网络错误：' + err.message))
-    .finally(() => { btn.disabled = false; });
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 预览中...';
+
+  fetch('/api/import-preview', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken},
+    body: JSON.stringify(data)
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.csrf_token) _csrfToken = result.csrf_token;
+    if (!result.ok) {
+      showResult('result-area-json', false, result.message || '预览失败');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入';
+      return;
+    }
+
+    jsonPreviewData = result.valid_records;
+
+    document.getElementById('json-preview-area').classList.remove('hidden');
+    document.getElementById('json-preview-info').textContent = '共 ' + result.total + ' 条，有效 ' + result.valid_count + ' 条，无效 ' + result.invalid_count + ' 条';
+
+    var tbody = document.getElementById('json-preview-tbody');
+    tbody.innerHTML = '';
+    result.valid_records.slice(0, 20).forEach(function(item, idx) {
+      var tr = document.createElement('tr');
+      var statusBadge = '<span class="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-xs">✓ 有效</span>';
+      tr.innerHTML = '<td class="px-3 py-2">'+(idx+1)+'</td>'+
+        '<td class="px-3 py-2">'+(item.customer||'')+'</td>'+
+        '<td class="px-3 py-2">'+(item.cert_type||'-')+'</td>'+
+        '<td class="px-3 py-2">'+(item.domain||'-')+'</td>'+
+        '<td class="px-3 py-2">'+(item.expire_date||'')+'</td>'+
+        '<td class="px-3 py-2">'+statusBadge+'</td>';
+      tbody.appendChild(tr);
+    });
+
+    // 无效记录摘要
+    if (result.invalid_count > 0 && result.invalid_records.length > 0) {
+      var vs = document.getElementById('json-validation-summary');
+      vs.classList.remove('hidden');
+      vs.classList.add('bg-red-50', 'text-red-700');
+      vs.innerHTML = '<strong>⚠ 无效记录 (' + result.invalid_count + ' 条):</strong><div class="mt-1 space-y-0.5">' +
+        result.invalid_records.map(function(r) { return '<div>#'+r.record_index+': '+r.errors.join(', ')+'</div>'; }).join('') + '</div>';
+    }
+
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 预览完成';
+    lucide.createIcons();
+  })
+  .catch(err => {
+    showResult('result-area-json', false, '网络错误：'+err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入';
+  });
+
   return false;
 }
-function previewJSON() {
-  var btn = document.getElementById('preview-json-btn');
+
+function confirmJsonImport() {
+  if (!jsonPreviewData || jsonPreviewData.length === 0) return;
+  var btn = document.getElementById('json-confirm-btn');
+  var mode = document.getElementById('json-import-mode').value;
   btn.disabled = true;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 加载中...';
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 导入中...';
 
-  fetch('/export/json')
-    .then(r => r.json())
-    .then(data => {
-      if (data.ok && data.records) {
-        document.getElementById('json-preview').value = JSON.stringify(data.records, null, 2);
-        document.getElementById('json-preview-area').classList.remove('hidden');
-      } else {
-        alert('预览失败：' + (data.message || '未知错误'));
-      }
+  fetch('/api/import-confirm', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken},
+    body: JSON.stringify({
+      records: jsonPreviewData,
+      mode: mode,
+      _csrf_token: _csrfToken
     })
-    .catch(err => alert('网络错误：' + err.message))
-    .finally(() => {
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.csrf_token) _csrfToken = result.csrf_token;
+    if (result.ok) {
+      var msg = '成功导入 ' + result.imported + ' 条';
+      if (result.skipped > 0) msg += ', 跳过 ' + result.skipped + ' 条重复';
+      if (result.errors.length > 0) msg += ', ' + result.errors.length + ' 条失败';
+      showResult('result-area-json', true, msg, result.errors.length > 0 ? result.errors : null);
+      setTimeout(function() { window.location.href = '/'; }, 2500);
+    } else {
+      showResult('result-area-json', false, result.message || '导入失败');
       btn.disabled = false;
-      btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4 inline-block"></i> 预览 JSON 数据';
+      btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
       lucide.createIcons();
-    });
+    }
+  })
+  .catch(err => {
+    showResult('result-area-json', false, '网络错误：'+err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+    lucide.createIcons();
+  });
 }
 
-function copyJSON() {
-  var textarea = document.getElementById('json-preview');
-  textarea.select();
-  document.execCommand('copy');
-  alert('已复制到剪贴板');
+function cancelJsonPreview() {
+  jsonPreviewData = null;
+  document.getElementById('json-preview-area').classList.add('hidden');
+  document.getElementById('json-validation-summary').classList.add('hidden');
+  var btn = document.getElementById('json-submit-btn');
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入';
+  lucide.createIcons();
 }
-</script>
-<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
-<script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });</script>
-<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
-</html>
+document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+{% endblock %}

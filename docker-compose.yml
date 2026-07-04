@@ -12,6 +12,7 @@ services:
     environment:
       - TZ=Asia/Shanghai     # 时区
       - PORT=5188            # Flask 监听端口
+      - USE_SQLITE=1         # 使用 SQLite 存储
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5188/health')"]

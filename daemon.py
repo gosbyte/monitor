@@ -3,6 +3,8 @@
 后台常驻脚本 - 精确到分钟的到期项到期提醒
 每分钟检查一次，到期时间到了就立即推送
 """
+from __future__ import annotations
+
 import os
 import sys
 import json
@@ -10,16 +12,17 @@ import time
 import logging
 import logging.handlers
 import smtplib
-from datetime import datetime, timedelta
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get("DATA_DIR", BASE_DIR)
-
+import glob
+import gzip
+import shutil
 import signal
+from datetime import datetime, timedelta
+from typing import Any
+
 import requests
 from dingtalk import send_dingtalk_card, send_wecom, build_remind_card
 
-# ── 统一数据层：使用 data.py（支持 JSON/SQLite 双模式）─────────────
+# ── 统一数据层：使用 data.py（SQLite 模式）─────────────
 from data import (
     load_certs, save_certs,
     load_config, save_config, load_config_decrypted,
@@ -27,11 +30,13 @@ from data import (
     load_logs, write_log,
     calc_days_left, get_cert_status,
     encrypt_field, decrypt_field,
-    USE_SQLITE,
+    LOG_CLEANUP_MAX_SIZE_MB, LOG_CLEANUP_DIRS,
 )
 
 # 文件锁相关（仅 JSON 模式需要，daemon 单线程不需要锁）
 # SQLite 模式下由 db.py 的事务管理代替文件锁
+
+DATA_DIR = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,14 +51,86 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_data():
+# ── 日志自动清理 ──────────────────────────────────────────
+
+def cleanup_logs(max_size_mb: int = LOG_CLEANUP_MAX_SIZE_MB) -> tuple[int, int]:
+    """清理超过指定大小的 .log 文件（daemon 专用）
+
+    清理策略：
+    1. 查找 DATA_DIR 下所有 .log 文件
+    2. 单个文件超过 max_size_mb 时，归档为 .log.YYYYMMDD_HHMMSS.gz
+    3. 超过 7 天的 .log.gz 归档文件被删除
+    4. 同时清理 SQLite 日志（保留最近 1000 条）
+    """
+    cleaned_count = 0
+    freed_bytes = 0
+
+    data_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
+    log_dirs: list[str] = LOG_CLEANUP_DIRS if LOG_CLEANUP_DIRS else [data_dir]
+
+    for log_dir in log_dirs:
+        if not os.path.isdir(log_dir):
+            continue
+
+        threshold_bytes = max_size_mb * 1024 * 1024
+
+        # 清理 .log 文件
+        for log_file in glob.glob(os.path.join(log_dir, "*.log")):
+            try:
+                file_size = os.path.getsize(log_file)
+                if file_size > threshold_bytes:
+                    # 归档旧日志
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    archive_path = log_file + "." + ts + ".gz"
+                    with open(log_file, "rb") as f_in:
+                        with gzip.open(archive_path, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
+                    # 截断原文件
+                    with open(log_file, "w") as f:
+                        f.write("")
+                    freed_bytes += file_size
+                    cleaned_count += 1
+                    logger.info(f"日志归档并清理: {log_file} ({file_size / 1024 / 1024:.1f}MB -> {archive_path})")
+            except Exception as e:
+                logger.warning(f"清理日志文件失败 {log_file}: {e}")
+
+        # 删除超过 7 天的 .log.gz 归档
+        for archive_file in glob.glob(os.path.join(log_dir, "*.log.*.gz")):
+            try:
+                mtime = os.path.getmtime(archive_file)
+                if time.time() - mtime > 7 * 86400:
+                    os.remove(archive_file)
+                    cleaned_count += 1
+                    logger.info(f"删除过期归档: {archive_file}")
+            except Exception as e:
+                logger.warning(f"删除归档文件失败 {archive_file}: {e}")
+
+    # 清理 SQLite 日志（保留最近 1000 条）
+    try:
+        from db import get_db
+        with get_db() as conn:
+            cursor = conn.execute(
+                "DELETE FROM logs WHERE rowid NOT IN (SELECT rowid FROM logs ORDER BY rowid DESC LIMIT 1000)"
+            )
+            if cursor.rowcount > 0:
+                cleaned_count += 1
+                logger.info(f"SQLite 日志清理: 删除 {cursor.rowcount} 条旧日志")
+    except Exception as e:
+        logger.warning(f"SQLite 日志清理失败: {e}")
+
+    logger.info(f"日志清理完成: 清理 {cleaned_count} 项, 释放 ~{freed_bytes / 1024 / 1024:.1f}MB")
+    return cleaned_count, freed_bytes
+
+
+def load_data() -> list[dict[str, Any]]:
     """加载到期项数据（兼容旧代码名，实际就是 load_certs）"""
     try:
         return load_certs()
     except Exception:
         return []
 
-def load_state():
+
+def load_state() -> dict[str, Any]:
     """加载已推送状态（带异常处理和文件句柄管理）"""
     state_file = os.path.join(DATA_DIR, "remind_state.json")
     try:
@@ -66,10 +143,10 @@ def load_state():
     return {}
 
 
-def save_state(state):
+def save_state(state: dict[str, Any]) -> None:
     """保存已推送状态（原子写入 + 异常处理）"""
     state_file = os.path.join(DATA_DIR, "remind_state.json")
-    tmp = None  # [FIX] P0-6: 初始化 tmp 防止 open() 失败时 NameError
+    tmp: str | None = None  # [FIX] P0-6: 初始化 tmp 防止 open() 失败时 NameError
     try:
         tmp = state_file + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -84,18 +161,19 @@ def save_state(state):
             except OSError:
                 pass
 
-def send_email_remind(subject, content_html, cfg):
+
+def send_email_remind(subject: str, content_html: str, cfg: dict[str, Any]) -> tuple[bool, str]:
     """发送邮件提醒（使用全局收件人），返回 (success, message)"""
     smtp_to = cfg.get("smtp_to", "").strip()
     if not smtp_to:
         return False, "邮件配置不完整"
-    recipients = [r.strip() for r in smtp_to.split(",") if r.strip()]
+    recipients: list[str] = [r.strip() for r in smtp_to.split(",") if r.strip()]
     if not recipients:
         return False, "收件人为空"
     return send_email_remind_to(subject, content_html, cfg, recipients)
 
 
-def send_email_remind_to(subject, content_html, cfg, recipients):
+def send_email_remind_to(subject: str, content_html: str, cfg: dict[str, Any], recipients: list[str]) -> tuple[bool, str]:
     """发送邮件提醒到指定收件人，返回 (success, message)"""
     smtp_host = cfg.get("smtp_host", "").strip()
     smtp_port = cfg.get("smtp_port", 465)
@@ -133,11 +211,11 @@ def send_email_remind_to(subject, content_html, cfg, recipients):
         return False, str(e)
 
 
-def build_email_html(to_remind, is_responsible=False):
+def build_email_html(to_remind: list[dict[str, Any]], is_responsible: bool = False) -> str:
     """构建邮件 HTML 内容
     is_responsible: 是否为负责人定向推送，用于调整文案
     """
-    rows = []
+    rows: list[str] = []
     for c in to_remind:
         days_left = c.get("days_left", 0)
         if days_left < 0:
@@ -173,7 +251,8 @@ def build_email_html(to_remind, is_responsible=False):
 </div></div></body></html>'''
     return html
 
-def parse_expire_date(date_str):
+
+def parse_expire_date(date_str: str) -> datetime:
     """解析到期时间，返回 datetime 对象"""
     s = date_str.strip()
     if "T" in s:
@@ -186,7 +265,7 @@ def parse_expire_date(date_str):
         return dt.replace(hour=23, minute=59, second=59)
 
 
-def check_and_remind():
+def check_and_remind() -> None:
     """检查并发送提醒"""
     # [FIX] 解密 SMTP 密码
     cfg = load_config_decrypted()
@@ -203,13 +282,13 @@ def check_and_remind():
     # 加载用户（用于@人）
     try:
         users_data = load_users()
-        users_map = {u["username"]: u for u in (users_data or [])}
+        users_map: dict[str, dict[str, Any]] = {u["username"]: u for u in (users_data or [])}
     except Exception:
         users_map = {}
     
     # 首先清理 remind_state 中已不存在的记录
     cert_ids = {c.get("id") for c in certs}
-    cleaned_state = {}
+    cleaned_state: dict[str, Any] = {}
     for k, v in state.items():
         # 提取 key 中的 cert_id 部分（格式如 "3_day7" 或 "3_expired"）
         parts = k.split("_", 1)
@@ -223,7 +302,7 @@ def check_and_remind():
         state = cleaned_state
 
     remind_days = set(cfg.get("remind_days", [7, 3, 1]) + [0])
-    to_remind = []
+    to_remind: list[dict[str, Any]] = []
     
     for c in certs:
         # 跳过禁用提醒的
@@ -294,7 +373,7 @@ def check_and_remind():
         wecom_ok = True  # 未配置视为通过
         if wecom_webhook:
             try:
-                parts = []
+                parts: list[str] = []
                 for c in to_remind:
                     days = c.get("days_left", 0)
                     parts.append(f"⚠️ {c['customer']} - {c['cert_type']} | 域名: {c['domain']} | 到期: {c['expire_date']} | 剩余 {days} 天")
@@ -317,8 +396,8 @@ def check_and_remind():
             
             # 按负责人分组发送邮件
             # 1. 收集所有负责人及其对应的到期项
-            responsible_certs = {}  # {username: [certs]}
-            certs_without_responsible = []  # 无负责人的到期项
+            responsible_certs: dict[str, list[dict[str, Any]]] = {}  # {username: [certs]}
+            certs_without_responsible: list[dict[str, Any]] = []  # 无负责人的到期项
             
             for c in to_remind_copies:
                 responsible_users = c.get("responsible_users", [])
@@ -332,12 +411,12 @@ def check_and_remind():
             
             # 2. 为有邮箱的负责人发送定向邮件
             sent_count = 0
-            for uname, certs in responsible_certs.items():
+            for uname, certs_list in responsible_certs.items():
                 uinfo = users_map.get(uname, {})
                 email = uinfo.get("email", "").strip()
                 if email:
                     # 发送给负责人
-                    email_html = build_email_html(certs, is_responsible=True)
+                    email_html = build_email_html(certs_list, is_responsible=True)
                     ok, msg = send_email_remind_to(f"🔔 您负责的到期项到期提醒", email_html, cfg, [email])
                     if ok:
                         logger.info(f"邮件已发送给负责人 {uname} ({email})")
@@ -345,10 +424,10 @@ def check_and_remind():
                     else:
                         logger.warning(f"发送给负责人 {uname} 失败: {msg}")
                         # 负责人发送失败，这些到期项归入无负责人列表
-                        certs_without_responsible.extend(certs)
+                        certs_without_responsible.extend(certs_list)
                 else:
                     # 负责人没有邮箱，这些到期项归入无负责人列表
-                    certs_without_responsible.extend(certs)
+                    certs_without_responsible.extend(certs_list)
             
             # 3. 无负责人或负责人无邮箱的到期项，发给全局收件人
             if certs_without_responsible:
@@ -367,7 +446,30 @@ def check_and_remind():
         else:
             logger.warning("推送未全部成功，state 不保存，下次将继续重试")
 
-def main():
+
+# ── 定时日志清理（daemon 侧，每天凌晨 3 点）────────────────
+_last_daemon_cleanup_date: str | None = None
+
+def _check_daemon_cleanup() -> None:
+    """每分钟检查一次是否需要执行日志清理"""
+    global _last_daemon_cleanup_date
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+
+    if _last_daemon_cleanup_date == today:
+        return
+
+    if now.hour == 3 and now.minute < 5:
+        try:
+            cleaned, freed = cleanup_logs()
+            logger.info(f"定时日志清理: 清理 {cleaned} 项, 释放 {freed / 1024 / 1024:.1f}MB")
+            _last_daemon_cleanup_date = today
+        except Exception as e:
+            logger.error(f"定时日志清理失败: {e}")
+            _last_daemon_cleanup_date = None
+
+
+def main() -> None:
     """主循环"""
     logger.info("=" * 50)
     logger.info("到期项到期后台监控服务启动")
@@ -376,7 +478,7 @@ def main():
     
     _running = True
 
-    def _sigterm_handler(signum, frame):
+    def _sigterm_handler(signum: int, frame: Any) -> None:
         global _running
         logger.info("收到到 SIGTERM，停止主命循环...")
         _running = False
@@ -391,6 +493,9 @@ def main():
             logger.error(f"检查异常: {e}")
             # [FIX] P1-3: 异常后短暂退避，避免日志风暴
             time.sleep(5)
+
+        # 每分钟检查是否需要清理日志
+        _check_daemon_cleanup()
 
         for _ in range(60):
             if not _running:

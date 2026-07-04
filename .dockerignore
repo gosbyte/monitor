@@ -1,19 +1,50 @@
-__pycache__
-*.pyc
+# Git
+.git/
+.gitignore
+
+# Data & runtime artifacts
+data/
 *.log
-*.bat
-*.reg
+*.db
+*.sqlite
+*.sqlite3
+
+# Virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment files
 .env
-.git
-*.zip
-*.json.old
-*.json.bak
-# 数据文件 - 运行时由容器挂载 /app/data
-users.json
-cert_data.json
-config.json
-logs.json
-remind_state.json
-.secret_key
-*.json.bak
-monitor.db
+.env.*
+
+# Tests
+tests/
+test_*.py
+conftest.py
+
+# Documentation
+*.md
+LICENSE
+README*
+
+# Coverage / HTML reports
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
