@@ -3,10 +3,6 @@
 {% block title %}用户管理{% endblock %}
 
 {% block head %}
->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>用户管理</title>
   <style nonce="{{ csp_nonce }}">
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
     .avatar-grad { background: linear-gradient(135deg, var(--c1,#6366f1), var(--c2,#8b5cf6)); }
@@ -380,8 +376,14 @@ function closeEditModal() {
   document.body.style.overflow = '';
 }
 
-document.getElementById('editModal').addEventListener('click', function(e) {
-  if (e.target === this) closeEditModal();
-});
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+
+document.addEventListener("DOMContentLoaded", function() {
+  var editModal = document.getElementById('editModal');
+  if (editModal) {
+    editModal.addEventListener('click', function(e) {
+      if (e.target === this) closeEditModal();
+    });
+  }
+});
 {% endblock %}
