@@ -1486,11 +1486,15 @@ function animateCounters() {
     requestAnimationFrame(step);
   });
 }
-document.addEventListener('DOMContentLoaded', animateCounters);
-
-// 初始排序
-filterTable();
-document.querySelector(`.sort-icon[data-col="days_left"]`).textContent = ' ▼';
+document.addEventListener('DOMContentLoaded', function() {
+  // 计数动画
+  animateCounters();
+  
+  // 初始排序和表格过滤
+  filterTable();
+  var sortIcon = document.querySelector('.sort-icon[data-col="days_left"]');
+  if (sortIcon) sortIcon.textContent = ' ▼';
+});
 
 // ── 快速筛选（点击统计卡片）──────────────────────────────
 function quickFilter(status) {
@@ -1518,6 +1522,13 @@ function quickFilter(status) {
   // 滚动到表格
   document.getElementById('cert-tbody').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+
+// ── Lucide 图标初始化 ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+});
 </script>
 <!-- 修改密码弹窗 -->
 <div id="selfPwdModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
