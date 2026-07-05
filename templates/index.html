@@ -93,7 +93,7 @@ document.addEventListener('keydown', function(e) {
 <body class="bg-gray-50 min-h-screen">
 
 <!-- Toast 提示 -->
-<div id="toast-container" class="fixed top-16 right-4 z-[60] space-y-2 max-w-xs"></div>
+<div id="toast-container" class="fixed top-16 right-4 z-[60] space-y-2 max-w-xs" role="status" aria-live="polite"></div>
 <script nonce="{{ csp_nonce }}">
 function showToast(msg, type) {
   var container = document.getElementById('toast-container');
@@ -419,7 +419,7 @@ function showToast(msg, type) {
   <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
     <div class="relative">
       <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-      <input type="text" id="search-input" placeholder="搜索客户名称、类型…" aria-label="搜索客户名称或提醒类型"
+      <input type="text" id="search-input" placeholder="搜索客户名称、类型…" aria-label="搜索客户名称或提醒类型" autocomplete="off"
         oninput="filterTable(); showSearchSuggestions(this.value)" onkeydown="if(event.key==='Enter')filterTable(); if(event.key==='ArrowDown')selectSuggestion(1); if(event.key==='ArrowUp')selectSuggestion(-1); if(event.key==='Escape')hideSearchSuggestions();"
         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" autocomplete="off">
     </div>
@@ -445,7 +445,8 @@ function showToast(msg, type) {
       <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline-block"></i> 重置筛选
       </button>
-    </div>
+    </div><!-- /relative -->
+    </div><!-- /relative -->
   </div>
 
   <!-- 批量操作工具栏（仅管理员） -->
@@ -873,6 +874,7 @@ function duplicateCert(certId) {
     .catch(function(e) { showToast('加载失败', 'error'); });
   });
 }
+
 function closeAddModal() {
   document.getElementById('add-modal').classList.add('hidden');
   document.getElementById('add-modal').classList.remove('flex');
