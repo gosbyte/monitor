@@ -1,46 +1,47 @@
-// common.js — 公共 JS（模态框、批量选择、三点菜单、CSRF、API、暗色模式、移动端菜单）
+// app.js — 公共 JS（sidebar toggle、批量选择、三点菜单、CSRF、Toast、暗色模式）
 (function () {
   'use strict';
 
-  // ── Mobile Menu Toggle ──────────────────────────────────
+  // ── Sidebar Toggle (移动端抽屉菜单) ─────────────────────
   window.toggleSidebar = function () {
     var sidebar = document.getElementById('sidebar');
     var overlay = document.getElementById('sidebar-overlay');
     if (!sidebar) return;
-    var isOpen = !sidebar.classList.contains('-translate-x-full');
+    var isOpen = sidebar.classList.contains('sidebar-open');
     if (isOpen) {
-      sidebar.classList.add('-translate-x-full');
-      if (overlay) overlay.classList.add('hidden');
+      sidebar.classList.remove('sidebar-open');
+      if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('sidebar-active'); }
     } else {
-      sidebar.classList.remove('-translate-x-full');
-      if (overlay) overlay.classList.remove('hidden');
+      sidebar.classList.add('sidebar-open');
+      if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('sidebar-active'); }
     }
   };
 
-  // Close sidebar when clicking overlay
   document.addEventListener('DOMContentLoaded', function () {
+    // Overlay 点击关闭 sidebar
     var overlay = document.getElementById('sidebar-overlay');
     if (overlay) {
       overlay.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
+        if (sidebar) sidebar.classList.remove('sidebar-open');
         overlay.classList.add('hidden');
+        overlay.classList.remove('sidebar-active');
       });
     }
 
-    // Mobile menu button
+    // 汉堡菜单按钮
     var btn = document.getElementById('mobile-menu-btn');
     if (btn) {
       btn.addEventListener('click', window.toggleSidebar);
     }
 
-    // Close sidebar on nav click (mobile)
+    // 点击导航链接关闭 sidebar（移动端）
     document.querySelectorAll('#sidebar nav a').forEach(function (link) {
       link.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
         var ov = document.getElementById('sidebar-overlay');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
-        if (ov) ov.classList.add('hidden');
+        if (sidebar) sidebar.classList.remove('sidebar-open');
+        if (ov) { ov.classList.add('hidden'); ov.classList.remove('sidebar-active'); }
       });
     });
 
@@ -73,7 +74,6 @@
       info: 'bg-blue-50 border-blue-300 text-blue-800'
     };
     var c = colors[type] || colors.info;
-    var iconMap = { success: 'check-circle', error: 'x-circle', info: 'info' };
     var iconSvg = '';
     if (type === 'error') {
       iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
@@ -270,21 +270,6 @@
     }
   });
 
-  // ── 移动端菜单 ──────────────────────────────────────────
-  window.toggleMobileMenu = function () {
-    var menu = document.getElementById('mobile-menu');
-    if (menu) menu.classList.toggle('hidden');
-  };
-  document.addEventListener('click', function (e) {
-    var mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-      var hamburger = document.querySelector('button[aria-label="菜单"]');
-      if (hamburger && !hamburger.contains(e.target)) {
-        mobileMenu.classList.add('hidden');
-      }
-    }
-  });
-
   // ── API 请求封装 ────────────────────────────────────────
   window.fetchWithCsrf = function (url, options) {
     options = options || {};
@@ -331,8 +316,6 @@
         }
       });
       document.body.classList.remove('modal-open');
-      var mobileMenu = document.getElementById('mobile-menu');
-      if (mobileMenu && !mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
     }
   });
 
