@@ -71,7 +71,7 @@
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
 
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-50 md:z-auto h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
+    <aside id="sidebar" class="fixed top-0 left-0 z-50 h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full md:relative md:translate-x-0 md:z-auto transition-transform duration-200 ease-in-out flex flex-col">
       <!-- Logo -->
       <div class="p-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
@@ -88,7 +88,7 @@
           <i data-lucide="home" class="w-5 h-5 shrink-0 inline-block"></i>
           <span>首页概览</span>
         </a>
-        <a href="/certs" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'certs' else 'text-gray-700 dark:text-gray-300' }}">
+        <a href="/data_manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}">
           <i data-lucide="database" class="w-5 h-5 shrink-0 inline-block"></i>
           <span>数据管理</span>
         </a>
@@ -104,9 +104,9 @@
           <i data-lucide="clipboard-list" class="w-5 h-5 shrink-0 inline-block"></i>
           <span>日志管理</span>
         </a>
-        <a href="/data-manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}">
+        <a href="/backup" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'backup' else 'text-gray-700 dark:text-gray-300' }}">
           <i data-lucide="hard-drive" class="w-5 h-5 shrink-0 inline-block"></i>
-          <span>数据维护</span>
+          <span>数据备份</span>
         </a>
       </nav>
 
