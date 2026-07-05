@@ -101,11 +101,11 @@
     <form method="POST" action="/users/add" class="p-5 space-y-3">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <input type="text" name="name" placeholder="姓名" required
+        <input type="text" name="name" placeholder="姓名" aria-label="姓名" required
           class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
-        <input type="text" name="username" placeholder="用户名" required
+        <input type="text" name="username" placeholder="用户名" aria-label="用户名" required
           class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
-        <input type="password" name="password" placeholder="密码" required
+        <input type="password" name="password" placeholder="密码" aria-label="密码" required
           class="px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
         <div class="flex gap-2">
           <select name="role"
@@ -119,11 +119,11 @@
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <input type="email" name="email" placeholder="邮箱（可选）"
+        <input type="email" name="email" placeholder="邮箱（可选）" aria-label="邮箱地址"
           class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
-        <input type="text" name="dingtalk_id" placeholder="钉钉用户ID（可选）"
+        <input type="text" name="dingtalk_id" placeholder="钉钉用户ID（可选）" aria-label="钉钉用户ID"
           class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
-        <input type="text" name="wecom_id" placeholder="企业微信用户ID（可选）"
+        <input type="text" name="wecom_id" placeholder="企业微信用户ID（可选）" aria-label="企业微信用户ID"
           class="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
       </div>
     </form>
@@ -315,7 +315,7 @@
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 mb-1">密码（不填则不修改）</label>
-        <input type="password" name="password" id="editPassword" placeholder="至少8位，包含大小写字母和数字"
+        <input type="password" name="password" id="editPassword" placeholder="至少8位，包含大小写字母和数字" aria-label="密码（不填则不修改）"
           class="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none text-sm transition-shadow">
       </div>
       <div class="border-t border-gray-100 pt-4">

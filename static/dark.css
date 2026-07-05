@@ -1,3 +1,14 @@
+/* Color scheme for native form controls */
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; }
+}
+
+/* Custom scrollbar for dark mode */
+body.dark-mode ::-webkit-scrollbar { width: 8px; height: 8px; }
+body.dark-mode ::-webkit-scrollbar-track { background: #111827; }
+body.dark-mode ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+body.dark-mode ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
 /* Dark mode overrides — uses Tailwind v4 CSS cascade layers to minimize !important */
 @layer base {
   body.dark-mode {

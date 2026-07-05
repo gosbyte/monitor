@@ -39,4 +39,25 @@
     _applyDarkIcons(isDark);
     if (typeof lucide !== 'undefined') lucide.createIcons();
   };
+
+  // Respect system preference on first visit
+  if (localStorage.getItem('dark-mode') === null) {
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) {
+      document.body.classList.add('dark-mode');
+      localStorage.setItem('dark-mode', 'true');
+      _applyDarkIcons(true);
+    }
+  }
+
+  // Listen for system theme changes
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+    if (localStorage.getItem('dark-mode') === null) {
+      if (e.matches) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+    }
+  });
 })();
