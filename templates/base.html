@@ -52,7 +52,7 @@
   <a href="#main-content" class="skip-link">跳转到主要内容</a>
 
   <!-- Mobile Header (always visible on mobile) -->
-  <header class="mobile-header bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 pt-14">
+  <header class="mobile-header bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40">
     <div class="flex items-center justify-between px-4 h-14">
       <button id="mobile-menu-btn" type="button" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="打开菜单">
         <i data-lucide="menu" class="w-5 h-5 inline-block"></i>
@@ -121,7 +121,7 @@
     </aside>
 
     <!-- Main Content -->
-    <main id="main-content" class="flex-1 p-4 md:p-6 lg:p-8 pt-20 md:pt-8">
+    <main id="main-content" class="flex-1 p-4 md:p-6 lg:p-8 pt-[112px] md:pt-8">
       <!-- Flash Messages -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
