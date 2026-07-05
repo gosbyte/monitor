@@ -711,7 +711,6 @@ function openEditModal(certId) {
       });
       modal.classList.remove('hidden');
       modal.classList.add('flex');
-      lucide.createIcons();
     })
     .catch(function(e) { showToast('加载失败：' + e.message, 'error'); });
 }
@@ -819,7 +818,6 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
               if (cells[4]) {
                 cells[4].innerHTML = sdata.badge_html;
               }
-              lucide.createIcons();
             }
           } else { location.reload(); }
         });
@@ -1390,7 +1388,7 @@ function toggleStatus(certId) {
       if (row && data.badge_html !== undefined) {
         var nth = document.querySelector('.row-checkbox') ? 5 : 4;
         var statusCell = row.querySelector('td:nth-child(' + nth + ')');
-        if (statusCell) { statusCell.innerHTML = data.badge_html; lucide.createIcons(); }
+        if (statusCell) { statusCell.innerHTML = data.badge_html; }
       } else { location.reload(); }
     })
     .catch(function() { showToast('操作失败，请重试', 'error'); })
@@ -1457,7 +1455,6 @@ function toggleHelp() {
     chevron.setAttribute('data-lucide', 'chevron-down');
     localStorage.setItem('help-expanded', 'false');
   }
-  lucide.createIcons();
 }
 (function() {
   if (!localStorage.getItem('help-expanded')) {
@@ -1467,7 +1464,6 @@ function toggleHelp() {
       var chevron = document.getElementById('help-chevron');
       if (content) content.classList.remove('hidden');
       if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
-      lucide.createIcons();
     }, 500);
   }
 })();

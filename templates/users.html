@@ -9,12 +9,10 @@
     .card-hover { transition: all .2s ease; }
     .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,.08); }
     .badge-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-  </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+  </style>{% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
+<div class=" p-4 md:p-6 lg:p-8">
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
@@ -352,7 +350,6 @@
 {% endblock %}
 
 {% block scripts %}
-lucide.createIcons();
 
 function openEditModal(username, name, role, dingtalkId, email, wecomId) {
   document.getElementById('editUsername').textContent = username;
@@ -376,7 +373,7 @@ function closeEditModal() {
   document.body.style.overflow = '';
 }
 
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+document.addEventListener("DOMContentLoaded", function() { });
 
 document.addEventListener("DOMContentLoaded", function() {
   var editModal = document.getElementById('editModal');

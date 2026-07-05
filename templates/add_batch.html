@@ -3,15 +3,11 @@
 {% block title %}批量添加{% endblock %}
 
 {% block head %}
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>批量添加记录</title>
-  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+  <meta charset="UTF-8"><title>批量添加记录</title>
+  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
+<div class=" p-4 md:p-6 lg:p-8">
 
 <header class="bg-white border-b border-gray-200 sticky top-0 z-10">
   <div class="max-w-7xl mx-auto px-4 py-4">
@@ -317,7 +313,6 @@ function showResult(areaId, success, message, detail) {
   if (detail && detail.length > 0) {
     area.innerHTML += '<div class="mt-2 pt-2 border-t border-current/20 text-xs space-y-0.5">' + detail.map(d => '<div>' + d + '</div>').join('') + '</div>';
   }
-  lucide.createIcons();
 }
 
 // ── Tab 切换 ──
@@ -375,7 +370,6 @@ function onExcelSelected(event) {
         '<td class="px-3 py-2">'+(item.note||'-')+'</td>';
       tbody.appendChild(tr);
     });
-    lucide.createIcons();
   })
   .catch(e => showResult('result-area', false, '预览失败：'+e.message));
 }
@@ -401,14 +395,12 @@ function confirmImport() {
       showResult('result-area', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -496,8 +488,6 @@ function onCsvSelected(event) {
       vs.innerHTML = '<strong>⚠ 无效记录 (' + data.invalid_count + ' 条):</strong><div class="mt-1 space-y-0.5">' +
         data.invalid_records.map(function(r) { return '<div>' + r.errors.join('; ') + '</div>'; }).join('') + '</div>';
     }
-
-    lucide.createIcons();
   })
   .catch(e => showResult('result-area-csv', false, '网络错误：'+e.message));
 }
@@ -532,14 +522,12 @@ function confirmCsvImport() {
       showResult('result-area-csv', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area-csv', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -615,7 +603,6 @@ function doJsonImport(e) {
     }
 
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 预览完成';
-    lucide.createIcons();
   })
   .catch(err => {
     showResult('result-area-json', false, '网络错误：'+err.message);
@@ -655,14 +642,12 @@ function confirmJsonImport() {
       showResult('result-area-json', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area-json', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -673,7 +658,6 @@ function cancelJsonPreview() {
   var btn = document.getElementById('json-submit-btn');
   btn.disabled = false;
   btn.innerHTML = '<i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入';
-  lucide.createIcons();
 }
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+document.addEventListener("DOMContentLoaded", function() { });
 {% endblock %}

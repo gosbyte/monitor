@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" class="">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-  <meta name="color-scheme" content="light dark">
+  <meta charset="UTF-8"><meta name="color-scheme" content="light dark">
   <title>{% block title %}到期提醒管理系统{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
   <script src="{{ url_for('static', filename='tailwind.js') }}" nonce="{{ csp_nonce }}"></script>
@@ -36,8 +34,6 @@
       .mobile-header { display: none !important; }
       /* Show sidebar on desktop */
       #sidebar { transform: translateX(0) !important; }
-      /* Offset content for sidebar */
-      #main-content { margin-left: 16rem !important; }
       /* Remove mobile top padding on desktop */
       .pt-14 { padding-top: 0 !important; }
       /* Hide sidebar overlay on desktop */
@@ -149,7 +145,7 @@
 
   <script src="{{ url_for('static', filename='dark.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
-  <script>lucide.createIcons();</script>
+  <script></script>
 
   <script nonce="{{ csp_nonce }}">{% block scripts %}{% endblock %}</script>
 
