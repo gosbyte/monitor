@@ -150,6 +150,7 @@
   <script></script>
 
   <script nonce="{{ csp_nonce }}">{% block scripts %}{% endblock %}</script>
+  <script nonce="{{ csp_nonce }}">document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
 
   <!-- Global Loading Overlay -->
   <div id="global-loading" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm" aria-live="polite">
