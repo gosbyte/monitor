@@ -122,7 +122,8 @@ def register_cert_routes(app: Flask) -> None:
         }
         return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
                                chart_data=chart_data, cert_types=cert_types, current_username=current_username,
-                               badge_count=badge_count)
+                               badge_count=badge_count, active_page='index', page_title='到期提醒管理系统',
+                               csrf_token=session.get("_csrf_token", ""))
 
     @app.route("/add", methods=["POST"])
     @login_required
