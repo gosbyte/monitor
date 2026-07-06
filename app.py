@@ -1,16 +1,1430 @@
 # -*- coding: utf-8 -*-
-"""Flask Web 管理界面入口 - Blueprint 模块化架构
-
-拆分说明:
-  routes/auth.py      - 认证相关路由（login/logout/change_password/users管理）
-  routes/certs.py     - 到期项 CRUD（增删改查/导入导出/备份恢复）
-  routes/admin.py     - 管理员功能（配置/批量操作/日志/推送历史）
-  routes/api.py       - API 端点（状态切换/测试推送/Webhook）
-  routes/pages.py     - 页面路由（add_batch）
-  app_init.py         - Flask 应用初始化，注册蓝图，全局配置
-"""
+"""Flask Web 管理界面 - 带登录和验证码（安全加固版）"""
+import json
 import os
-from app_init import app
+import io
+import sys
+import signal
+import time
+import random
+import string
+import re
+import logging
+import logging.handlers
+import secrets
+from functools import wraps
+from datetime import datetime, date, timedelta
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, make_response, g
+from werkzeug.security import generate_password_hash, check_password_hash
+from data import (
+    atomic_write_json, save_logs, write_log,
+    load_config, save_config, load_certs, save_certs,
+    load_users, save_users, verify_user, is_user_locked,
+    get_lock_seconds, do_lock_user, reset_failed_attempts, load_logs,
+    validate_password, calc_days_left, get_cert_status, calc_stats,
+    DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, USERS_FILE,
+    LOGS_FILE, SECRET_KEY_FILE, USE_SQLITE,
+    FileLock, locked_read_json, locked_write_json, encrypt_field, decrypt_field,
+)
+from auth import (
+    inject_globals, csrf_required, login_required, admin_required,
+    generate_captcha, create_captcha_image,
+)
+
+from webhook import (
+    send_webhook,
+    build_item_expiry_payload,
+    build_item_added_payload,
+    build_item_deleted_payload,
+)
+from PIL import Image, ImageDraw, ImageFont
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[logging.handlers.RotatingFileHandler(
+        os.path.join(DATA_DIR, 'flask.log'), maxBytes=10_485_760, backupCount=5, encoding='utf-8'
+    ), logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
+
+# ── IP 级别登录限流 ──────────────────────────────────────
+_LOGIN_ATTEMPTS = {}  # {ip: [(timestamp, success)]}
+_LOGIN_MAX_ATTEMPTS = 10  # 10 次/分钟
+_LOGIN_COOLDOWN = 300  # 5 分钟冷却
+
+# ── 通用请求速率限制 ──────────────────────────────────────
+_REQUEST_COUNTS = {}
+
+# [FIX] P2-7: 限流数据持久化到文件（重启后保留部分状态）
+_RATE_LIMIT_FILE = os.path.join(DATA_DIR, "rate_limit_state.json")
+
+def _persist_rate_limit():
+    """定期持久化限流数据"""
+    try:
+        tmp = _RATE_LIMIT_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_REQUEST_COUNTS, f)
+        os.replace(tmp, _RATE_LIMIT_FILE)
+    except Exception:
+        pass
+
+def _load_rate_limit():
+    """从文件加载限流数据"""
+    global _REQUEST_COUNTS
+    try:
+        if os.path.exists(_RATE_LIMIT_FILE):
+            with open(_RATE_LIMIT_FILE, "r") as f:
+                saved = json.load(f)
+            now = time.time()
+            _REQUEST_COUNTS = {k: [t for t in v if now - t < 60] for k, v in saved.items()}
+    except Exception:
+        pass
+
+# 启动时加载限流状态
+_load_rate_limit()
+
+# 定时持久化（每 30 秒）
+import threading
+def _persist_loop():
+    while True:
+        time.sleep(30)
+        _persist_rate_limit()
+
+_persist_thread = threading.Thread(target=_persist_loop, daemon=True)
+_persist_thread.start()
+
+def _rate_limit(key, max_requests=10, window=60):
+    """简单速率限制：同一 key 在 window 秒内最多 max_requests 次"""
+    now = time.time()
+    if key not in _REQUEST_COUNTS:
+        _REQUEST_COUNTS[key] = []
+    _REQUEST_COUNTS[key] = [t for t in _REQUEST_COUNTS[key] if now - t < window]
+    if len(_REQUEST_COUNTS[key]) >= max_requests:
+        return False
+    _REQUEST_COUNTS[key].append(now)
+    return True
+
+def rate_limit(max_requests=5, window=60):
+    """速率限制装饰器工厂"""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            ip = request.remote_addr or "unknown"
+            key = f"{f.__name__}:{ip}"
+            if not _rate_limit(key, max_requests, window):
+                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+app = Flask(__name__, template_folder="templates")
+
+# ── 安全配置 ──────────────────────────────────────────────
+def _load_or_create_secret_key():
+    env_key = os.environ.get("SECRET_KEY")
+    if env_key:
+        return env_key
+    if os.path.exists(SECRET_KEY_FILE):
+        with open(SECRET_KEY_FILE, "r") as f:
+            key = f.read().strip()
+            if key:
+                return key
+    key = secrets.token_hex(32)
+    with open(SECRET_KEY_FILE, "w") as f:
+        f.write(key)
+    return key
+
+app.secret_key = _load_or_create_secret_key()
+
+# [FIX] P1-5: 文件上传大小限制 10MB
+app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024
+
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+app.config["SESSION_PERMANENT"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+# [FIX] P0-1: 使用 g 对象确保每请求独立 nonce
+@app.before_request
+def _before_request_setup():
+    g.csp_nonce = secrets.token_hex(16)
+
+@app.context_processor
+def inject_csp_nonce():
+    return dict(csp_nonce=getattr(g, 'csp_nonce', ''))
+
+# [FIX] Inject CSRF token and badge count into all templates
+@app.context_processor
+def inject_template_globals():
+    return inject_globals()
+
+# [FIX] P0-2: 重新启用 CSP
+@app.after_request
+def set_security_headers(response):
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # CSP - 仅对 HTML 响应设置，使用 unsafe-inline 避免 nonce 同步问题
+    if response.content_type and 'text/html' in response.content_type:
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+            "img-src 'self' data:; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
+        )
+    return response
+
+@app.route('/captcha')
+def captcha():
+    code = generate_captcha()
+    session["captcha"] = code.lower()
+    img = create_captcha_image(code)
+    buf = io.BytesIO()
+    img.save(buf, 'PNG')
+    buf.seek(0)
+    return Response(buf.read(), mimetype='image/png')
+
+@app.route("/login")
+def login_page():
+    if session.get("logged_in"):
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    client_ip = request.remote_addr or "unknown"
+
+    now = time.time()
+    if client_ip not in _LOGIN_ATTEMPTS:
+        _LOGIN_ATTEMPTS[client_ip] = []
+    _LOGIN_ATTEMPTS[client_ip] = [(t, s) for t, s in _LOGIN_ATTEMPTS[client_ip] if now - t < 60]
+    if len(_LOGIN_ATTEMPTS[client_ip]) >= _LOGIN_MAX_ATTEMPTS:
+        logger.warning(f"IP {client_ip} 登录频率超限")
+        return render_template("login.html", error="请求过于频繁，请稍后再试")
+
+    # 验证码已禁用 — 用户反馈移动端输入困难
+    #     return render_template("login.html", error="验证码错误")
+
+    if is_user_locked(username):
+        secs = get_lock_seconds(username)
+        mins = secs // 60
+        sec = secs % 60
+        return render_template("login.html", error=f"账户已锁定，请 {mins} 分 {sec:02d} 秒后再试")
+
+    users = load_users()
+    user_exists = any(u["username"] == username for u in users)
+
+    if verify_user(username, password):
+        reset_failed_attempts(username)
+        # 保留 _csrf_token 避免前端token失效
+        csrf_token = session.get("_csrf_token")
+        if not csrf_token:
+            import os as _os
+            csrf_token = _os.urandom(32).hex()
+            session["_csrf_token"] = csrf_token
+        session.clear()
+        session["_csrf_token"] = csrf_token
+        session["logged_in"] = True
+        session["username"] = username
+        session["login_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        session.permanent = True
+        logger.info(f"用户 {username} 登录成功 (IP: {client_ip})")
+        # [FIX] P0-6: 参数正确传递
+        write_log(username, "登录", "登录成功", "系统", client_ip)
+        if client_ip in _LOGIN_ATTEMPTS:
+            _LOGIN_ATTEMPTS[client_ip] = []
+        return redirect(url_for("index"))
+    else:
+        if user_exists:
+            for u in users:
+                if u["username"] == username:
+                    u["failed_attempts"] = u.get("failed_attempts", 0) + 1
+                    remaining = 5 - u["failed_attempts"]
+                    save_users(users)
+                    if u["failed_attempts"] >= 5:
+                        do_lock_user(username)
+                        users2 = load_users()
+                        lu = next((x for x in users2 if x["username"] == username), None)
+                        lock_until = datetime.strptime(lu["lock_until"], "%Y-%m-%d %H:%M:%S")
+                        delta = lock_until - datetime.now()
+                        total_min = max(1, int(delta.total_seconds() // 60))
+                        return render_template("login.html", error=f"用户名或密码错误，账户已锁定 {total_min} 分钟")
+                    else:
+                        logger.warning(f"用户 {username} 登录失败，剩余 {remaining} 次机会")
+                        _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
+                        return render_template("login.html", error=f"用户名或密码错误，剩余 {remaining} 次机会")
+                    break
+        logger.warning(f"用户 {username} 登录失败 (IP: {client_ip})")
+        _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
+        return render_template("login.html", error="用户名或密码错误")
+
+@app.route("/logout")
+def logout():
+    username = session.get("username", "?")
+    session.clear()
+    return redirect(url_for("login_page"))
+
+@app.route("/change_password")
+@login_required
+def change_password():
+    username = session.get("username", "")
+    users = load_users()
+    current_user = next((u for u in users if u["username"] == username), None)
+    if request.method == "POST":
+        old_pwd = request.form.get("old_password", "")
+        new_pwd = request.form.get("new_password", "")
+        confirm_pwd = request.form.get("confirm_password", "")
+        if not current_user or not check_password_hash(current_user["password"], old_pwd):
+            return render_template("change_password.html", error="原密码错误")
+        valid, msg = validate_password(new_pwd)
+        if not valid:
+            return render_template("change_password.html", error=msg)
+        if new_pwd != confirm_pwd:
+            return render_template("change_password.html", error="两次密码不一致")
+        current_user["password"] = generate_password_hash(new_pwd)
+        current_user["force_change_password"] = 0
+        save_users(users)
+        write_log(username, "修改密码", "首次登录强制修改密码完成", "系统", request.remote_addr or '')
+        return redirect(url_for("index"))
+    return render_template("change_password.html")
+
+# ── 仪表盘 ────────────────────────────────────────────────
+@app.route("/")
+@login_required
+def index():
+    username = session.get("username", "")
+    users = load_users()
+    current_user = next((u for u in users if u["username"] == username), None)
+    if current_user and current_user.get("force_change_password", 0):
+        return redirect(url_for("change_password"))
+    
+    certs = load_certs()
+    cfg = load_config()
+    for c in certs:
+        # [FIX] 统一日期格式：确保 expire_date 格式正确
+        ed = c.get("expire_date", "")
+        if ed and "T" in ed:
+            c["expire_date"] = ed.replace("T", " ")
+        c["days_left"] = calc_days_left(c["expire_date"])
+        c["status"] = get_cert_status(c, c["days_left"])
+    certs.sort(key=lambda x: x["days_left"])
+    stats = calc_stats(certs)
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    if not is_admin:
+        certs = [c for c in certs if c.get("created_by") == current_username]
+    
+    cert_types = sorted(set(c["cert_type"] for c in certs if c.get("cert_type")))
+
+    from collections import defaultdict
+    monthly_count = defaultdict(int)
+    today = datetime.now()
+    for c in certs:
+        days_left = calc_days_left(c["expire_date"])
+        if days_left >= 0:
+            expire_dt = today + timedelta(days=int(days_left))
+            month_key = expire_dt.strftime("%Y-%m")
+            monthly_count[month_key] += 1
+    monthly_expiry = []
+    for i in range(6):
+        m_month = today.month + i
+        m_year = today.year + (m_month - 1) // 12
+        m_month = (m_month - 1) % 12 + 1
+        m_key = f"{m_year}-{m_month:02d}"
+        monthly_expiry.append({"month": m_key, "count": monthly_count.get(m_key, 0)})
+    max_monthly = max([m["count"] for m in monthly_expiry]) if monthly_expiry else 0
+    
+    type_count = defaultdict(int)
+    for c in certs:
+        t = c.get("cert_type", "其他")
+        type_count[t] += 1
+    total_certs = len(certs) if len(certs) > 0 else 1
+    type_distribution = [{"type": t, "count": cnt, "percent": round(cnt*100/total_certs, 1)} for t, cnt in sorted(type_count.items(), key=lambda x: -x[1])[:8]]
+    
+    status_distribution = [
+        {"label": "正常", "count": stats["normal"], "color": "#22c55e"},
+        {"label": "即将到期", "count": stats["expiring"], "color": "#f97316"},
+        {"label": "已过期", "count": stats["expired"], "color": "#ef4444"},
+        {"label": "已禁用", "count": stats.get("disabled", 0), "color": "#6b7280"}
+    ]
+    
+    # [FIX] P1-9: badge_count 在此处计算
+    badge_count = sum(1 for c in certs if c.get("remind_enabled", True) and not c.get("handled", False) and 0 <= c.get("days_left", 999) <= 7)
+    
+    chart_data = {
+        "monthly_expiry": monthly_expiry,
+        "max_monthly": max_monthly,
+        "type_distribution": type_distribution,
+        "status_distribution": status_distribution
+    }
+    return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
+                           chart_data=chart_data, cert_types=cert_types, current_username=current_username,
+                           badge_count=badge_count, active_page="index", page_title="到期提醒管理系统", csrf_token=session.get("_csrf_token", ""))
+
+@app.route("/config", methods=["GET", "POST"])
+@admin_required
+def config_page():
+    cfg = load_config()
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    if request.method == "POST":
+        cfg["webhook_url"] = request.form.get("webhook_url", "").strip()
+        cfg["remind_days"] = [int(x) for x in request.form.getlist("remind_days") if x.strip().isdigit()]
+        if not cfg["remind_days"]:
+            cfg["remind_days"] = [7, 3, 1]
+        save_config(cfg)
+        return redirect(url_for("index") + "?success=配置已保存")
+    return render_template("config.html", cfg=cfg, is_admin=is_admin)
+
+@app.route("/add", methods=["POST"])
+@login_required
+@csrf_required
+def add_cert():
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.form.get("_ajax") == "1"
+    certs = load_certs()
+    
+    # [FIX] P0-3: SQLite 模式用 AUTOINCREMENT，JSON 模式安全计算
+    if USE_SQLITE:
+        from db import db_save_cert
+        cert_data = {
+            "customer": request.form.get("customer", "").strip(),
+            "cert_type": (request.form.get("cert_type", "").strip() or request.form.get("cert_type_custom", "").strip()),
+            "domain": request.form.get("domain", "").strip(),
+            "expire_date": request.form.get("expire_date_combined", "").strip() or (request.form.get("expire_date_date", "").strip() + " " + request.form.get("expire_date_time", "").strip()).strip(),
+            "note": request.form.get("note", "").strip(),
+            "remind_enabled": request.form.get("remind_enabled", "on") == "on",
+            "handled": False,
+            "responsible_users": request.form.getlist("responsible_users"),
+            "created_by": session.get("username", ""),
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        }
+        db_save_cert(cert_data)
+        # 获取新 ID
+        from db import get_db
+        with get_db() as conn:
+            row = conn.execute("SELECT MAX(id) as max_id FROM certs").fetchone()
+            new_id = row[0] if row[0] else 1
+        customer = cert_data["customer"]
+    else:
+        new_id = max([c["id"] for c in certs], default=0) + 1
+        cert_type = request.form.get("cert_type", "").strip()
+        if not cert_type:
+            cert_type = request.form.get("cert_type_custom", "").strip()
+        customer = request.form.get("customer", "").strip()
+        responsible = request.form.getlist("responsible_users")
+        certs.append({
+            "id": new_id,
+            "customer": customer,
+            "cert_type": cert_type,
+            "domain": request.form.get("domain", "").strip(),
+            "expire_date": request.form.get("expire_date_combined", "").strip() or (request.form.get("expire_date_date", "").strip() + " " + request.form.get("expire_date_time", "").strip()).strip(),
+            "note": request.form.get("note", "").strip(),
+            "remind_enabled": request.form.get("remind_enabled", "on") == "on",
+            "handled": False,
+            "responsible_users": responsible,
+            "created_by": session.get("username", ""),
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+        save_certs(certs)
+    
+    # [FIX] P0-6: write_log 参数正确传递
+    write_log(session.get("username", "?"), "添加记录", customer, "到期项", request.remote_addr or '')
+    
+    if is_ajax:
+        return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session.get("_csrf_token", ""))
+    return redirect(url_for("index") + "?success=添加成功")
+
+@app.route("/edit/<int:cert_id>", methods=["GET", "POST"])
+@login_required
+@csrf_required
+def edit_cert(cert_id):
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    certs = load_certs()
+    cert = next((c for c in certs if c["id"] == cert_id), None)
+    if not cert:
+        return render_template("error.html", message="记录不存在", is_admin=is_admin), 404
+    if cert.get("created_by") and cert["created_by"] != current_username and not is_admin:
+        return render_template("error.html", message="无权操作此记录", is_admin=is_admin), 403
+    if request.method == "POST":
+        is_ajax = request.is_json or request.headers.get("Content-Type", "").startswith("application/json")
+        if is_ajax:
+            data = request.get_json()
+            cert["customer"] = data.get("customer", "").strip()
+            cert["cert_type"] = data.get("cert_type", "").strip()
+            cert["expire_date"] = data.get("expire_date", "").strip()
+            cert["note"] = data.get("note", "").strip()
+            cert["remind_enabled"] = bool(data.get("remind_enabled", True))
+            cert["handled"] = bool(data.get("handled", False))
+            cert["responsible_users"] = data.get("responsible_users", [])
+        else:
+            ct = request.form.get("cert_type", "").strip()
+            if not ct:
+                ct = request.form.get("cert_type_custom", "").strip()
+            cert["cert_type"] = ct
+            cert["customer"] = request.form.get("customer", "").strip()
+            cert["domain"] = request.form.get("domain", "").strip()
+            cert["expire_date"] = request.form.get("expire_date", "").strip()
+            cert["note"] = request.form.get("note", "").strip()
+            cert["remind_enabled"] = request.form.get("remind_enabled", "on") == "on"
+            cert["handled"] = request.form.get("handled") == "on"
+            cert["responsible_users"] = request.form.getlist("responsible_users")
+        save_certs(certs)
+        write_log(session.get("username", "?"), f"编辑记录 #{cert_id}", cert.get("customer", ""), "到期项", request.remote_addr or '')
+        if is_ajax:
+            return jsonify({"ok": True, "success": True, "csrf_token": session.get("_csrf_token", "")})
+        return redirect(url_for("index") + "?success=保存成功")
+    return render_template("edit.html", cert=cert, users=users, is_admin=is_admin)
+
+@app.route("/delete/<int:cert_id>", methods=["POST"])
+@login_required
+@csrf_required
+@admin_required
+def delete_cert(cert_id):
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    certs = load_certs()
+    cert_to_delete = next((c for c in certs if c["id"] == cert_id), None)
+    cert_name = cert_to_delete["customer"] if cert_to_delete else str(cert_id)
+    certs = [c for c in certs if c["id"] != cert_id]
+    save_certs(certs)
+    write_log(session.get("username", "?"), f"删除记录 #{cert_id}", cert_name, "到期项", request.remote_addr or '')
+    if is_ajax:
+        return jsonify(ok=True, message="删除成功", csrf_token=session.get("_csrf_token", ""))
+    return redirect(url_for("index") + "?success=删除成功")
+
+@app.route("/api/cert/<int:cert_id>", methods=["DELETE"])
+@login_required
+def api_delete_cert(cert_id):
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    certs = load_certs()
+    cert = next((c for c in certs if c["id"] == cert_id), None)
+    if not cert:
+        return jsonify({"ok": False, "message": "记录不存在"}), 404
+    if not is_admin and cert.get("created_by") and cert["created_by"] != current_username:
+        return jsonify({"ok": False, "message": "无权删除此记录"}), 403
+    cert_name = cert.get("customer", str(cert_id))
+    certs = [c for c in certs if c["id"] != cert_id]
+    save_certs(certs)
+    write_log(current_username, f"删除记录 #{cert_id}", cert_name, "到期项", request.remote_addr or '')
+    return jsonify({"ok": True, "message": "删除成功", "csrf_token": session.get("_csrf_token", "")})
+
+def _check_api_csrf():
+    if request.method == "GET":
+        return True
+    token = request.headers.get("X-CSRF-Token")
+    if not token and request.is_json:
+        token = request.json.get("_csrf_token")
+    if not token or token != session.get("_csrf_token"):
+        return False
+    # 不再每次API调用都旋转token，避免前端来不及更新导致后续请求失败
+    # token旋转只在登录/登出时进行
+    return True
+
+@app.route("/api/cert_status/<int:cert_id>")
+@login_required
+def get_cert_status_api(cert_id):
+    certs = load_certs()
+    for c in certs:
+        if c["id"] == cert_id:
+            days_left = calc_days_left(c["expire_date"])
+            status = get_cert_status(c, days_left)
+            enabled = c.get("remind_enabled", True)
+            handled = c.get("handled", False)
+            # 统一日期格式用于显示
+            expire_str = c.get("expire_date", "").replace("T", " ").strip()
+            if status == "disabled":
+                badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>'
+            elif status == "expired":
+                badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="到期日期：{expire_str}"><i data-lucide="x" class="w-3 h-3"></i> 已过期 {abs(days_left):.0f}天</span>'
+            elif status == "expiring":
+                badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="到期日期：{expire_str}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {days_left:.0f}天后</span>'
+            elif status == "normal":
+                badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title="到期日期：{expire_str}"><i data-lucide="check-circle" class="w-3 h-3"></i> {days_left:.0f}天</span>'
+            else:
+                badge = f'<span>{expire_str}</span>'
+            return jsonify({
+                "ok": True, "days_left": days_left, "status": status, "badge_html": badge,
+                "remind_enabled": enabled, "handled": handled,
+                "responsible_users": c.get("responsible_users", []),
+                "customer": c.get("customer", ""), "cert_type": c.get("cert_type", ""),
+                "expire_date": c.get("expire_date", ""), "note": c.get("note", "")
+            })
+    return jsonify({"ok": False}), 404
+
+@app.route("/api/status/<int:cert_id>", methods=["POST"])
+@login_required
+def toggle_status(cert_id):
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    certs = load_certs()
+    for c in certs:
+        if c["id"] == cert_id:
+            c["remind_enabled"] = not c.get("remind_enabled", True)
+            save_certs(certs)
+            return jsonify({"ok": True, "remind_enabled": c["remind_enabled"], "csrf_token": session.get("_csrf_token", "")})
+    return jsonify({"ok": False, "csrf_token": session.get("_csrf_token", "")}), 404
+
+@app.route("/api/handle/<int:cert_id>", methods=["POST"])
+@login_required
+def toggle_handle(cert_id):
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    certs = load_certs()
+    for c in certs:
+        if c["id"] == cert_id:
+            c["handled"] = not c.get("handled", False)
+            save_certs(certs)
+            return jsonify({"ok": True, "handled": c["handled"], "csrf_token": session.get("_csrf_token", "")})
+    return jsonify({"ok": False, "csrf_token": session.get("_csrf_token", "")}), 404
+
+@app.route("/api/batch_delete", methods=["POST"])
+@login_required
+@admin_required
+def api_batch_delete():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    if not ids:
+        return jsonify({"ok": False, "message": "未选择记录"}), 400
+    certs = load_certs()
+    deleted_ids = [c["id"] for c in certs if c["id"] in ids]
+    certs = [c for c in certs if c["id"] not in ids]
+    save_certs(certs)
+    state_file = os.path.join(DATA_DIR, "remind_state.json")
+    if os.path.exists(state_file):
+        try:
+            with open(state_file, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            if isinstance(state, dict):
+                cleaned = {k: v for k, v in state.items()
+                          if not any(str(cid) in k for cid in ids)}
+                atomic_write_json(state_file, cleaned)
+        except Exception:
+            pass
+    current_user = session.get("username", "?")
+    write_log(current_user, "批量删除", f"删除 {len(deleted_ids)} 条记录", "到期项", request.remote_addr or '')
+    return jsonify({"ok": True, "message": f"删除 {len(deleted_ids)} 条记录", "deleted_ids": deleted_ids, "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/batch_handle", methods=["POST"])
+@login_required
+@admin_required
+def api_batch_handle():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    handled = data.get("handled", True)
+    if not ids:
+        return jsonify({"ok": False, "message": "未选择记录"}), 400
+    certs = load_certs()
+    count = sum(1 for c in certs if c["id"] in ids)
+    for c in certs:
+        if c["id"] in ids:
+            c["handled"] = handled
+    save_certs(certs)
+    label = "标记已处理" if handled else "取消已处理"
+    current_user = session.get("username", "?")
+    write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", request.remote_addr or '')
+    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/batch_remind", methods=["POST"])
+@login_required
+@admin_required
+def api_batch_remind():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    remind_enabled = data.get("remind_enabled", True)
+    if not ids:
+        return jsonify({"ok": False, "message": "未选择记录"}), 400
+    certs = load_certs()
+    count = 0
+    for c in certs:
+        if c["id"] in ids:
+            c["remind_enabled"] = remind_enabled
+            count += 1
+    save_certs(certs)
+    label = "启用提醒" if remind_enabled else "禁用提醒"
+    current_user = session.get("username", "?")
+    write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", request.remote_addr or '')
+    return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/cert")
+@login_required
+def api_list_certs():
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    per_page = min(per_page, 100)
+    status_filter = request.args.get("status", "")
+    search = request.args.get("search", "").strip()
+    
+    certs = load_certs()
+    current_username = session.get("username", "")
+    users = load_users()
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    if not is_admin:
+        certs = [c for c in certs if c.get("created_by") == current_username]
+    
+    if status_filter == "expiring":
+        certs = [c for c in certs if get_cert_status(c) == "expiring"]
+    elif status_filter == "expired":
+        certs = [c for c in certs if get_cert_status(c) == "expired"]
+    elif status_filter == "normal":
+        certs = [c for c in certs if get_cert_status(c) == "normal"]
+    
+    if search:
+        certs = [c for c in certs if search.lower() in c.get("customer", "").lower() 
+                 or search.lower() in c.get("domain", "").lower()]
+    
+    certs.sort(key=lambda x: calc_days_left(x.get("expire_date", "")))
+    
+    total = len(certs)
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_certs = certs[start:end]
+    
+    for c in page_certs:
+        c["days_left"] = calc_days_left(c.get("expire_date", ""))
+        c["status"] = get_cert_status(c, c["days_left"])
+    
+    return jsonify({
+        "ok": True, "data": page_certs, "total": total,
+        "page": page, "per_page": per_page,
+        "pages": (total + per_page - 1) // per_page if per_page > 0 else 0,
+        "csrf_token": session.get("_csrf_token", "")
+    })
+
+@app.route("/api/stats")
+@login_required
+def api_stats():
+    certs = load_certs()
+    return jsonify(calc_stats(certs))
+
+@app.route("/api/save_config", methods=["POST"])
+@login_required
+@admin_required
+def api_save_config():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    cfg = load_config()
+    data = request.get_json()
+    if data:
+        for k, v in data.items():
+            if k == 'remind_days' and isinstance(v, list):
+                cfg[k] = v
+            elif k != '_csrf_token':
+                cfg[k] = v
+        save_config(cfg)
+    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/test_email", methods=["POST"])
+@login_required
+@admin_required
+@rate_limit(max_requests=3, window=60)
+def api_test_email():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    cfg = load_config()
+    if cfg.get("smtp_pass"):
+        cfg["smtp_pass"] = decrypt_field(cfg["smtp_pass"])
+    smtp_host = cfg.get("smtp_host", "").strip()
+    smtp_port = cfg.get("smtp_port", 465)
+    smtp_user = cfg.get("smtp_user", "").strip()
+    smtp_pass = cfg.get("smtp_pass", "").strip()
+    smtp_to = cfg.get("smtp_to", "").strip()
+    if not smtp_host or not smtp_user or not smtp_pass or not smtp_to:
+        return jsonify({"ok": False, "message": "请先配置完整的邮件服务器信息"}), 400
+    recipients = [r.strip() for r in smtp_to.split(",") if r.strip()]
+    if not recipients:
+        return jsonify({"ok": False, "message": "收件人地址为空"}), 400
+    try:
+        port = int(smtp_port)
+    except ValueError:
+        port = 465
+    try:
+        subject = "到期提醒系统 - 测试邮件"
+        content = "这是一封测试邮件，确认邮件提醒功能正常！\n\n发送时间：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from_name = cfg.get("smtp_from_name", "到期提醒系统").strip() or "到期提醒系统"
+        from_addr = f"{from_name} <{smtp_user}>" if from_name else smtp_user
+        msg = f"From: {from_addr}\r\nTo: {','.join(recipients)}\r\nSubject: {subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{content}"
+        if port == 465:
+            import smtplib
+            with smtplib.SMTP_SSL(smtp_host, port, timeout=10) as server:
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, recipients, msg.encode("utf-8"))
+        else:
+            import smtplib
+            with smtplib.SMTP(smtp_host, port, timeout=10) as server:
+                server.ehlo()
+                if port == 587:
+                    server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(smtp_user, recipients, msg.encode("utf-8"))
+        return jsonify({"ok": True, "message": f"测试邮件发送成功！已发送至 {len(recipients)} 个收件人", "csrf_token": session.get("_csrf_token", "")})
+    except Exception as e:
+        logger.error(f"测试邮件发送失败: {e}")
+        return jsonify({"ok": False, "message": f"邮件发送失败：{str(e)}", "csrf_token": session.get("_csrf_token", "")}), 500
+
+@app.route("/api/config/wecom", methods=["POST"])
+@login_required
+@admin_required
+def api_config_wecom():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    cfg = load_config()
+    data = request.get_json() or {}
+    cfg["wecom_enabled"] = bool(data.get("wecom_enabled", False))
+    cfg["wecom_webhook"] = data.get("wecom_webhook", "").strip()
+    save_config(cfg)
+    return jsonify({"ok": True, "message": "保存成功", "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/test_wecom", methods=["POST"])
+@login_required
+@admin_required
+@rate_limit(max_requests=5, window=60)
+def api_test_wecom():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    cfg = load_config()
+    webhook_url = (request.get_json() or {}).get("wecom_webhook", "").strip()
+    if not webhook_url:
+        webhook_url = cfg.get("wecom_webhook", "").strip()
+    if not webhook_url:
+        return jsonify({"ok": False, "message": "未配置企业微信 Webhook"}), 400
+    import requests
+    payload = {"msgtype": "markdown", "markdown": {"content": f"🧪 测试消息\n\n到期提醒管理系统连接正常！\n时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"}}
+    try:
+        r = requests.post(webhook_url, json=payload, timeout=10)
+        if r.status_code == 200 and r.json().get("errcode") == 0:
+            return jsonify({"ok": True, "message": "测试推送成功", "csrf_token": session.get("_csrf_token", "")})
+        return jsonify({"ok": False, "message": f"推送失败：{r.text[:200]}", "csrf_token": session.get("_csrf_token", "")}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "message": f"推送出错：{str(e)}", "csrf_token": session.get("_csrf_token", "")}), 500
+
+@app.route("/api/test_push", methods=["POST"])
+@login_required
+@admin_required
+@rate_limit(max_requests=5, window=60)
+def api_test_push():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    from dingtalk import send_dingtalk_card
+    cfg = load_config()
+    webhook_url = cfg.get("webhook_url", "").strip()
+    if not webhook_url:
+        return jsonify({"ok": False, "message": "未配置 Webhook 地址"}), 400
+    test_content = "🧪 这是一条测试消息\n\n到期提醒管理系统连接正常！\n时间：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    secret = cfg.get("secret", "")
+    success = send_dingtalk_card(webhook_url, "到期提醒系统 - 测试消息", test_content, secret)
+    return jsonify({"ok": success, "message": "测试消息发送成功" if success else "发送失败", "csrf_token": session.get("_csrf_token", "")})
+
+@app.route("/api/push/<int:cert_id>", methods=["POST"])
+@login_required
+@admin_required
+def api_push_cert(cert_id):
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
+    from dingtalk import send_dingtalk_card, build_remind_card
+    cfg = load_config()
+    webhook_url = cfg.get("webhook_url", "").strip()
+    if not webhook_url:
+        return jsonify({"ok": False, "message": "未配置 Webhook 地址"}), 400
+    certs = load_certs()
+    cert = next((c for c in certs if c["id"] == cert_id), None)
+    if not cert:
+        return jsonify({"ok": False, "message": "到期项不存在"}), 404
+    cert["days_left"] = calc_days_left(cert["expire_date"])
+    users = load_users()
+    users_map = {u["username"]: u for u in users}
+    title, content, at_ids = build_remind_card([cert], users_map)
+    secret = cfg.get("secret", "")
+    success = send_dingtalk_card(webhook_url, title, content, secret, at_user_ids=at_ids if at_ids else None)
+    write_log(session.get("username", "?"), "推送提醒", f"推送 {cert['customer']}（剩余 {cert['days_left']:.0f} 天）", f"到期项 #{cert_id}", request.remote_addr or '')
+    return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session.get("_csrf_token", "")})
+
+# ── 批量导入 / 导出 ──────────────────────────────────────
+@app.route("/import", methods=["POST"])
+@login_required
+@admin_required
+@csrf_required
+def import_certs():
+    certs = load_certs()
+    try:
+        data = request.get_json()
+        if not isinstance(data, list):
+            return jsonify({"ok": False, "message": "请传入 JSON 数组格式"}), 400
+        imported = 0
+        errors = []
+        new_id = max([c["id"] for c in certs], default=0)
+        for i, item in enumerate(data):
+            try:
+                customer = str(item.get("customer", "").strip())
+                expire_date = str(item.get("expire_date", "").strip())
+                if not customer or not expire_date:
+                    errors.append(f"第 {i+1} 条: 缺少必填字段(客户名/到期日期)")
+                    continue
+                new_id += 1
+                certs.append({
+                    "id": new_id, "customer": customer,
+                    "cert_type": str(item.get("cert_type", "").strip()),
+                    "domain": str(item.get("domain", "").strip()),
+                    "expire_date": expire_date,
+                    "note": str(item.get("note", "").strip()),
+                    "remind_enabled": bool(item.get("remind_enabled", True)),
+                    "handled": bool(item.get("handled", False)),
+                    "responsible_users": item.get("responsible_users", []),
+                    "created_by": session.get("username", ""),
+                    "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
+                imported += 1
+            except Exception as e:
+                errors.append(f"第 {i+1} 条: {str(e)}")
+        save_certs(certs)
+        write_log(session.get("username", "?"), "批量导入", f"共 {imported} 条记录", "到期项", request.remote_addr or '')
+        return jsonify({"ok": True, "imported": imported, "errors": errors})
+    except Exception as e:
+        return jsonify({"ok": False, "message": str(e)}), 500
+
+@app.route("/export")
+@app.route("/export/json")
+@login_required
+@admin_required
+def export_certs():
+    certs = load_certs()
+    for c in certs:
+        c["days_left"] = calc_days_left(c["expire_date"])
+        c["status"] = get_cert_status(c, c["days_left"])
+    return Response(
+        json.dumps(certs, ensure_ascii=False, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": "attachment; filename=cert_data_export.json"}
+    )
+
+@app.route("/export/excel")
+@login_required
+@admin_required
+def export_excel():
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "导出数据"
+    ws.append(["客户名称", "提醒类型", "域名", "到期日期", "是否提醒", "处理状态", "备注"])
+    certs = load_certs()
+    for c in certs:
+        ws.append([
+            c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
+            c.get("expire_date", ""),
+            "是" if c.get("remind_enabled", True) else "否",
+            "已处理" if c.get("handled", False) else "未处理",
+            c.get("note", "")
+        ])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(
+        buf.read(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=cert_data_export.xlsx"}
+    )
+
+@app.route("/import/template")
+@login_required
+@admin_required
+def download_template():
+    import io
+    from openpyxl import Workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "导入模板"
+    ws.append(["客户名称", "提醒类型", "域名", "到期日期", "备注"])
+    ws.append(["示例客户", "SSL到期项", "example.com", "2026-12-31", "备注信息"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return Response(
+        buf.read(),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=import_template.xlsx"}
+    )
+
+@app.route("/api/preview_import", methods=["POST"])
+@login_required
+@admin_required
+def api_preview_import():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败", "csrf_token": session.get("_csrf_token")})
+    if "file" not in request.files:
+        return jsonify({"ok": False, "message": "未上传文件", "csrf_token": session.get("_csrf_token")})
+    file = request.files["file"]
+    if not file.filename.endswith(".xlsx"):
+        return jsonify({"ok": False, "message": "只支持 .xlsx 文件", "csrf_token": session.get("_csrf_token")})
+    try:
+        from openpyxl import load_workbook
+        wb = load_workbook(io.BytesIO(file.read()))
+        ws = wb.active
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        data = []
+        for r in rows:
+            if not r or not r[0]:
+                continue
+            data.append({
+                "customer": str(r[0] or "").strip(),
+                "cert_type": str(r[1] or "").strip(),
+                "domain": str(r[2] or "").strip(),
+                "expiry_date": str(r[3] or "").strip(),
+                "note": str(r[4] or "").strip()
+            })
+        return jsonify({"ok": True, "data": data, "total": len(data), "csrf_token": session.get("_csrf_token")})
+    except Exception as e:
+        return jsonify({"ok": False, "message": str(e), "csrf_token": session.get("_csrf_token")})
+
+@app.route("/api/import_excel", methods=["POST"])
+@login_required
+@admin_required
+def api_import_excel():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "message": "CSRF验证失败", "csrf_token": session.get("_csrf_token")})
+    payload = request.get_json() or {}
+    rows = payload.get("data", [])
+    if not rows:
+        return jsonify({"ok": False, "message": "导入数据为空", "csrf_token": session.get("_csrf_token")})
+    certs = load_certs()
+    imported = 0
+    errors = []
+    for i, r in enumerate(rows):
+        customer = r.get("customer", "").strip()
+        expiry = r.get("expiry_date", "").strip()
+        if not customer or not expiry:
+            errors.append(f"第{i+1}行: 缺少必填字段")
+            continue
+        try:
+            calc_days_left(expiry)
+        except Exception:
+            errors.append(f"第{i+1}行: 日期格式无效 '{expiry}'")
+            continue
+        if any(c.get("customer") == customer and c.get("expire_date") == expiry for c in certs):
+            errors.append(f"第{i+1}行: 重复记录")
+            continue
+        new_id = max([c["id"] for c in certs], default=0) + 1
+        certs.append({
+            "id": new_id, "customer": customer,
+            "cert_type": r.get("cert_type", ""), "domain": r.get("domain", ""),
+            "expire_date": expiry, "note": r.get("note", ""),
+            "remind_enabled": True, "handled": False,
+            "created_by": session.get("username", ""),
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        imported += 1
+    save_certs(certs)
+    write_log(session.get("username", "?"), "Excel导入", f"成功导入 {imported} 条，失败 {len(errors)} 条", "到期项", request.remote_addr or '')
+    return jsonify({"ok": True, "message": f"成功导入 {imported} 条记录", "imported": imported, "errors": errors, "csrf_token": session.get("_csrf_token")})
+
+@app.route("/add_batch")
+@admin_required
+def add_batch_page():
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    return render_template("add_batch.html", is_admin=is_admin)
+
+@app.route("/users")
+@admin_required
+def users_page():
+    users = load_users()
+    current_user = session.get("username", "")
+    user_info = next((u for u in users if u["username"] == current_user), None)
+    is_admin = user_info.get("role") == "admin" if user_info else False
+    return render_template("users.html", users=users, is_admin=is_admin)
+
+@app.route("/users/add", methods=["POST"])
+@admin_required
+@csrf_required
+def add_user():
+    username = request.form.get("username", "").strip()
+    name = request.form.get("name", "").strip()
+    password = request.form.get("password", "").strip()
+    role = request.form.get("role", "user").strip()
+    if not username or not password:
+        return "用户名和密码不能为空", 400
+    valid, msg = validate_password(password)
+    if not valid:
+        return msg, 400
+    if role not in ("admin", "user"):
+        role = "user"
+    users = load_users()
+    if any(u["username"] == username for u in users):
+        return "用户名已存在", 400
+    users.append({"username": username, "name": name or username, "password": generate_password_hash(password), "dingtalk_id": "", "role": role})
+    save_users(users)
+    write_log(session.get("username", "?"), "添加用户", f"添加用户 {username}（姓名：{name}）", username, request.remote_addr or '')
+    return redirect(url_for("users_page") + "?success=用户添加成功")
+
+@app.route("/users/edit/<username>", methods=["POST"])
+@admin_required
+@csrf_required
+def edit_user(username):
+    users = load_users()
+    target = next((u for u in users if u["username"] == username), None)
+    if not target:
+        return "用户不存在", 404
+    target["name"] = request.form.get("name", "").strip()
+    target["role"] = request.form.get("role", "user").strip()
+    password = request.form.get("password", "").strip()
+    if password:
+        valid, msg = validate_password(password)
+        if not valid:
+            return msg, 400
+        target["password"] = generate_password_hash(password)
+    target["dingtalk_id"] = request.form.get("dingtalk_id", "").strip()
+    save_users(users)
+    write_log(session.get("username", "?"), "编辑用户", f"编辑用户 {username}", username, request.remote_addr or '')
+    return redirect(url_for("users_page") + "?success=用户信息已保存")
+
+@app.route("/users/password/<username>", methods=["POST"])
+@login_required
+@csrf_required
+def change_user_password(username):
+    new_pwd = request.form.get("new_password", "").strip()
+    valid, msg = validate_password(new_pwd)
+    if not valid:
+        return msg, 400
+    current_user = session.get("username", "")
+    users = load_users()
+    for u in users:
+        if u["username"] == username:
+            if username != current_user:
+                cr = next((x.get("role") for x in users if x["username"] == current_user), "user")
+                if cr != "admin":
+                    return "无权限修改他人密码", 403
+            u["password"] = generate_password_hash(new_pwd)
+            break
+    else:
+        return "用户不存在", 404
+    save_users(users)
+    write_log(session.get("username", "?"), "修改密码", f"修改用户 {username} 的密码", username, request.remote_addr or '')
+    return redirect(url_for("index") + "?success=密码修改成功")
+
+@app.route("/users/delete/<username>", methods=["POST"])
+@admin_required
+@csrf_required
+def delete_user(username):
+    if username == "admin":
+        return "不能删除默认管理员", 400
+    users = [u for u in load_users() if u["username"] != username]
+    save_users(users)
+    write_log(session.get("username", "?"), "删除用户", f"删除用户 {username}", username, request.remote_addr or '')
+    return redirect(url_for("users_page") + "?success=用户已删除")
+
+@app.route("/users/unlock/<username>", methods=["POST"])
+@admin_required
+@csrf_required
+def unlock_user(username):
+    users = load_users()
+    for u in users:
+        if u["username"] == username:
+            u["failed_attempts"] = 0
+            u["lock_until"] = None
+            u["consecutive_locks"] = 0
+            break
+    save_users(users)
+    write_log(session.get("username", "?"), "解锁用户", f"解锁用户 {username}", username, request.remote_addr or '')
+    return redirect(url_for("users_page") + "?success=用户已解锁")
+
+@app.route("/users/dingtalk_id", methods=["POST"])
+@login_required
+def update_dingtalk_id():
+    if not _check_api_csrf():
+        return jsonify({"ok": False, "error": "CSRF验证失败"}), 403
+    username = request.form.get("username", "").strip()
+    dingtalk_id = request.form.get("dingtalk_id", "").strip()
+    if not username:
+        return jsonify({"ok": False, "error": "用户名不能为空"}), 400
+    users = load_users()
+    for u in users:
+        if u["username"] == username:
+            u["dingtalk_id"] = dingtalk_id
+            break
+    else:
+        return jsonify({"ok": False, "error": "用户不存在"}), 404
+    save_users(users)
+    logger.info(f"用户 {username} 钉钉ID已更新: {dingtalk_id}")
+    write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, request.remote_addr or '')
+    return jsonify({"ok": True})
+
+@app.route("/logs")
+@admin_required
+def logs_page():
+    logs = load_logs()
+    logs.sort(key=lambda x: x["time"], reverse=True)
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    return render_template("logs.html", logs=logs[:200], total=len(logs), users=users, is_admin=is_admin)
+
+@app.route("/logs/clear", methods=["POST"])
+@admin_required
+@csrf_required
+def clear_logs():
+    save_logs([])
+    write_log(session.get("username", "?"), "清空日志", "清空全部操作日志", "系统", request.remote_addr or '')
+    return redirect(url_for("logs_page") + "?success=日志已清空")
+
+@app.route("/push_history")
+@admin_required
+def push_history_page():
+    users = load_users()
+    current_username = session.get("username", "")
+    current_user = next((u for u in users if u["username"] == current_username), None)
+    is_admin = current_user.get("role") == "admin" if current_user else False
+    push_history_file = os.path.join(DATA_DIR, "push_history.json") if DATA_DIR != BASE_DIR else os.path.join(BASE_DIR, "push_history.json")
+    history = []
+    if os.path.exists(push_history_file):
+        with open(push_history_file, "r", encoding="utf-8") as f:
+            history = json.load(f)
+    history.sort(key=lambda x: x.get("time", ""), reverse=True)
+    return render_template("push_history.html", history=history, is_admin=is_admin)
+
+@app.route("/data_manage")
+@login_required
+@admin_required
+def data_manage_page():
+    return render_template("data_manage.html")
+
+@app.route("/backup")
+@login_required
+@admin_required
+def backup_data():
+    def _read_json(path):
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8-sig") as f:
+                return json.load(f)
+        return None
+
+    if USE_SQLITE:
+        from db import get_db, db_load_certs, db_load_logs, db_load_push_history, db_load_config
+        certs = db_load_certs()
+        logs = db_load_logs()
+        push_history = db_load_push_history()
+        cfg = db_load_config()
+        users = []
+        with get_db() as conn:
+            rows = conn.execute("SELECT * FROM users").fetchall()
+            users = [dict(r) for r in rows]
+        backup = {
+            "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "2.0", "mode": "sqlite",
+            "cert_data": certs, "config": cfg, "users": users,
+            "logs": logs, "push_history": push_history,
+        }
+    else:
+        backup = {
+            "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "version": "2.0", "mode": "json",
+            "cert_data": _read_json(DATA_FILE),
+            "config": _read_json(CONFIG_FILE),
+            "users": _read_json(USERS_FILE),
+            "logs": _read_json(LOGS_FILE),
+            "push_history": _read_json(os.path.join(DATA_DIR, "push_history.json")),
+        }
+    filename = "backup_" + datetime.now().strftime("%Y%m%d_%H%M%S") + ".json"
+    return Response(
+        json.dumps(backup, ensure_ascii=False, indent=2),
+        mimetype="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.route("/restore", methods=["GET", "POST"])
+@login_required
+@admin_required
+def restore_data():
+    if request.method == "GET":
+        return render_template("restore.html")
+    if "backup_file" not in request.files:
+        return jsonify({"ok": False, "message": "未找到上传文件"})
+    file = request.files["backup_file"]
+    if file.filename == "":
+        return jsonify({"ok": False, "message": "请选择备份文件"})
+    try:
+        data = json.load(io.TextIOWrapper(file, encoding="utf-8-sig"))
+    except Exception as e:
+        return jsonify({"ok": False, "message": f"文件格式错误：{e}"})
+    try:
+        if USE_SQLITE:
+            from db import (get_db, db_save_cert, db_load_users, db_save_user,
+                            db_load_config, db_save_config, db_write_log,
+                            db_save_push_history)
+            if "cert_data" in data and data["cert_data"]:
+                with get_db() as conn:
+                    for cert in data["cert_data"]:
+                        cert_id = cert.get("id", 0)
+                        existing = conn.execute("SELECT id FROM certs WHERE id=?", (cert_id,)).fetchone()
+                        if existing:
+                            conn.execute("""UPDATE certs SET customer=?, cert_type=?, domain=?, expire_date=?,
+                                           note=?, remind_enabled=?, handled=?, responsible_users=?, updated_at=?
+                                           WHERE id=?""",
+                                (cert.get("customer", ""), cert.get("cert_type", ""), cert.get("domain", ""),
+                                 cert.get("expire_date", ""), cert.get("note", ""),
+                                 int(cert.get("remind_enabled", True)), int(cert.get("handled", False)),
+                                 json.dumps(cert.get("responsible_users", []), ensure_ascii=False),
+                                 datetime.now().strftime("%Y-%m-%d %H:%M"), cert_id))
+                        else:
+                            conn.execute("""INSERT OR REPLACE INTO certs (id, customer, cert_type, domain, expire_date, note,
+                                          remind_enabled, handled, responsible_users, created_by, created_at, updated_at)
+                                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (cert_id, cert.get("customer", ""), cert.get("cert_type", ""), cert.get("domain", ""),
+                                 cert.get("expire_date", ""), cert.get("note", ""),
+                                 int(cert.get("remind_enabled", True)), int(cert.get("handled", False)),
+                                 json.dumps(cert.get("responsible_users", []), ensure_ascii=False),
+                                 cert.get("created_by", ""), cert.get("created_at", ""), datetime.now().strftime("%Y-%m-%d %H:%M")))
+            if "config" in data and data["config"]:
+                db_save_config(data["config"])
+            if "users" in data and data["users"]:
+                existing_users = {u["username"] for u in db_load_users()}
+                for user in data["users"]:
+                    uname = user.get("username", "")
+                    if uname in existing_users:
+                        db_save_user(user)
+                    else:
+                        with get_db() as conn:
+                            conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
+                                           role, email, failed_attempts, consecutive_locks, lock_until,
+                                           force_change_password)
+                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (uname, user.get("name", uname), user.get("password", ""),
+                                 user.get("dingtalk_id", ""), user.get("role", "user"),
+                                 user.get("email", ""), user.get("failed_attempts", 0),
+                                 user.get("consecutive_locks", 0), user.get("lock_until"),
+                                 int(user.get("force_change_password", 1))))
+            if "logs" in data and data["logs"]:
+                for log in data["logs"][-1000:]:
+                    db_write_log(log.get("username", ""), log.get("action", ""),
+                               log.get("detail", ""), log.get("target", ""), log.get("ip", ""))
+            if "push_history" in data and data["push_history"]:
+                for ph in data["push_history"]:
+                    db_save_push_history(ph.get("cert_customer", ""), ph.get("cert_domain", ""),
+                                         ph.get("channels", []), ph.get("status", ""), ph.get("message", ""))
+        else:
+            if "cert_data" in data and data["cert_data"]:
+                atomic_write_json(DATA_FILE, data["cert_data"])
+            if "config" in data and data["config"]:
+                atomic_write_json(CONFIG_FILE, data["config"])
+            if "users" in data and data["users"]:
+                atomic_write_json(USERS_FILE, data["users"])
+            if "logs" in data and data["logs"]:
+                atomic_write_json(LOGS_FILE, data["logs"])
+            ph_file = os.path.join(DATA_DIR, "push_history.json")
+            if "push_history" in data and data["push_history"]:
+                atomic_write_json(ph_file, data["push_history"])
+    except Exception as e:
+        logger.error(f"restore_data 失败: {e}")
+        return jsonify({"ok": False, "message": f"恢复失败：{e}"})
+    write_log(session["username"], "恢复数据", "系统", f"从备份恢复（{file.filename}）", request.remote_addr or '')
+    return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session.get("_csrf_token", "")})
+
+# ── Prometheus 监控指标 ──────────────────────────────────────
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry as Registry, Gauge
+
+# [FIX] P1-8: 使用独立 Registry 避免多 worker 冲突
+_custom_registry = Registry()
+_gauge_total_certs = Gauge('cert_total', 'Total certificates', registry=_custom_registry)
+_gauge_expiring_certs = Gauge('cert_expiring_soon', 'Certificates expiring within 7 days', registry=_custom_registry)
+_gauge_expired_certs = Gauge('cert_expired', 'Expired certificates', registry=_custom_registry)
+_gauge_disabled_certs = Gauge('cert_disabled', 'Disabled certificate reminders', registry=_custom_registry)
+
+# [FIX] P1-6: /metrics 端点添加 IP 白名单
+_METRICS_ALLOWED_IPS = os.environ.get("METRICS_ALLOWED_IPS", "127.0.0.1,::1").split(",")
+
+@app.route("/metrics")
+def prometheus_metrics():
+    client_ip = request.remote_addr or "unknown"
+    if client_ip not in _METRICS_ALLOWED_IPS:
+        return jsonify({"ok": False, "message": "Forbidden"}), 403
+    certs = load_certs()
+    expired = expiring = disabled = 0
+    for c in certs:
+        d = calc_days_left(c.get("expire_date", ""))
+        if d < 0:
+            expired += 1
+        elif d <= 7:
+            expiring += 1
+        if not c.get("remind_enabled", True):
+            disabled += 1
+    _gauge_total_certs.set(len(certs))
+    _gauge_expiring_certs.set(expiring)
+    _gauge_expired_certs.set(expired)
+    _gauge_disabled_certs.set(disabled)
+    return generate_latest(_custom_registry), 200, {'Content-Type': CONTENT_TYPE_LATEST}
+
+# ── 健康检查 ──────────────────────────────────────────────
+@app.route("/health")
+def health():
+    """[FIX] P3-5: 返回详细健康状态"""
+    health_status = {"status": "healthy", "checks": {}}
+    try:
+        if USE_SQLITE:
+            from db import get_db
+            with get_db() as conn:
+                conn.execute("SELECT 1")
+            health_status["checks"]["database"] = "ok"
+        else:
+            health_status["checks"]["database"] = "ok" if os.path.exists(DATA_FILE) else "warning"
+    except Exception as e:
+        health_status["checks"]["database"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+    try:
+        import shutil
+        total, used, free = shutil.disk_usage(DATA_DIR)
+        free_pct = free / total * 100
+        disk_status = "ok" if free_pct > 10 else ("warning" if free_pct > 5 else "critical")
+        health_status["checks"]["disk_space"] = {"status": disk_status, "free_percent": round(free_pct, 1), "free_gb": round(free / 1024**3, 2)}
+        if disk_status == "critical":
+            health_status["status"] = "unhealthy"
+        elif disk_status == "warning" and health_status["status"] != "unhealthy":
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["checks"]["disk_space"] = f"error: {str(e)}"
+    try:
+        daemon_log = os.path.join(DATA_DIR, "daemon.log")
+        daemon_running = False
+        if os.path.exists(daemon_log) and time.time() - os.path.getmtime(daemon_log) < 300:
+            daemon_running = True
+        health_status["checks"]["daemon"] = "running" if daemon_running else "stopped"
+        if not daemon_running:
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["checks"]["daemon"] = f"error: {str(e)}"
+    return jsonify(health_status)
+
+def _shutdown_signal_handler(signum, frame):
+    logger.info(f"收到信号 {signum}，正在关闭服务...")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, _shutdown_signal_handler)
+signal.signal(signal.SIGINT, _shutdown_signal_handler)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5188))

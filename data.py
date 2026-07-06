@@ -58,6 +58,14 @@ _config_cache_mtime: float = 0
 _fernet: Fernet | None = None
 
 
+def atomic_write_json(filepath: str, data: Any) -> None:
+    """写 JSON 文件（临时文件 + os.replace，保证原子性）"""
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, filepath)
+
+
 #
 # ── .env 文件支持 ──────────────────────────────────────────
 #
