@@ -4,7 +4,7 @@
 
 {% block head %}
 <style nonce="{{ csp_nonce }}">
-* { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
+    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
     .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
     #cert-tbody tr { transition: opacity 0.2s ease, transform 0.2s ease; }
     /* Toast slide-in animation */
@@ -37,66 +37,55 @@
     /* 小黑优化：操作按钮微交互 */
     .action-btn { transition: all 0.15s ease; }
     .action-btn:hover { transform: scale(1.1); }
-    /* 小黑优化：搜索建议 */
-    #search-suggestions { max-height: 200px; overflow-y: auto; }
-    /* 小黑优化：骨架屏动画 */
-    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-    .skeleton-shimmer { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-</style>
-{% endblock %}
-
-{% block desktop_actions %}
-<!-- 添加记录 -->
-<button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-  <i data-lucide="plus" class="w-4 h-4 inline-block"></i> 添加记录
-</button>
-{% if is_admin %}
-<!-- 管理下拉菜单 -->
-<div class="relative" id="admin-dropdown">
-  <button onclick="toggleAdminMenu()" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm relative">
-    <i data-lucide="settings" class="w-4 h-4 inline-block"></i> 管理
-    {% if is_admin and badge_count > 0 %}
-    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ badge_count }}</span>
-    {% endif %}
-    <i data-lucide="chevron-down" class="w-3 h-3 inline-block"></i>
-  </button>
-  <div id="admin-menu" class="hidden absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px] dark:bg-gray-800 dark:border-gray-600">
-    <a href="/config" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="webhook" class="w-4 h-4 inline-block"></i> 推送配置
-    </a>
-    <a href="/data_manage" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="database" class="w-4 h-4 inline-block"></i> 数据管理
-    </a>
-    <a href="/users" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="users" class="w-4 h-4 inline-block"></i> 用户管理
-    </a>
-    <a href="/logs" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="clipboard-list" class="w-4 h-4 inline-block"></i> 操作日志
-    </a>
-    <a href="/push_history" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="bell" class="w-4 h-4 inline-block"></i> 推送记录
-    </a>
-    <a href="/backup" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="archive" class="w-4 h-4 inline-block"></i> 数据备份
-    </a>
-    <a href="/restore" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-      <i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i> 数据恢复
-    </a>
-  </div>
-</div>
-{% endif %}
-<!-- 暗色模式切换 -->
-<button onclick="toggleDarkMode()" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm">
-  <i data-lucide="sun" class="w-4 h-4 inline-block dark:hidden"></i>
-  <i data-lucide="moon" class="w-4 h-4 inline-block hidden dark:block"></i>
-</button>
-<!-- 改密码 -->
-<button onclick="openPwdModalSelf()" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm">
-  <i data-lucide="key-round" class="w-4 h-4 inline-block"></i> 改密码
-</button>
+    .action-btn:active { transform: scale(0.95); }
+    /* 小黑优化：淡入动画 */
+    .fade-in { animation: fadeIn 0.3s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* 小黑优化：行动画 */
+    .row-animate { animation: rowFadeIn 0.3s ease-out; }
+    @keyframes rowFadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  </style>
 {% endblock %}
 
 {% block content %}
+<!-- Toast 提示 -->
+<div id="toast-container" class="fixed top-16 right-4 z-[60] space-y-2 max-w-xs" role="status" aria-live="polite"></div>
+<script nonce="{{ csp_nonce }}">
+function showToast(msg, type) {
+  var container = document.getElementById('toast-container');
+  var toast = document.createElement('div');
+  var colors = { success: 'bg-green-50 border-green-300 text-green-800', error: 'bg-red-50 border-red-300 text-red-800', info: 'bg-blue-50 border-blue-300 text-blue-800' };
+  var c = colors[type] || colors.info;
+  toast.className = c + ' px-4 py-3 rounded-lg border shadow-lg text-sm font-medium flex items-center gap-2 toast-enter';
+  var iconMap = { success: 'check-circle', error: 'x-circle', info: 'info' };
+  var iconSvg = iconMap[type] ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' : '';
+  if (type === 'error') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+  if (type === 'info') iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+  toast.innerHTML = iconSvg + '<span class="flex-1">' + msg + '</span>' +
+    '<div class="toast-progress rounded" style="position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 4px 4px;background:' +
+    (type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#3b82f6') + ';animation:toast-progress 3s linear forwards;"></div>';
+  toast.style.position = 'relative';
+  container.appendChild(toast);
+  setTimeout(function() {
+    toast.classList.remove('toast-enter');
+    toast.classList.add('toast-exit');
+    setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }, 3000);
+}
+// 页面加载时检查 URL 参数
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var success = params.get('success');
+  var error = params.get('error');
+  if (success) { showToast(success, 'success'); history.replaceState({}, '', window.location.pathname); }
+  if (error) { showToast(error, 'error'); history.replaceState({}, '', window.location.pathname); }
+})();
+</script>
+
+<!-- 顶部导航 -->
+
+<main class="max-w-7xl mx-auto px-4 py-6">
+
   <!-- Skeleton Loading (shown initially) -->
   <div id="skeleton-loading" class="mb-6 space-y-6">
     <!-- Stats skeleton -->
@@ -131,6 +120,18 @@
         <div class="h-10 bg-gray-100 rounded"></div>
         <div class="h-10 bg-gray-100 rounded"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- 页面标题栏 -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">到期提醒管理</h1>
+      <p class="text-sm text-gray-500 mt-1">管理所有证书、许可证和合同的到期提醒</p>
+    </div>
+    <div class="flex items-center gap-2 text-xs text-gray-400">
+      <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+      <span id="last-update-time">加载中...</span>
     </div>
   </div>
 
@@ -469,9 +470,9 @@
       </div>
     </div>
   </div>
-{% endblock %}
 
-<!-- 添加记录弹窗 -->
+</main>
+
 <!-- 添加记录弹窗 -->
 <div id="add-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
   <div class="bg-white rounded-xl w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
@@ -637,9 +638,9 @@
   </div>
 </div>
 
-<datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
 
-{% block scripts %}
+<datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
+<script nonce="{{ csp_nonce }}">
 // ── 弹窗控制 ──────────────────────────────────────────
 function setExpiryDays(days) {
   var dateInput = document.getElementById('add-expire-date') || document.getElementById('edit-expire-date');
@@ -747,6 +748,7 @@ function openEditModal(certId) {
       });
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      lucide.createIcons();
     })
     .catch(function(e) { showToast('加载失败：' + e.message, 'error'); });
 }
@@ -854,6 +856,7 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
               if (cells[4]) {
                 cells[4].innerHTML = sdata.badge_html;
               }
+              lucide.createIcons();
             }
           } else { location.reload(); }
         });
@@ -962,10 +965,53 @@ function toggleChart() {
   }
 }
 
-// ── 批量操作 ──────────────────────────────────────────
-// (functions moved to app.js — kept for backwards compat)
+// ── 移动端菜单 ────────────────────────────────────────
+function toggleMobileMenu() {
+  var menu = document.getElementById('mobile-menu');
+  if (menu) menu.classList.toggle('hidden');
+}
+// 点击外部关闭移动端菜单和管理员下拉菜单
+document.addEventListener('click', function(e) {
+  var mobileMenu = document.getElementById('mobile-menu');
+  if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+    var hamburger = document.querySelector('button[aria-label="菜单"]');
+    if (hamburger && !hamburger.contains(e.target)) {
+      mobileMenu.classList.add('hidden');
+    }
+  }
+});
+function toggleAdminMenu() {
+  document.getElementById('admin-menu').classList.toggle('hidden');
+}
 
-window.toggleSelectAll = function() {
+// ── 批量操作 ──────────────────────────────────────────
+function getSelectedIds() {
+  var checkboxes = document.querySelectorAll('.row-checkbox:checked');
+  return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+function updateBatchUI() {
+  var ids = getSelectedIds();
+  var count = ids.length;
+  var countEl = document.getElementById('selected-count');
+  if (countEl) countEl.textContent = '已选 ' + count + ' 条';
+
+  var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete'];
+  btns.forEach(function(id) {
+    var btn = document.getElementById(id);
+    if (btn) btn.disabled = count === 0;
+  });
+
+  // Update select-all checkbox state
+  var allCheckboxes = document.querySelectorAll('.row-checkbox');
+  var selectAllHeader = document.getElementById('select-all-header');
+  var selectAllToolbar = document.getElementById('select-all');
+  var allChecked = allCheckboxes.length > 0 && count === allCheckboxes.length;
+  if (selectAllHeader) selectAllHeader.checked = allChecked;
+  if (selectAllToolbar) selectAllToolbar.checked = allChecked;
+}
+
+function toggleSelectAll() {
   var checkboxes = document.querySelectorAll('.row-checkbox');
   var selectAllHeader = document.getElementById('select-all-header');
   var selectAllToolbar = document.getElementById('select-all');
@@ -978,7 +1024,7 @@ window.toggleSelectAll = function() {
 }
 
 // ── 通用确认弹窗 ────────────────────────────────────────
-window.showConfirmModal = function(title, message, okText, okCallback) {
+function showConfirmModal(title, message, okText, okCallback) {
   document.getElementById('confirm-title').textContent = title;
   document.getElementById('confirm-msg').textContent = message;
   document.getElementById('confirm-ok').textContent = okText || '确认';
@@ -990,7 +1036,7 @@ window.showConfirmModal = function(title, message, okText, okCallback) {
   document.getElementById('confirm-modal').classList.add('flex');
   document.body.classList.add('modal-open');
 }
-window.closeConfirmModal = function() {
+function closeConfirmModal() {
   document.getElementById('confirm-modal').classList.add('hidden');
   document.getElementById('confirm-modal').classList.remove('flex');
   document.body.classList.remove('modal-open');
@@ -1007,12 +1053,12 @@ document.addEventListener('keydown', function(e) {
 });
 
 // ── 行操作下拉菜单 ────────────────────────────────────────
-window.closeRowMenu = function(certId) {
+function closeRowMenu(certId) {
   var dd = document.getElementById('row-menu-' + certId);
   if (dd) dd.classList.add('hidden');
 }
 
-window.toggleRowMenu = function(certId, btnEl, evt) {
+function toggleRowMenu(certId, btnEl, evt) {
   var dd = document.getElementById('row-menu-' + certId);
   if (!dd) return;
   var wasHidden = dd.classList.contains('hidden');
@@ -1059,7 +1105,7 @@ document.addEventListener('click', function(e) {
 });
 
 // ── 批量下拉菜单 ────────────────────────────────────────
-window.toggleBatchDropdown = function() {
+function toggleBatchDropdown() {
   var dd = document.getElementById('batch-dropdown');
   dd.classList.toggle('hidden');
 }
@@ -1203,7 +1249,7 @@ let currentPage = 1;
 const perPage = 20;
 
 // ── 行选择高亮 ────────────────────────────────────────────────
-window.onRowSelect = function(checkbox, certId) {
+function onRowSelect(checkbox, certId) {
   var row = document.querySelector('tr[data-id="' + certId + '"]');
   if (row) {
     row.classList.toggle('selected-row', checkbox.checked);
@@ -1424,7 +1470,7 @@ function toggleStatus(certId) {
       if (row && data.badge_html !== undefined) {
         var nth = document.querySelector('.row-checkbox') ? 5 : 4;
         var statusCell = row.querySelector('td:nth-child(' + nth + ')');
-        if (statusCell) { statusCell.innerHTML = data.badge_html; }
+        if (statusCell) { statusCell.innerHTML = data.badge_html; lucide.createIcons(); }
       } else { location.reload(); }
     })
     .catch(function() { showToast('操作失败，请重试', 'error'); })
@@ -1491,6 +1537,7 @@ function toggleHelp() {
     chevron.setAttribute('data-lucide', 'chevron-down');
     localStorage.setItem('help-expanded', 'false');
   }
+  lucide.createIcons();
 }
 (function() {
   if (!localStorage.getItem('help-expanded')) {
@@ -1500,6 +1547,7 @@ function toggleHelp() {
       var chevron = document.getElementById('help-chevron');
       if (content) content.classList.remove('hidden');
       if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
+      lucide.createIcons();
     }, 500);
   }
 })();
@@ -1522,25 +1570,11 @@ function animateCounters() {
     requestAnimationFrame(step);
   });
 }
-document.addEventListener('DOMContentLoaded', function() {
-  try { animateCounters(); } catch(e) { console.warn('animateCounters error:', e.message); }
-  try { filterTable(); } catch(e) { console.warn('filterTable error:', e.message); }
-  try {
-    var sortIcon = document.querySelector('.sort-icon[data-col="days_left"]');
-    if (sortIcon) sortIcon.textContent = ' ▼';
-  } catch(e) { console.warn('sortIcon error:', e.message); }
-  
-  // 隐藏骨架屏 - 用 try-catch 确保即使前面出错也能移除
-  try {
-    var skel = document.getElementById('skeleton-loading');
-    if (skel && skel.parentNode) skel.parentNode.removeChild(skel);
-  } catch(e) { console.warn('skeleton remove error:', e.message); }
-  
-  // 初始化 Lucide 图标
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
-});
+document.addEventListener('DOMContentLoaded', animateCounters);
+
+// 初始排序
+filterTable();
+document.querySelector(`.sort-icon[data-col="days_left"]`).textContent = ' ▼';
 
 // ── 快速筛选（点击统计卡片）──────────────────────────────
 function quickFilter(status) {
@@ -1568,14 +1602,7 @@ function quickFilter(status) {
   // 滚动到表格
   document.getElementById('cert-tbody').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
-// ── Lucide 图标初始化 ──────────────────────────────────
-document.addEventListener('DOMContentLoaded', function() {
-  if (typeof lucide !== 'undefined') {
-    lucide.createIcons();
-  }
-});
-{% endblock %}
+</script>
 <!-- 修改密码弹窗 -->
 <div id="selfPwdModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 relative">
@@ -1603,3 +1630,32 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
     </form>
   </div>
+</div>
+<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
+<script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); updateLastTime(); setInterval(updateLastTime, 1000); });</script>
+<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script>
+
+<!-- 自定义确认弹窗（通用） -->
+<div id="confirm-modal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+    <div class="p-6">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+        </div>
+        <div>
+          <h3 id="confirm-title" class="text-base font-semibold text-gray-900">确认操作</h3>
+          <p id="confirm-msg" class="text-sm text-gray-500 mt-1"></p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+        <button id="confirm-ok" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">确认</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}
