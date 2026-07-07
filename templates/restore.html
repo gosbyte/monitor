@@ -7,31 +7,6 @@
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
-<div class=" p-4 md:p-6 lg:p-8">
-
-<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
-          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
-        </a>
-        <span class="text-gray-300">|</span>
-        <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 数据恢复
-        </h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-          <span id="dark-label">暗色模式</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
-
 <main class="max-w-xl mx-auto px-4 py-8">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
     <div class="flex items-center gap-3 mb-5">

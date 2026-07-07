@@ -163,9 +163,12 @@
   <script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
   <script src="{{ url_for('static', filename='dark.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
-  <script>lucide.createIcons();</script>
 
   {% block scripts %}{% endblock %}
+
+  <script>
+    lucide.createIcons();
+  </script>
 
   <!-- Global Loading Overlay -->
   <div id="global-loading" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm" aria-live="polite">
@@ -213,6 +216,49 @@
         document.body.style.overflow = 'hidden';
       }
     };
+    
+    // Dark mode toggle
+    window.toggleDarkMode = function() {
+      var html = document.documentElement;
+      var sunIcon = document.getElementById('dark-icon-sun');
+      var moonIcon = document.getElementById('dark-icon-moon');
+      var darkLabel = document.getElementById('dark-label');
+      
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+        if (sunIcon) sunIcon.classList.remove('hidden');
+        if (moonIcon) moonIcon.classList.add('hidden');
+        if (darkLabel) darkLabel.textContent = '亮色模式';
+      } else {
+        html.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+        if (sunIcon) sunIcon.classList.add('hidden');
+        if (moonIcon) moonIcon.classList.remove('hidden');
+        if (darkLabel) darkLabel.textContent = '暗色模式';
+      }
+    };
+    
+    // Init theme on page load
+    (function() {
+      var saved = localStorage.getItem('theme');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'dark' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      }
+      var sunIcon = document.getElementById('dark-icon-sun');
+      var moonIcon = document.getElementById('dark-icon-moon');
+      var darkLabel = document.getElementById('dark-label');
+      if (document.documentElement.classList.contains('dark')) {
+        if (sunIcon) sunIcon.classList.add('hidden');
+        if (moonIcon) moonIcon.classList.remove('hidden');
+        if (darkLabel) darkLabel.textContent = '暗色模式';
+      } else {
+        if (sunIcon) sunIcon.classList.remove('hidden');
+        if (moonIcon) moonIcon.classList.add('hidden');
+        if (darkLabel) darkLabel.textContent = '亮色模式';
+      }
+    })();
   </script>
 </body>
 </html>
