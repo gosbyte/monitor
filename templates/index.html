@@ -1353,6 +1353,10 @@ function filterTable() {
 
   // 更新最后时间
   updateLastTime();
+  
+  // 隐藏骨架屏
+  var sk = document.getElementById('skeleton-loading');
+  if (sk) sk.classList.add('hidden');
 }
 
 // ── 搜索建议 ────────────────────────────────────────────
@@ -1394,7 +1398,6 @@ function hideSearchSuggestions() {
 }
 
 function selectSuggestion(index) {
-  var container = document.getElementById('search-suggestions');
   if (!container || container.classList.contains('hidden')) return;
   var items = container.querySelectorAll('div');
   if (items[index]) {
