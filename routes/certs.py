@@ -157,7 +157,26 @@ def register_cert_routes(app: Flask) -> None:
         write_log(session.get("username", "?"), "添加记录", customer, "到期项", request.remote_addr or '')
 
         if is_ajax:
-            return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session.get("_csrf_token", ""))
+            # Calculate days_left for the new cert
+            expire_dt = datetime.strptime(cert_data["expire_date"], "%Y-%m-%d %H:%M")
+            now_dt = datetime.now()
+            days_left = (expire_dt - now_dt).total_seconds() / 86400
+            status = "expired" if days_left < 0 else ("expiring" if days_left <= 7 else ("warning" if days_left <= 30 else "normal"))
+            if cert_data.get("remind_enabled") == False:
+                status = "disabled"
+            new_cert = {
+                "id": new_id,
+                "customer": cert_data["customer"],
+                "cert_type": cert_data["cert_type"],
+                "expire_date": cert_data["expire_date"],
+                "note": cert_data["note"] or "",
+                "days_left": round(days_left, 1),
+                "status": status,
+                "handled": False,
+                "remind_enabled": cert_data.get("remind_enabled", True),
+                "created_by": cert_data.get("created_by", ""),
+            }
+            return jsonify(ok=True, id=new_id, message="添加成功", new_cert=new_cert, csrf_token=session.get("_csrf_token", ""))
         return redirect(url_for("index") + "?success=添加成功")
 
     @app.route("/edit/<int:cert_id>", methods=["GET", "POST"])
