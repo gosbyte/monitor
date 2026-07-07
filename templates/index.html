@@ -127,7 +127,6 @@ function showToast(msg, type) {
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">到期提醒管理</h1>
-      <p class="text-sm text-gray-500 mt-1">管理所有证书、许可证和合同的到期提醒</p>
     </div>
     <div class="flex items-center gap-2 text-xs text-gray-400">
       <i data-lucide="clock" class="w-3.5 h-3.5"></i>
@@ -324,6 +323,10 @@ function showToast(msg, type) {
           </button>
         </div>
       </div>
+      <!-- 添加记录（移到操作栏最右） -->
+      <button onclick="openAddModal()" class="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors whitespace-nowrap">
+        <i data-lucide="plus" class="w-3.5 h-3.5 inline-block"></i> 添加记录
+      </button>
     </div>
   </div>
   {% endif %}
@@ -444,8 +447,20 @@ function showToast(msg, type) {
   </div>
 
   <!-- 分页 -->
-  <div id="pagination" class="flex items-center justify-between mt-4 px-2 text-sm text-gray-500">
-    <span id="page-info"></span>
+  <div id="pagination" class="flex items-center justify-between mt-4 px-2 text-sm text-gray-500 flex-wrap gap-2">
+    <div class="flex items-center gap-2">
+      <span id="page-info"></span>
+      <label class="flex items-center gap-1 text-xs text-gray-500">
+        每页
+        <select id="per-page-select" onchange="changePerPage(this.value)" class="border border-gray-300 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+        条
+      </label>
+    </div>
     <div id="page-buttons" class="flex items-center gap-1 overflow-x-auto"></div>
   </div>
 
@@ -1246,7 +1261,7 @@ function sortTable(key) {
 
 // ── 分页 ──────────────────────────────────────────
 let currentPage = 1;
-const perPage = 20;
+let perPage = parseInt(localStorage.getItem('perPage') || '20');
 
 // ── 行选择高亮 ────────────────────────────────────────────────
 function onRowSelect(checkbox, certId) {
@@ -1357,6 +1372,14 @@ function filterTable() {
   // 隐藏骨架屏
   var sk = document.getElementById('skeleton-loading');
   if (sk) sk.classList.add('hidden');
+}
+
+// ── 每页展示数量 ────────────────────────────────────────────
+function changePerPage(val) {
+  perPage = parseInt(val) || 20;
+  localStorage.setItem('perPage', String(perPage));
+  currentPage = 1;
+  filterTable();
 }
 
 // ── 搜索建议 ────────────────────────────────────────────
@@ -1578,6 +1601,10 @@ document.addEventListener('DOMContentLoaded', animateCounters);
 // 初始排序
 filterTable();
 document.querySelector(`.sort-icon[data-col="days_left"]`).textContent = ' ▼';
+
+// 初始化每页展示选择器
+var ppSel = document.getElementById('per-page-select');
+if (ppSel) ppSel.value = perPage;
 
 // ── 快速筛选（点击统计卡片）──────────────────────────────
 function quickFilter(status) {
