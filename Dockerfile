@@ -39,7 +39,6 @@ WORKDIR /app
 
 # Copy application files
 COPY app.py .
-COPY app_init.py .
 COPY routes/ ./routes/
 COPY data.py .
 COPY db.py .

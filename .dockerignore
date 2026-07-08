@@ -48,3 +48,8 @@ coverage.xml
 Dockerfile
 .dockerignore
 docker-compose.yml
+
+# Backup / temp
+.backup_pre_refactor/
+*.orig*
+*original*
