@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}证书到期提醒系统{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="current-user" content="{{ current_username }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.production.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dark.css') }}">
   {% block head %}{% endblock %}
@@ -34,8 +36,8 @@
     @media (min-width: 768px) {
       /* Hide mobile header on desktop */
       .mobile-header { display: none !important; }
-      /* Show sidebar on desktop */
-      #sidebar { transform: translateX(0) !important; }
+      /* Show sidebar on desktop — override Tailwind translate */
+      #sidebar { translate: 0 0 !important; transform: none !important; }
       /* Remove mobile top padding on desktop */
       .pt-14 { padding-top: 0 !important; }
       /* Hide sidebar overlay on desktop */
@@ -43,9 +45,33 @@
     }
     /* On mobile, sidebar hidden by default */
     @media (max-width: 767px) {
-      #sidebar { transform: translateX(-100%) !important; }
-      #sidebar.sidebar-open { transform: translateX(0) !important; }
-      #sidebar-overlay.sidebar-active { display: block !important; }
+      #sidebar {
+        translate: -100% 0 !important;
+        transform: translateX(-100%) !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100vh !important;
+      }
+      #sidebar.sidebar-open {
+        translate: 0 0 !important;
+        transform: translateX(0) !important;
+      }
+      #sidebar-overlay {
+        display: none !important;
+      }
+      #sidebar-overlay.sidebar-active {
+        display: block !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+      }
+      /* Prevent body scroll when sidebar is open */
+      body.modal-open, body.sidebar-open {
+        overflow: hidden !important;
+      }
     }
   </style>
 </head>
@@ -55,7 +81,7 @@
   <!-- Mobile Header -->
   <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden">
     <div class="flex items-center justify-between px-4 h-14">
-      <button id="mobile-menu-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle menu" onclick="toggleMobileSidebar()">
+      <button id="mobile-menu-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle menu">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
@@ -85,7 +111,7 @@
 
       <!-- Navigation -->
       <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'index' else 'text-gray-700 dark:text-gray-300' }}">
+        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors {{ 'bg-blue-50 text-blue-600' if active_page == 'index' else 'text-gray-700' }}">
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span>首页</span>
         </a>
@@ -161,11 +187,23 @@
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite"></div>
 
   <script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='dark.js') }}"></script>
+  <script src="{{ url_for('static', filename='dark.js') }}" nonce="{{ csp_nonce }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 
   {% block scripts %}{% endblock %}
 
+
+  <!-- Dark mode init (localStorage persistence) -->
+  <script nonce="{{ csp_nonce }}">
+    (function() {
+      var saved = localStorage.getItem('dark-mode');
+      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (saved === 'true' || (!saved && prefersDark)) {
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark-mode');
+      }
+    })();
+  </script>
   <script>
     lucide.createIcons();
   </script>
@@ -198,67 +236,19 @@
       clearTimeout(window._loadingTimer);
       window._loadingTimer = setTimeout(hideLoading, 30000);
     };
-    
-    // Mobile sidebar toggle
-    window.toggleMobileSidebar = function() {
-      var sidebar = document.getElementById('sidebar');
-      var overlay = document.getElementById('sidebar-overlay');
-      if (!sidebar || !overlay) return;
-      
-      var isOpen = sidebar.classList.contains('sidebar-open');
-      if (isOpen) {
-        sidebar.classList.remove('sidebar-open');
-        overlay.classList.remove('sidebar-active');
-        document.body.style.overflow = '';
-      } else {
-        sidebar.classList.add('sidebar-open');
-        overlay.classList.add('sidebar-active');
-        document.body.style.overflow = 'hidden';
-      }
-    };
-    
-    // Dark mode toggle
-    window.toggleDarkMode = function() {
-      var html = document.documentElement;
-      var sunIcon = document.getElementById('dark-icon-sun');
-      var moonIcon = document.getElementById('dark-icon-moon');
-      var darkLabel = document.getElementById('dark-label');
-      
-      if (html.classList.contains('dark')) {
-        html.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-        if (sunIcon) sunIcon.classList.remove('hidden');
-        if (moonIcon) moonIcon.classList.add('hidden');
-        if (darkLabel) darkLabel.textContent = '亮色模式';
-      } else {
-        html.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-        if (sunIcon) sunIcon.classList.add('hidden');
-        if (moonIcon) moonIcon.classList.remove('hidden');
-        if (darkLabel) darkLabel.textContent = '暗色模式';
-      }
-    };
-    
-    // Init theme on page load
-    (function() {
-      var saved = localStorage.getItem('theme');
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (saved === 'dark' || (!saved && prefersDark)) {
-        document.documentElement.classList.add('dark');
-      }
-      var sunIcon = document.getElementById('dark-icon-sun');
-      var moonIcon = document.getElementById('dark-icon-moon');
-      var darkLabel = document.getElementById('dark-label');
-      if (document.documentElement.classList.contains('dark')) {
-        if (sunIcon) sunIcon.classList.add('hidden');
-        if (moonIcon) moonIcon.classList.remove('hidden');
-        if (darkLabel) darkLabel.textContent = '暗色模式';
-      } else {
-        if (sunIcon) sunIcon.classList.remove('hidden');
-        if (moonIcon) moonIcon.classList.add('hidden');
-        if (darkLabel) darkLabel.textContent = '亮色模式';
-      }
-    })();
+
   </script>
+
+  <!-- 确认弹窗 Modal -->
+  <div id="confirm-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 mx-4 w-full max-w-sm">
+      <h3 id="confirm-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2"></h3>
+      <p id="confirm-msg" class="text-sm text-gray-600 dark:text-gray-400 mb-6"></p>
+      <div class="flex gap-3 justify-end">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">取消</button>
+        <button id="confirm-ok" class="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"></button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
