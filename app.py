@@ -50,9 +50,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ── IP 级别登录限流 ──────────────────────────────────────
-_LOGIN_ATTEMPTS = {}  # {ip: [(timestamp, success)]}
-_LOGIN_MAX_ATTEMPTS = 10  # 10 次/分钟
-_LOGIN_COOLDOWN = 300  # 5 分钟冷却
+# NOTE: _LOGIN_ATTEMPTS is defined in routes/auth.py, not here.
+# This file only handles generic request rate limiting.
 
 # ── 通用请求速率限制 ──────────────────────────────────────
 _REQUEST_COUNTS = {}
