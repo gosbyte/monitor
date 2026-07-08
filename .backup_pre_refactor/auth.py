@@ -62,19 +62,6 @@ def _check_csrf() -> bool:
     return bool(token and token == session.get("_csrf_token"))
 
 
-
-
-def _check_api_csrf() -> bool:
-    """API CSRF 检查（供 API 路由内部使用，不旋转 token）"""
-    if request.method == "GET":
-        return True
-    token = request.headers.get("X-CSRF-Token")
-    if not token and request.is_json:
-        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
-    if not token or token != session.get("_csrf_token"):
-        return False
-    return True
-
 def csrf_required(f: Any) -> Any:
     """CSRF 验证装饰器，所有 POST 路由使用"""
     @wraps(f)

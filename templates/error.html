@@ -1,14 +1,9 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8"><title>{{ code }} - {{ title }}</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <style nonce="{{ csp_nonce }}">
-    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  </style>
-</head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+{% extends "base.html" %}
+
+{% block title %}{{ code }} - {{ title }}{% endblock %}
+
+{% block content %}
+
 
 <div class="w-full max-w-md">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
@@ -38,5 +33,4 @@
   <p class="text-center text-xs text-gray-400 mt-4">到期项到期提醒管理系统</p>
 </div>
 
-</body>
-</html>
+{% endblock %}

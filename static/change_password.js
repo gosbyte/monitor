@@ -5,8 +5,8 @@
   window.checkSelfPwd = function () {
     var pwd = document.getElementById('selfPwdField').value;
     var confirm = document.getElementById('selfPwdConfirm').value;
-    if (pwd.length < 8) { alert('密码至少8位'); return false; }
-    if (pwd !== confirm) { alert('两次密码不一致'); return false; }
+    if (pwd.length < 8) { showToast('密码至少8位'); return false; }
+    if (pwd !== confirm) { showToast('两次密码不一致'); return false; }
     return true;
   };
 

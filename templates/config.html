@@ -3,7 +3,7 @@
 {% block title %}系统配置{% endblock %}
 
 {% block head %}
-  <meta charset="UTF-8"><title>推送配置</title>
+
   <style nonce="{{ csp_nonce }}">
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
   </style>{% endblock %}
@@ -292,7 +292,8 @@ function testWecom() {
     .then(result => {
       if (result.csrf_token) _csrfToken = result.csrf_token;
       _showResult('wecom-result', result.ok, result.message || (result.ok ? '测试推送成功' : '测试失败'));
-    }).catch(err => _showResult('wecom-result', false, '网络错误：' + err.message));
+    })
+    .catch(err => _showResult('wecom-result', false, '网络错误：' + err.message))
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送';

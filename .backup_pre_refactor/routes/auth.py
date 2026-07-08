@@ -29,7 +29,7 @@ from data import (
 )
 from auth import (
     inject_globals, csrf_required, login_required, admin_required,
-    generate_captcha, create_captcha_image, _check_api_csrf,
+    generate_captcha, create_captcha_image,
 )
 
 
@@ -293,3 +293,16 @@ def register_auth_routes(app: Flask) -> None:
         write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, request.remote_addr or '')
         return jsonify({"ok": True})
 
+
+def _check_api_csrf() -> bool:
+    """API CSRF 检查"""
+    if request.method == "GET":
+        return True
+    token = request.headers.get("X-CSRF-Token")
+    if not token and request.is_json:
+        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
+    if not token or token != session.get("_csrf_token"):
+        return False
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        session["_csrf_token"] = secrets.token_hex(32)
+    return True

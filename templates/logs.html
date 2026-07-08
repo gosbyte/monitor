@@ -3,7 +3,7 @@
 {% block title %}日志管理{% endblock %}
 
 {% block head %}
-  <meta charset="UTF-8"><title>操作日志</title>
+
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
@@ -64,6 +64,9 @@
       </div>
       <button onclick="resetFilter()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
         <span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 重置筛选
+      </button>
+      <button onclick="exportLogs()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+        <span style="font-size:14px"><i data-lucide="download" class="w-4 h-4 inline-block"></i></span> 导出日志
       </button>
     </div>
   </div>

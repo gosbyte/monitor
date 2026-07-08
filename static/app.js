@@ -11,13 +11,19 @@
     if (isOpen) {
       sidebar.classList.remove('sidebar-open');
       if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('sidebar-active'); }
+      document.body.style.overflow = '';
     } else {
       sidebar.classList.add('sidebar-open');
       if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('sidebar-active'); }
+      document.body.style.overflow = 'hidden';
     }
   };
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
     // Overlay 点击关闭 sidebar
     var overlay = document.getElementById('sidebar-overlay');
     if (overlay) {
@@ -60,8 +66,13 @@
   });
 
   // ── CSRF Token ──────────────────────────────────────────
-  window._csrfToken = window._csrfToken || '{{ csrf_token }}';
-  window._currentUser = window._currentUser || '{{ current_username }}';
+  // Read CSRF from meta tag (safer than inline Jinja injection)
+  (function() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) window._csrfToken = window._csrfToken || meta.getAttribute('content');
+    var metaUser = document.querySelector('meta[name="current-user"]');
+    if (metaUser) window._currentUser = window._currentUser || metaUser.getAttribute('content');
+  })();
 
   // ── Toast 提示 ──────────────────────────────────────────
   window.showToast = function (msg, type) {

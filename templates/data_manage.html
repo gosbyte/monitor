@@ -3,7 +3,7 @@
 {% block title %}数据管理{% endblock %}
 
 {% block head %}
-  <meta charset="UTF-8"><title>数据管理</title>
+
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
@@ -250,6 +250,12 @@ function showResult(ok, msg) {
   }
 }
 
+function escHtml(s) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(s || ''));
+  return div.innerHTML;
+}
+
 function onFileSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -279,7 +285,7 @@ function onFileSelected(event) {
     tbody.innerHTML = '';
     data.data.slice(0, 5).forEach(row => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="px-3 py-2">${row.customer || '-'}</td><td class="px-3 py-2">${row.cert_type || '-'}</td><td class="px-3 py-2">${row.expiry_date || row.expire_date || '-'}</td><td class="px-3 py-2">${row.remind_enabled !== false ? '是' : '否'}</td><td class="px-3 py-2">${row.handled ? '是' : '否'}</td><td class="px-3 py-2">${row.responsible_users || '-'}</td><td class="px-3 py-2">${row.note || '-'}</td>`;
+      tr.innerHTML = `<td class="px-3 py-2">${escHtml(row.customer)}</td><td class="px-3 py-2">${escHtml(row.cert_type)}</td><td class="px-3 py-2">${escHtml(row.expiry_date || row.expire_date)}</td><td class="px-3 py-2">${row.remind_enabled !== false ? '是' : '否'}</td><td class="px-3 py-2">${row.handled ? '是' : '否'}</td><td class="px-3 py-2">${escHtml(row.responsible_users)}</td><td class="px-3 py-2">${escHtml(row.note)}</td>`;
       tbody.appendChild(tr);
     });
   })

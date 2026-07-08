@@ -122,10 +122,10 @@
           document.getElementById('json-preview').value = JSON.stringify(data.records, null, 2);
           document.getElementById('json-preview-area').classList.remove('hidden');
         } else {
-          alert('预览失败：' + (data.message || '未知错误'));
+          showToast('预览失败：' + (data.message || '未知错误'));
         }
       })
-      .catch(function (err) { alert('网络错误：' + err.message) })
+      .catch(function (err) { showToast('网络错误：' + err.message) })
       .finally(function () {
         btn.disabled = false;
         btn.innerHTML = '<i data-lucide="eye" class="w-4 h-4 inline-block"></i> 预览 JSON 数据';
@@ -137,7 +137,7 @@
     var textarea = document.getElementById('json-preview');
     textarea.select();
     document.execCommand('copy');
-    alert('已复制到剪贴板');
+    showToast('已复制到剪贴板');
   };
 
 })();

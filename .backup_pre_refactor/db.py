@@ -76,7 +76,9 @@ def init_db() -> None:
                 force_change_password INTEGER DEFAULT 1
             );
             
-            -- 默认管理员用户将在 init_db() 中动态生成密码后插入
+            -- 插入默认管理员用户（如果不存在）
+            INSERT OR IGNORE INTO users (username, name, password, role)
+            VALUES ('admin', '管理员', 'scrypt:32768:8:1$H5GdKj$8a3f7c2b1e9d4f6a8c0e2b4d6f8a0c2e4b6d8f0a2c4e6b8d0f2a4c6e8b0d2f4', 'admin');
             
             -- 配置表
             CREATE TABLE IF NOT EXISTS config (
@@ -111,14 +113,8 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_certs_remind ON certs(remind_enabled);
             CREATE INDEX IF NOT EXISTS idx_certs_handled ON certs(handled);
             CREATE INDEX IF NOT EXISTS idx_certs_type ON certs(cert_type);
-            CREATE INDEX IF NOT EXISTS idx_certs_created_by ON certs(created_by);
-            CREATE INDEX IF NOT EXISTS idx_certs_responsible ON certs(responsible_users);
-            CREATE INDEX IF NOT EXISTS idx_certs_composite ON certs(handled, remind_enabled, expire_date);
             CREATE INDEX IF NOT EXISTS idx_logs_time ON logs(time);
-            CREATE INDEX IF NOT EXISTS idx_logs_username ON logs(username);
-            CREATE INDEX IF NOT EXISTS idx_logs_composite ON logs(username, time);
             CREATE INDEX IF NOT EXISTS idx_push_time ON push_history(time);
-            CREATE INDEX IF NOT EXISTS idx_push_cert ON push_history(cert_customer);
             
             -- 插入默认配置
             INSERT OR IGNORE INTO config (key, value) VALUES ('webhook_url', '');

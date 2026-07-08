@@ -19,13 +19,27 @@ from data import (
     calc_days_left, get_cert_status, load_logs, save_logs, load_users,
     DATA_DIR, BASE_DIR, reload_config,
 )
-from auth import login_required, admin_required, csrf_required, _check_api_csrf
+from auth import login_required, admin_required, csrf_required
 
 
 # Flask route handlers can return str, tuple[str, int], or Response
 _FlaskResponse = Union[str, tuple[str, int], Any]
 
 logger = logging.getLogger(__name__)
+
+
+def _check_api_csrf() -> bool:
+    """API CSRF 检查"""
+    if request.method == "GET":
+        return True
+    token = request.headers.get("X-CSRF-Token")
+    if not token and request.is_json:
+        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
+    if not token or token != session.get("_csrf_token"):
+        return False
+    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+        session["_csrf_token"] = secrets.token_hex(32)
+    return True
 
 
 def register_admin_routes(app: Flask) -> None:

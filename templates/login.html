@@ -1,20 +1,12 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>到期提醒管理系统 - 登录</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.production.css') }}">
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <style nonce="{{ csp_nonce }}">
-    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  </style>
-  <link rel="stylesheet" href="/static/dark.css">
-</head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-<div id="dark-toggle" onclick="toggleDarkMode(); lucide.createIcons();" class="fixed top-4 right-4 p-2 rounded-lg bg-white border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-100 transition-colors z-50" title="切换暗色模式">
-  <i data-lucide="sun" class="w-5 h-5 inline-block dark:hidden"></i>
-  <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+{% extends "base.html" %}
+
+{% block title %}登录{% endblock %}
+
+{% block content %}
+
+<div id="dark-toggle" onclick="toggleDarkMode(); lucide.createIcons();" class="fixed top-4 right-4 p-2 rounded-lg bg-white border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors z-50" title="切换暗色模式">
+  <i data-lucide="sun" class="w-5 h-5 inline-block hidden dark:block"></i>
+  <i data-lucide="moon" class="w-5 h-5 inline-block dark:hidden"></i>
 </div>
 
 <div class="w-full max-w-md">
@@ -70,6 +62,4 @@
   <p class="text-center text-xs text-gray-400 mt-6">到期提醒管理系统</p>
 </div>
 
-<script nonce="{{ csp_nonce }}">document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
-<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
-</html>
+{% endblock %}
