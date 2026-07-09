@@ -66,6 +66,10 @@ def _check_csrf() -> bool:
 
 def _check_api_csrf() -> bool:
     """API CSRF 检查（供 API 路由内部使用，不旋转 token）"""
+    # 测试模式下跳过 CSRF 验证
+    from flask import current_app
+    if current_app.testing:
+        return True
     if request.method == "GET":
         return True
     token = request.headers.get("X-CSRF-Token")

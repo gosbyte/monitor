@@ -65,10 +65,7 @@
 {% endblock %}
 
 {% block content %}
-
-<!-- 顶部导航 -->
-
-<main class="max-w-7xl mx-auto px-4 py-6">
+<div class="max-w-7xl mx-auto px-4 py-6">
 
   <!-- Skeleton Loading (shown initially) -->
   <div id="skeleton-loading" class="mb-6 space-y-6">
@@ -469,7 +466,7 @@
     </div>
   </div>
 
-</main>
+</div>
 
 <!-- 添加记录弹窗 -->
 <div id="add-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
@@ -857,7 +854,8 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
               lucide.createIcons();
             }
           } else { location.reload(); }
-        });
+        })
+        .catch(function(e) { console.error('cert_status refresh error:', e); });
     } else { showToast(data.message || '保存失败', 'error'); }
   })
   .catch(function(e) { 

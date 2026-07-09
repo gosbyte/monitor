@@ -182,7 +182,7 @@ def register_admin_routes(app: Flask) -> None:
         return render_template("push_history.html", history=history, is_admin=is_admin)
 
     # ── 数据管理 ──────────────────────────────────────────────
-    @app.route("/data_manage")
+    @app.route("/data-manage")
     @login_required
     @admin_required
     def data_manage_page() -> _FlaskResponse:

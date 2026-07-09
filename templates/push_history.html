@@ -9,7 +9,7 @@
   </style>{% endblock %}
 
 {% block content %}
-<main class="max-w-6xl mx-auto px-4 py-6">
+<div class="max-w-6xl mx-auto px-4 py-6">
 
   {% if not history %}
   <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
@@ -93,7 +93,7 @@
   <p class="text-xs text-gray-400 mt-3 text-center">共 {{ history|length }} 条记录</p>
   {% endif %}
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}

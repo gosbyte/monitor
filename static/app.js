@@ -51,6 +51,16 @@
       });
     });
 
+    // 根据当前 URL 高亮对应导航项
+    (function() {
+      var path = window.location.pathname;
+      document.querySelectorAll('#sidebar nav a[data-page]').forEach(function(link) {
+        if (path === '/' + link.dataset.page || path === '/' + link.dataset.page.replace('_', '-') || path === '/') {
+          link.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+        }
+      });
+    })();
+
     // Auto-dismiss flash messages after 5s
     var container = document.getElementById('flash-container');
     if (container) {
@@ -299,6 +309,9 @@
         if (data.csrf_token) window._csrfToken = data.csrf_token;
         return data;
       });
+    }).catch(function (e) {
+      console.error('fetchWithCsrf error:', e);
+      throw e;
     });
   };
 

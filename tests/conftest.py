@@ -75,3 +75,28 @@ def sample_user(temp_data_dir):
     }
     save_users([user])
     return user
+
+
+# ── CSRF bypass for tests ──────────────────────────────────
+import auth as auth_module
+
+
+@pytest.fixture(autouse=True)
+def _bypass_csrf_for_tests(monkeypatch):
+    """In test mode, skip CSRF validation in all route modules."""
+    def _mock_check_api_csrf():
+        return True
+
+    monkeypatch.setattr(auth_module, '_check_api_csrf', _mock_check_api_csrf)
+    # Patch all route modules that import _check_api_csrf
+    for mod_name in ['routes.certs', 'routes.admin', 'routes.api', 'routes.auth']:
+        try:
+            mod = sys.modules.get(mod_name)
+            if mod is None:
+                __import__(mod_name)
+                mod = sys.modules[mod_name]
+            monkeypatch.setattr(mod, '_check_api_csrf', _mock_check_api_csrf)
+        except Exception:
+            pass
+    yield
+

@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='users.css') }}" nonce="{{ csp_nonce }}">{% endblock %}
 
 {% block content %}
-<main class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
   <!-- 统计 -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -287,7 +287,7 @@
     </div>
   </details>
 
-</main>
+</div>
 
 <!-- 编辑弹窗 -->
 <div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 backdrop-blur-sm p-4">
@@ -491,7 +491,7 @@
   function batchDeleteUsers() {
     var checkboxes = document.querySelectorAll('.user-checkbox:checked');
     if (checkboxes.length === 0) {
-      alert('请先选择要删除的用户');
+      showToast('请先选择要删除的用户', 'error');
       return;
     }
     var userNames = Array.from(checkboxes).map(function(cb) { return cb.dataset.username; }).join(', ');
@@ -514,7 +514,10 @@
         else failed.push(Array.from(checkboxes)[i].dataset.username);
       });
       if (succeed > 0) location.reload();
-      else alert('删除失败：' + failed.join(', '));
+      else showToast('删除失败：' + failed.join(', '), 'error');
+    }).catch(function(e) {
+      showToast('删除失败：' + e.message, 'error');
+      location.reload();
     });
   }
 </script>

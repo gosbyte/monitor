@@ -9,7 +9,7 @@
   </style>{% endblock %}
 
 {% block content %}
-<main class="max-w-2xl mx-auto px-4 py-6 md:py-8">
+<div class="max-w-2xl mx-auto px-4 py-6 md:py-8">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
     <form method="POST" class="space-y-5">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
@@ -90,7 +90,7 @@
       </div>
     </form>
   </div>
-</main>
+</div>
 
 <datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
 {% endblock %}

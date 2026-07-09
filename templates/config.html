@@ -9,7 +9,7 @@
   </style>{% endblock %}
 
 {% block content %}
-<main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
   <!-- 钉钉机器人卡片 -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
@@ -173,7 +173,7 @@
     </ol>
   </div>
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -189,6 +189,7 @@ function _showResult(areaId, ok, message) {
     area.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
     area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + message;
   }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ── 钉钉 ──
@@ -222,6 +223,7 @@ function testDingtalk() {
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
 
@@ -260,6 +262,7 @@ function testEmail() {
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
 
@@ -297,6 +300,7 @@ function testWecom() {
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
 {% endblock %}

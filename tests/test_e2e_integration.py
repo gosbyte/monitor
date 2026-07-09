@@ -17,7 +17,7 @@ import io
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from app_init import app
+from app import app
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -44,7 +44,7 @@ def admin_client(temp_data_dir):
         users = [{
             "username": "admin", "name": "Admin",
             "password": generate_password_hash("Admin123"),
-            "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+            "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
             "consecutive_locks": 0, "lock_until": None,
             "force_change_password": 0,
         }]
@@ -115,7 +115,7 @@ class TestLoginFlow:
         from werkzeug.security import generate_password_hash
         users = [{"username": "admin", "name": "Admin",
                   "password": generate_password_hash("Admin123"),
-                  "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+                  "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
                   "consecutive_locks": 0, "lock_until": None,
                   "force_change_password": 0}]
         save_users(users)
@@ -690,7 +690,7 @@ class TestUserManagement:
 
         resp = admin_client.post("/users/edit/role_test", data={
             "name": "Elevated Role",
-            "role": "admin",
+            "role": "admin", "force_change_password": 0,
             "_csrf_token": token,
         }, follow_redirects=False)
         assert resp.status_code in (200, 302)

@@ -7,7 +7,7 @@
   <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
-<main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
 
   <!-- Tab 切换 -->
   <div class="flex border-b border-gray-200">
@@ -215,7 +215,7 @@
     </div>
   </div>
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -354,7 +354,7 @@ function loadQualityReport() {
       btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
 
       if (!data.ok) {
-        alert('加载失败: ' + (data.message || '未知错误'));
+        showToast('加载失败: ' + (data.message || '未知错误'), 'error');
         return;
       }
 
@@ -470,7 +470,7 @@ function loadQualityReport() {
       loadingEl.classList.add('hidden');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
-      alert('网络错误：' + err.message);
+      showToast('网络错误：' + err.message, 'error');
     });
 }
 {% endblock %}
