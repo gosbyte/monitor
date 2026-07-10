@@ -1,48 +1,65 @@
-// common.js — 公共 JS（模态框、批量选择、三点菜单、CSRF、API、暗色模式、移动端菜单）
+// app.js — 公共 JS（sidebar toggle、批量选择、三点菜单、CSRF、Toast、暗色模式）
 (function () {
   'use strict';
 
-  // ── Mobile Menu Toggle ──────────────────────────────────
+  // ── Sidebar Toggle (移动端抽屉菜单) ─────────────────────
   window.toggleSidebar = function () {
     var sidebar = document.getElementById('sidebar');
     var overlay = document.getElementById('sidebar-overlay');
     if (!sidebar) return;
-    var isOpen = !sidebar.classList.contains('-translate-x-full');
+    var isOpen = sidebar.classList.contains('sidebar-open');
     if (isOpen) {
-      sidebar.classList.add('-translate-x-full');
-      if (overlay) overlay.classList.add('hidden');
+      sidebar.classList.remove('sidebar-open');
+      if (overlay) { overlay.classList.add('hidden'); overlay.classList.remove('sidebar-active'); }
+      document.body.style.overflow = '';
     } else {
-      sidebar.classList.remove('-translate-x-full');
-      if (overlay) overlay.classList.remove('hidden');
+      sidebar.classList.add('sidebar-open');
+      if (overlay) { overlay.classList.remove('hidden'); overlay.classList.add('sidebar-active'); }
+      document.body.style.overflow = 'hidden';
     }
   };
 
-  // Close sidebar when clicking overlay
   document.addEventListener('DOMContentLoaded', function () {
+    // Initialize Lucide icons
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+    // Overlay 点击关闭 sidebar
     var overlay = document.getElementById('sidebar-overlay');
     if (overlay) {
       overlay.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
+        if (sidebar) sidebar.classList.remove('sidebar-open');
         overlay.classList.add('hidden');
+        overlay.classList.remove('sidebar-active');
       });
     }
 
-    // Mobile menu button
+    // 汉堡菜单按钮
     var btn = document.getElementById('mobile-menu-btn');
     if (btn) {
       btn.addEventListener('click', window.toggleSidebar);
     }
 
-    // Close sidebar on nav click (mobile)
+    // 点击导航链接关闭 sidebar（移动端）
     document.querySelectorAll('#sidebar nav a').forEach(function (link) {
       link.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
         var ov = document.getElementById('sidebar-overlay');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
-        if (ov) ov.classList.add('hidden');
+        if (sidebar) sidebar.classList.remove('sidebar-open');
+        if (ov) { ov.classList.add('hidden'); ov.classList.remove('sidebar-active'); }
       });
     });
+
+    // 根据当前 URL 高亮对应导航项
+    (function() {
+      var path = window.location.pathname;
+      document.querySelectorAll('#sidebar nav a[data-page]').forEach(function(link) {
+        if (path === '/' + link.dataset.page || path === '/' + link.dataset.page.replace('_', '-') || path === '/') {
+          link.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+        }
+      });
+    })();
 
     // Auto-dismiss flash messages after 5s
     var container = document.getElementById('flash-container');
@@ -59,8 +76,13 @@
   });
 
   // ── CSRF Token ──────────────────────────────────────────
-  window._csrfToken = window._csrfToken || '{{ csrf_token }}';
-  window._currentUser = window._currentUser || '{{ current_username }}';
+  // Read CSRF from meta tag (safer than inline Jinja injection)
+  (function() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) window._csrfToken = window._csrfToken || meta.getAttribute('content');
+    var metaUser = document.querySelector('meta[name="current-user"]');
+    if (metaUser) window._currentUser = window._currentUser || metaUser.getAttribute('content');
+  })();
 
   // ── Toast 提示 ──────────────────────────────────────────
   window.showToast = function (msg, type) {
@@ -73,7 +95,6 @@
       info: 'bg-blue-50 border-blue-300 text-blue-800'
     };
     var c = colors[type] || colors.info;
-    var iconMap = { success: 'check-circle', error: 'x-circle', info: 'info' };
     var iconSvg = '';
     if (type === 'error') {
       iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
@@ -270,21 +291,6 @@
     }
   });
 
-  // ── 移动端菜单 ──────────────────────────────────────────
-  window.toggleMobileMenu = function () {
-    var menu = document.getElementById('mobile-menu');
-    if (menu) menu.classList.toggle('hidden');
-  };
-  document.addEventListener('click', function (e) {
-    var mobileMenu = document.getElementById('mobile-menu');
-    if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
-      var hamburger = document.querySelector('button[aria-label="菜单"]');
-      if (hamburger && !hamburger.contains(e.target)) {
-        mobileMenu.classList.add('hidden');
-      }
-    }
-  });
-
   // ── API 请求封装 ────────────────────────────────────────
   window.fetchWithCsrf = function (url, options) {
     options = options || {};
@@ -303,6 +309,9 @@
         if (data.csrf_token) window._csrfToken = data.csrf_token;
         return data;
       });
+    }).catch(function (e) {
+      console.error('fetchWithCsrf error:', e);
+      throw e;
     });
   };
 
@@ -331,9 +340,58 @@
         }
       });
       document.body.classList.remove('modal-open');
-      var mobileMenu = document.getElementById('mobile-menu');
-      if (mobileMenu && !mobileMenu.classList.contains('hidden')) mobileMenu.classList.add('hidden');
     }
   });
 
+  // ── 移动端触摸优化 ────────────────────────────────────────
+  // 防止双击缩放
+  document.addEventListener('dblclick', function (e) {
+    e.preventDefault();
+  }, { passive: false });
+
+  // 触摸反馈
+  document.addEventListener('touchstart', function (e) {
+    var target = e.target.closest('button, a, .cursor-pointer');
+    if (target) {
+      target.style.opacity = '0.7';
+      target._touchStart = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', function (e) {
+    var target = e.target.closest('button, a, .cursor-pointer');
+    if (target && target._touchStart) {
+      target.style.opacity = '';
+      target._touchStart = false;
+    }
+  }, { passive: true });
+
+  // 防止移动端输入框缩放 (iOS)
+  (function() {
+    var inputs = document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="tel"], input[type="url"], input[type="search"], textarea');
+    inputs.forEach(function(input) {
+      // 设置合适的字体大小防止 iOS 缩放
+      if (window.getComputedStyle(input).fontSize !== '16px') {
+        input.style.fontSize = '16px';
+      }
+    });
+  })();
+
 })();
+
+// ═══════════════════════════════════════════════════════════
+// 通用结果提示（带 lucide 图标）
+// ═══════════════════════════════════════════════════════════
+window._showResult = function(areaId, ok, message) {
+  var area = document.getElementById(areaId);
+  if (!area) return;
+  area.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'border', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-yellow-50', 'text-yellow-700', 'border-yellow-200');
+  if (ok) {
+    area.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600 mr-1"></i></span> ' + message;
+  } else {
+    area.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + message;
+  }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+};

@@ -1,41 +1,22 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}数据管理{% endblock %}
 
 {% block head %}
->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>数据管理</title>
-  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+<style nonce="{{ csp_nonce }}">
+    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
+
+    /* ── data_manage-specific overrides ─────────────────── */
+    @media (max-width: 767px) {
+      .grid-cols-1\:md\:grid-cols-2, .grid-cols-2\:lg\:grid-cols-4 {
+        grid-template-columns: 1fr !important;
+      }
+      .modal-overlay > div { width: 100% !important; max-width: none !important; }
+    }
+</style>{% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
-
-<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
-          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
-        </a>
-        <span class="text-gray-300">|</span>
-        <h1 class="text-lg font-semibold text-gray-900">数据管理</h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-          <span id="dark-label">暗色模式</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-6">
 
   <!-- Tab 切换 -->
   <div class="flex border-b border-gray-200">
@@ -243,11 +224,11 @@
     </div>
   </div>
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
-let _csrfToken = "{{ csrf_token }}";
+window._csrfToken = "{{ csrf_token }}";
 let previewData = null;
 
 function switchTab(tab) {
@@ -266,17 +247,13 @@ function switchTab(tab) {
   if (tab === 'quality') loadQualityReport();
 }
 
-function showResult(ok, msg) {
-  const area = document.getElementById('result-area');
-  area.classList.remove('hidden','bg-green-50','text-green-700','border-green-200','bg-red-50','text-red-700','border-red-200');
-  if (ok) {
-    area.classList.add('bg-green-50','text-green-700','border','border-green-200');
-    area.innerHTML = '<span style="font-size:14px"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600 mr-1"></i></span> ' + msg;
-  } else {
-    area.classList.add('bg-red-50','text-red-700','border','border-red-200');
-    area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + msg;
-  }
-  lucide.createIcons();
+// 使用 app.js 中的公共 _showResult 函数
+var showResult = function(ok, msg) { window._showResult('result-area', ok, msg); };
+
+function escHtml(s) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(s || ''));
+  return div.innerHTML;
 }
 
 function onFileSelected(event) {
@@ -308,7 +285,7 @@ function onFileSelected(event) {
     tbody.innerHTML = '';
     data.data.slice(0, 5).forEach(row => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td class="px-3 py-2">${row.customer || '-'}</td><td class="px-3 py-2">${row.cert_type || '-'}</td><td class="px-3 py-2">${row.expiry_date || row.expire_date || '-'}</td><td class="px-3 py-2">${row.remind_enabled !== false ? '是' : '否'}</td><td class="px-3 py-2">${row.handled ? '是' : '否'}</td><td class="px-3 py-2">${row.responsible_users || '-'}</td><td class="px-3 py-2">${row.note || '-'}</td>`;
+      tr.innerHTML = `<td class="px-3 py-2">${escHtml(row.customer)}</td><td class="px-3 py-2">${escHtml(row.cert_type)}</td><td class="px-3 py-2">${escHtml(row.expiry_date || row.expire_date)}</td><td class="px-3 py-2">${row.remind_enabled !== false ? '是' : '否'}</td><td class="px-3 py-2">${row.handled ? '是' : '否'}</td><td class="px-3 py-2">${escHtml(row.responsible_users)}</td><td class="px-3 py-2">${escHtml(row.note)}</td>`;
       tbody.appendChild(tr);
     });
   })
@@ -334,14 +311,12 @@ function doImport() {
     } else {
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult(false, '网络错误：' + err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -379,7 +354,7 @@ function loadQualityReport() {
       btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
 
       if (!data.ok) {
-        alert('加载失败: ' + (data.message || '未知错误'));
+        showToast('加载失败: ' + (data.message || '未知错误'), 'error');
         return;
       }
 
@@ -490,15 +465,12 @@ function loadQualityReport() {
       } else {
         unupdatedSection.classList.add('hidden');
       }
-
-      lucide.createIcons();
     })
     .catch(err => {
       loadingEl.classList.add('hidden');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
-      alert('网络错误：' + err.message);
+      showToast('网络错误：' + err.message, 'error');
     });
 }
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
 {% endblock %}

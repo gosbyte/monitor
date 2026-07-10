@@ -1,43 +1,15 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}数据恢复{% endblock %}
 
 {% block title %}数据恢复{% endblock %}
 
 {% block head %}
->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>数据恢复</title>
-  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+
+  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
-
-<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
-          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
-        </a>
-        <span class="text-gray-300">|</span>
-        <h1 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 数据恢复
-        </h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-          <span id="dark-label">暗色模式</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-xl mx-auto px-4 py-8">
+<div class="max-w-xl mx-auto px-4 py-8">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
     <div class="flex items-center gap-3 mb-5">
       <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
@@ -75,9 +47,53 @@
       </div>
     </form>
   </div>
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+function submitRestore(event) {
+  event.preventDefault();
+  var fileInput = document.getElementById('backup-file');
+  var btn = document.getElementById('restore-btn');
+  var resultArea = document.getElementById('result-area');
+
+  if (!fileInput.files.length) {
+    resultArea.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+    resultArea.innerHTML = '<i data-lucide="alert-triangle" class="w-4 h-4 inline-block mr-1"></i> 请选择备份文件';
+    resultArea.classList.remove('hidden');
+    return false;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 恢复中...';
+
+  var formData = new FormData();
+  formData.append('backup_file', fileInput.files[0]);
+  formData.append('_csrf_token', document.querySelector('input[name="_csrf_token"]').value);
+
+  fetch('/restore', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      resultArea.classList.remove('hidden');
+      if (data.ok) {
+        resultArea.className = 'p-3 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200';
+        resultArea.innerHTML = '<i data-lucide="check-circle-2" class="w-4 h-4 inline-block mr-1"></i> ' + (data.message || '数据恢复成功，即将跳转...');
+        setTimeout(function() { window.location.href = '/'; }, 2000);
+      } else {
+        resultArea.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+        resultArea.innerHTML = '<i data-lucide="x-circle" class="w-4 h-4 inline-block mr-1"></i> ' + (data.message || '恢复失败');
+        btn.disabled = false;
+        btn.innerHTML = '<span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
+      }
+    })
+    .catch(err => {
+      resultArea.classList.remove('hidden');
+      resultArea.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
+      resultArea.innerHTML = '<i data-lucide="x-circle" class="w-4 h-4 inline-block mr-1"></i> 网络错误：' + err.message;
+      btn.disabled = false;
+      btn.innerHTML = '<span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
+    });
+
+  return false;
+}
 {% endblock %}

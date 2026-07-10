@@ -8,7 +8,7 @@ import io
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from app_init import app
+from app import app
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def admin_client(client, temp_data_dir):
     from data import save_users, load_config, save_config
     from werkzeug.security import generate_password_hash
     users = [{"username": "admin", "name": "Admin", "password": generate_password_hash("Admin123"),
-              "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+              "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
               "consecutive_locks": 0, "lock_until": None}]
     save_users(users)
     import data
@@ -44,7 +44,7 @@ class TestLoginSuccess:
     def test_login_redirect_if_logged_in(self, client, temp_data_dir):
         from data import save_users
         users = [{"username": "admin", "name": "Admin", "password": "Admin123",
-                   "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+                   "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
                    "consecutive_locks": 0, "lock_until": None}]
         save_users(users)
         import data
@@ -63,7 +63,7 @@ class TestLoginSuccess:
     def test_successful_login(self, client, temp_data_dir):
         from data import save_users
         users = [{"username": "admin", "name": "Admin", "password": "Admin123",
-                   "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+                   "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
                    "consecutive_locks": 0, "lock_until": None}]
         save_users(users)
         import data
@@ -90,7 +90,7 @@ class TestLoginWrongPassword:
         from werkzeug.security import generate_password_hash
         users = [{"username": "admin", "name": "Admin",
                    "password": generate_password_hash("Correct123"),
-                   "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+                   "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
                    "consecutive_locks": 0, "lock_until": None}]
         save_users(users)
         import data
@@ -243,7 +243,7 @@ class TestEditUser:
         client, token = admin_client
         resp = client.post("/users/edit/admin", data={
             "name": "Updated Admin",
-            "role": "admin",
+            "role": "admin", "force_change_password": 0,
             "dingtalk_id": "dt123",
             "_csrf_token": token
         }, follow_redirects=False)

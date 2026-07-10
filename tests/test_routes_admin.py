@@ -6,21 +6,20 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
-from app_init import app
+from app import app
 
 
 @pytest.fixture
 def admin_client(temp_data_dir):
     """Flask test client with logged-in admin"""
     app.config["TESTING"] = True
-    app.config["WTF_CSRF_ENABLED"] = False
     with app.test_client() as c:
         # Setup admin user
         from data import save_users
         from werkzeug.security import generate_password_hash
         users = [{"username": "admin", "name": "Admin",
                    "password": generate_password_hash("Admin123"),
-                   "role": "admin", "dingtalk_id": "", "failed_attempts": 0,
+                   "role": "admin", "force_change_password": 0, "dingtalk_id": "", "failed_attempts": 0,
                    "consecutive_locks": 0, "lock_until": None}]
         save_users(users)
         import data

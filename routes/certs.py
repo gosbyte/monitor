@@ -23,27 +23,13 @@ from data import (
     load_users, DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, LOGS_FILE,
     USERS_FILE, USE_SQLITE,
 )
-from auth import login_required, csrf_required, admin_required
+from auth import login_required, csrf_required, admin_required, _check_api_csrf
 
 
 # Flask route handlers can return str, tuple[str, int], Response, or dict
 _FlaskResponse = Union[str, tuple[str, int], Response, dict[str, Any], Any]
 
 logger = logging.getLogger(__name__)
-
-
-def _check_api_csrf() -> bool:
-    """API CSRF 检查（供蓝图内部使用）"""
-    if request.method == "GET":
-        return True
-    token = request.headers.get("X-CSRF-Token")
-    if not token and request.is_json:
-        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
-    if not token or token != session.get("_csrf_token"):
-        return False
-    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-        session["_csrf_token"] = secrets.token_hex(32)
-    return True
 
 
 def register_cert_routes(app: Flask) -> None:
@@ -122,7 +108,8 @@ def register_cert_routes(app: Flask) -> None:
         }
         return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
                                chart_data=chart_data, cert_types=cert_types, current_username=current_username,
-                               badge_count=badge_count)
+                               badge_count=badge_count, active_page='index', page_title='到期提醒管理系统',
+                               csrf_token=session.get("_csrf_token", ""))
 
     @app.route("/add", methods=["POST"])
     @login_required
@@ -156,7 +143,26 @@ def register_cert_routes(app: Flask) -> None:
         write_log(session.get("username", "?"), "添加记录", customer, "到期项", request.remote_addr or '')
 
         if is_ajax:
-            return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session.get("_csrf_token", ""))
+            # Calculate days_left for the new cert
+            expire_dt = datetime.strptime(cert_data["expire_date"], "%Y-%m-%d %H:%M")
+            now_dt = datetime.now()
+            days_left = (expire_dt - now_dt).total_seconds() / 86400
+            status = "expired" if days_left < 0 else ("expiring" if days_left <= 7 else ("warning" if days_left <= 30 else "normal"))
+            if cert_data.get("remind_enabled") == False:
+                status = "disabled"
+            new_cert = {
+                "id": new_id,
+                "customer": cert_data["customer"],
+                "cert_type": cert_data["cert_type"],
+                "expire_date": cert_data["expire_date"],
+                "note": cert_data["note"] or "",
+                "days_left": round(days_left, 1),
+                "status": status,
+                "handled": False,
+                "remind_enabled": cert_data.get("remind_enabled", True),
+                "created_by": cert_data.get("created_by", ""),
+            }
+            return jsonify(ok=True, id=new_id, message="添加成功", new_cert=new_cert, csrf_token=session.get("_csrf_token", ""))
         return redirect(url_for("index") + "?success=添加成功")
 
     @app.route("/edit/<int:cert_id>", methods=["GET", "POST"])
@@ -458,9 +464,10 @@ def register_cert_routes(app: Flask) -> None:
         logs = db_load_logs()
         push_history = db_load_push_history()
         cfg = db_load_config()
+        # [SEC] 备份时排除用户密码哈希，只保留必要信息
         users: list[dict[str, Any]] = []
         with get_db() as conn:
-            rows = conn.execute("SELECT * FROM users").fetchall()
+            rows = conn.execute("SELECT username, name, dingtalk_id, role, email FROM users").fetchall()
             users = [dict(r) for r in rows]
         backup: dict[str, Any] = {
             "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -490,6 +497,10 @@ def register_cert_routes(app: Flask) -> None:
             data = json.load(io.TextIOWrapper(file, encoding="utf-8-sig"))
         except Exception as e:
             return jsonify({"ok": False, "message": f"文件格式错误：{e}"})
+        # [SEC] 版本校验
+        version = data.get("version", "1.0")
+        if version not in ("1.0", "2.0"):
+            return jsonify({"ok": False, "message": f"不支持的备份版本: {version}"})
         try:
             from db import (get_db, db_save_cert, db_load_users, db_save_user,
                             db_load_config, db_save_config, db_write_log,
@@ -519,23 +530,27 @@ def register_cert_routes(app: Flask) -> None:
                                  cert.get("created_by", ""), cert.get("created_at", ""), datetime.now().strftime("%Y-%m-%d %H:%M")))
             if "config" in data and data["config"]:
                 db_save_config(data["config"])
+            # [SEC] 恢复用户时过滤掉密码哈希，保留用户名和角色信息
             if "users" in data and data["users"]:
                 existing_users = {u["username"] for u in db_load_users()}
                 for user in data["users"]:
                     uname = user.get("username", "")
                     if uname in existing_users:
-                        db_save_user(user)
+                        db_save_user({
+                            "username": uname,
+                            "name": user.get("name", uname),
+                            "dingtalk_id": user.get("dingtalk_id", ""),
+                            "role": user.get("role", "user"),
+                            "email": user.get("email", ""),
+                        })
                     else:
                         with get_db() as conn:
                             conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
                                            role, email, failed_attempts, consecutive_locks, lock_until,
                                            force_change_password)
-                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                                (uname, user.get("name", uname), user.get("password", ""),
-                                 user.get("dingtalk_id", ""), user.get("role", "user"),
-                                 user.get("email", ""), user.get("failed_attempts", 0),
-                                 user.get("consecutive_locks", 0), user.get("lock_until"),
-                                 int(user.get("force_change_password", 1))))
+                                           VALUES (?, ?, '', ?, ?, ?, 0, 0, NULL, 1)""",
+                                 (uname, user.get("name", uname),
+                                  user.get("role", "user"), user.get("email", "")))
             if "logs" in data and data["logs"]:
                 for log in data["logs"][-1000:]:
                     db_write_log(log.get("username", ""), log.get("action", ""),
@@ -549,7 +564,6 @@ def register_cert_routes(app: Flask) -> None:
             raise ServiceError(f"恢复失败：{e}")
         write_log(session["username"], "恢复数据", "系统", f"从备份恢复（{file.filename}）", request.remote_addr or '')
         return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session.get("_csrf_token", "")})
-
     # ── API 列表/统计 ────────────────────────────────────────
     @app.route("/api/cert")
     @login_required

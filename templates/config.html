@@ -1,46 +1,13 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}系统配置{% endblock %}
 
 {% block head %}
->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>推送配置</title>
-  <style nonce="{{ csp_nonce }}">
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+  {% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
-
-<!-- 顶部导航 -->
-<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
-          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
-        </a>
-        <span class="text-gray-300">|</span>
-        <h1 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <span style="font-size:14px"><i data-lucide="settings" class="w-4 h-4 inline-block"></i></span> 推送配置
-        </h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-          <span id="dark-label">暗色模式</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+<div class="max-w-2xl mx-auto px-4 py-6 space-y-6">
 
   <!-- 钉钉机器人卡片 -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
@@ -53,7 +20,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
         <input name="webhook_url" id="dingtalk-webhook" aria-label="钉钉 Webhook 地址" value="{{ cfg.get('webhook_url', '') }}"
           placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
-          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono md:text-sm text-xs">
         <p class="mt-1.5 text-xs text-gray-500 leading-relaxed">
           在钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义机器人，复制 Webhook 地址
         </p>
@@ -62,7 +29,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">加签密钥（Secret）</label>
         <input name="secret" id="dingtalk-secret" aria-label="加签密钥 Secret" value="{{ cfg.get('secret', '') }}"
           placeholder="安全设置 → 加签 → 复制密钥"
-          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono md:text-sm text-xs">
         <p class="mt-1.5 text-xs text-gray-500">如已开启加签，请填写机器人安全设置的密钥；无加签可留空</p>
       </div>
       <div>
@@ -124,13 +91,13 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱密码/授权码</label>
-          <input name="smtp_pass" id="smtp-pass" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
+          <input name="smtp_pass" id="smtp-pass" aria-label="邮箱密码或授权码" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             data-original-value="{{ cfg.get('smtp_pass', '') }}">
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">收件人地址</label>
-          <input name="smtp_to" id="smtp-to" value="{{ cfg.get('smtp_to', '') }}" placeholder="多个用逗号分隔"
+          <input name="smtp_to" id="smtp-to" aria-label="收件人地址" value="{{ cfg.get('smtp_to', '') }}" placeholder="多个用逗号分隔"
             class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         </div>
       </div>
@@ -174,7 +141,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
-        <input type="text" id="wecom-webhook" value="{{ cfg.get('wecom_webhook', '') }}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+        <input type="text" id="wecom-webhook" aria-label="企业微信 Webhook 地址" value="{{ cfg.get('wecom_webhook', '') }}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
         <p class="mt-1 text-xs text-gray-400">在企业微信机器人设置中获取 Webhook 地址</p>
       </div>
@@ -204,24 +171,14 @@
     </ol>
   </div>
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
-let _csrfToken = "{{ csrf_token }}";
+window._csrfToken = "{{ csrf_token }}";
 
-function _showResult(areaId, ok, message) {
-  var area = document.getElementById(areaId);
-  area.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'border', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-yellow-50', 'text-yellow-700', 'border-yellow-200');
-  if (ok) {
-    area.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
-    area.innerHTML = '<span style="font-size:14px"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600 mr-1"></i></span> ' + message;
-  } else {
-    area.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
-    area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + message;
-  }
-  lucide.createIcons();
-}
+// 使用 app.js 中的公共 _showResult 函数
+var _showResult = window._showResult;
 
 // ── 钉钉 ──
 function saveDingtalkConfig() {
@@ -254,7 +211,7 @@ function testDingtalk() {
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息';
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
 
@@ -293,7 +250,7 @@ function testEmail() {
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件';
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
 
@@ -326,12 +283,12 @@ function testWecom() {
     .then(result => {
       if (result.csrf_token) _csrfToken = result.csrf_token;
       _showResult('wecom-result', result.ok, result.message || (result.ok ? '测试推送成功' : '测试失败'));
-    }).catch(err => _showResult('wecom-result', false, '网络错误：' + err.message));
+    })
+    .catch(err => _showResult('wecom-result', false, '网络错误：' + err.message))
     .finally(() => {
       btn.disabled = false;
       btn.innerHTML = '<span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送';
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     });
 }
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
 {% endblock %}

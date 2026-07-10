@@ -1,41 +1,15 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}批量添加{% endblock %}
 
 {% block title %}批量添加{% endblock %}
 
 {% block head %}
->
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>批量添加记录</title>
-  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
-  <link rel="stylesheet" href="/static/dark.css">
-{% endblock %}
+<title>批量添加记录</title>
+  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
-<div class="md:ml-64 p-4 md:p-6 lg:p-8">
-
-<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
-          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
-        </a>
-        <span class="text-gray-300">|</span>
-        <h1 class="text-lg font-semibold text-gray-900">数据管理</h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-          <span id="dark-label">暗色模式</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</header>
-
-<main class="max-w-4xl mx-auto px-4 py-8 space-y-6">
+<div class="max-w-4xl mx-auto px-4 py-8 space-y-6">
 
   <!-- Tab 切换 -->
   <div class="flex border-b border-gray-200">
@@ -181,7 +155,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">粘贴 JSON 格式记录数据</label>
         <textarea id="json-input" aria-label="JSON 格式记录数据"
           placeholder='[{"customer": "华联超市", "cert_type": "年报截止", "domain": "", "expire_date": "2025-12-31", "note": "需提前处理"}]'
-          class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono resize-y min-h-[160px] leading-relaxed"></textarea>
+          class="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono md:text-sm text-xs resize-y min-h-[160px] leading-relaxed"></textarea>
         <div class="flex gap-3 mt-3 flex-wrap items-center">
           <button type="submit" id="json-submit-btn"
             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
@@ -293,11 +267,11 @@
     </div>
   </div>
 
-</main>
+</div>
 {% endblock %}
 
 {% block scripts %}
-let _csrfToken = "{{ csrf_token }}";
+window._csrfToken = "{{ csrf_token }}";
 let selectedFile = null;
 let previewData = null;
 let csvPreviewData = null;
@@ -305,20 +279,25 @@ let csvFieldMapping = {};
 let csvHeaders = [];
 let jsonPreviewData = null;
 
+function escHtml(s) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(s));
+  return div.innerHTML;
+}
+
 function showResult(areaId, success, message, detail) {
   var area = document.getElementById(areaId);
   area.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200');
   if (success) {
     area.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
-    area.innerHTML = '<div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600"></i>' + message + '</div>';
+    area.innerHTML = '<div class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600"></i>' + escHtml(message) + '</div>';
   } else {
     area.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
-    area.innerHTML = '<div class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 inline-block text-yellow-600"></i>' + message + '</div>';
+    area.innerHTML = '<div class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 inline-block text-yellow-600"></i>' + escHtml(message) + '</div>';
   }
   if (detail && detail.length > 0) {
-    area.innerHTML += '<div class="mt-2 pt-2 border-t border-current/20 text-xs space-y-0.5">' + detail.map(d => '<div>' + d + '</div>').join('') + '</div>';
+    area.innerHTML += '<div class="mt-2 pt-2 border-t border-current/20 text-xs space-y-0.5">' + detail.map(function(d) { return '<div>' + escHtml(d) + '</div>'; }).join('') + '</div>';
   }
-  lucide.createIcons();
 }
 
 // ── Tab 切换 ──
@@ -369,14 +348,13 @@ function onExcelSelected(event) {
     tbody.innerHTML = '';
     data.data.slice(0, 10).forEach(function(item) {
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td class="px-3 py-2">'+(item.customer||'')+'</td>'+
-        '<td class="px-3 py-2">'+(item.cert_type||'-')+'</td>'+
-        '<td class="px-3 py-2">'+(item.domain||'-')+'</td>'+
-        '<td class="px-3 py-2">'+(item.expiry_date||item.expire_date||'')+'</td>'+
-        '<td class="px-3 py-2">'+(item.note||'-')+'</td>';
+      tr.innerHTML = '<td class="px-3 py-2">'+escHtml(item.customer)+'</td>'+\
+        '<td class="px-3 py-2">'+escHtml(item.cert_type)+'</td>'+\
+        '<td class="px-3 py-2">'+escHtml(item.domain)+'</td>'+\
+        '<td class="px-3 py-2">'+escHtml(item.expiry_date||item.expire_date)+'</td>'+\
+        '<td class="px-3 py-2">'+escHtml(item.note)+'</td>';
       tbody.appendChild(tr);
     });
-    lucide.createIcons();
   })
   .catch(e => showResult('result-area', false, '预览失败：'+e.message));
 }
@@ -402,14 +380,12 @@ function confirmImport() {
       showResult('result-area', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -483,7 +459,7 @@ function onCsvSelected(event) {
       var tr = document.createElement('tr');
       var html = '';
       (csvHeaders || ['customer','cert_type','domain','expire_date','note']).forEach(function(h) {
-        html += '<td class="px-3 py-2">'+(item[h]||'-')+'</td>';
+        html += '<td class="px-3 py-2">'+escHtml(item[h])+'</td>';
       });
       tr.innerHTML = html;
       tbody.appendChild(tr);
@@ -495,10 +471,8 @@ function onCsvSelected(event) {
       vs.classList.remove('hidden');
       vs.classList.add('bg-red-50', 'text-red-700');
       vs.innerHTML = '<strong>⚠ 无效记录 (' + data.invalid_count + ' 条):</strong><div class="mt-1 space-y-0.5">' +
-        data.invalid_records.map(function(r) { return '<div>' + r.errors.join('; ') + '</div>'; }).join('') + '</div>';
+        data.invalid_records.map(function(r) { return '<div>' + r.errors.map(function(e){return escHtml(e)}).join('; ') + '</div>'; }).join('') + '</div>';
     }
-
-    lucide.createIcons();
   })
   .catch(e => showResult('result-area-csv', false, '网络错误：'+e.message));
 }
@@ -533,14 +507,12 @@ function confirmCsvImport() {
       showResult('result-area-csv', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area-csv', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -598,10 +570,10 @@ function doJsonImport(e) {
       var tr = document.createElement('tr');
       var statusBadge = '<span class="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-xs">✓ 有效</span>';
       tr.innerHTML = '<td class="px-3 py-2">'+(idx+1)+'</td>'+
-        '<td class="px-3 py-2">'+(item.customer||'')+'</td>'+
-        '<td class="px-3 py-2">'+(item.cert_type||'-')+'</td>'+
-        '<td class="px-3 py-2">'+(item.domain||'-')+'</td>'+
-        '<td class="px-3 py-2">'+(item.expire_date||'')+'</td>'+
+        '<td class="px-3 py-2">'+escHtml(item.customer)+'</td>'+
+        '<td class="px-3 py-2">'+escHtml(item.cert_type)+'</td>'+
+        '<td class="px-3 py-2">'+escHtml(item.domain)+'</td>'+
+        '<td class="px-3 py-2">'+escHtml(item.expire_date)+'</td>'+
         '<td class="px-3 py-2">'+statusBadge+'</td>';
       tbody.appendChild(tr);
     });
@@ -612,11 +584,10 @@ function doJsonImport(e) {
       vs.classList.remove('hidden');
       vs.classList.add('bg-red-50', 'text-red-700');
       vs.innerHTML = '<strong>⚠ 无效记录 (' + result.invalid_count + ' 条):</strong><div class="mt-1 space-y-0.5">' +
-        result.invalid_records.map(function(r) { return '<div>#'+r.record_index+': '+r.errors.join(', ')+'</div>'; }).join('') + '</div>';
+        result.invalid_records.map(function(r) { return '<div>#'+r.record_index+': '+r.errors.map(function(e){return escHtml(e)}).join(', ')+'</div>'; }).join('') + '</div>';
     }
 
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 预览完成';
-    lucide.createIcons();
   })
   .catch(err => {
     showResult('result-area-json', false, '网络错误：'+err.message);
@@ -656,14 +627,12 @@ function confirmJsonImport() {
       showResult('result-area-json', false, result.message || '导入失败');
       btn.disabled = false;
       btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-      lucide.createIcons();
     }
   })
   .catch(err => {
     showResult('result-area-json', false, '网络错误：'+err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
-    lucide.createIcons();
   });
 }
 
@@ -674,7 +643,5 @@ function cancelJsonPreview() {
   var btn = document.getElementById('json-submit-btn');
   btn.disabled = false;
   btn.innerHTML = '<i data-lucide="send" class="w-4 h-4 inline-block"></i> 预览并导入';
-  lucide.createIcons();
 }
-document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
 {% endblock %}

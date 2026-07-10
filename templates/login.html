@@ -1,20 +1,12 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>到期提醒管理系统 - 登录</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <style nonce="{{ csp_nonce }}">
-    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  </style>
-  <link rel="stylesheet" href="/static/dark.css">
-</head>
-<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-<div id="dark-toggle" onclick="toggleDarkMode(); lucide.createIcons();" class="fixed top-4 right-4 p-2 rounded-lg bg-white border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-100 transition-colors z-50" title="切换暗色模式">
-  <i data-lucide="sun" class="w-5 h-5 inline-block dark:hidden"></i>
-  <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+{% extends "base.html" %}
+
+{% block title %}登录{% endblock %}
+
+{% block content %}
+
+<div id="dark-toggle" onclick="toggleDarkMode(); lucide.createIcons();" class="fixed top-4 right-4 p-2 rounded-lg bg-white border border-gray-200 shadow-sm cursor-pointer hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 transition-colors z-50" title="切换暗色模式">
+  <i data-lucide="sun" class="w-5 h-5 inline-block hidden dark:block"></i>
+  <i data-lucide="moon" class="w-5 h-5 inline-block dark:hidden"></i>
 </div>
 
 <div class="w-full max-w-md">
@@ -40,13 +32,13 @@
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">用户名</label>
-        <input type="text" name="username" required placeholder="请输入用户名"
+        <input type="text" name="username" required placeholder="请输入用户名" autocomplete="username"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
       </div>
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">密码</label>
-        <input type="password" name="password" required placeholder="请输入密码"
+        <input type="password" name="password" required placeholder="请输入密码" autocomplete="current-password"
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
       </div>
 
@@ -57,7 +49,13 @@
             class="flex-1 min-w-0 px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm uppercase tracking-widest">
           <img src="/captcha" onclick="this.src='/captcha?'+Math.random()"
             class="h-[42px] w-[140px] rounded-lg border border-gray-200 cursor-pointer hover:border-blue-300 transition-colors flex-shrink-0"
-            title="点击刷新验证码" alt="验证码">
+            title="点击刷新验证码" alt="验证码" role="button" tabindex="0"
+            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.src='/captcha?'+Math.random()}">
+          <button type="button" onclick="document.querySelector('img[src=\"/captcha\"]').src='/captcha?'+Math.random()"
+            class="flex-shrink-0 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            aria-label="刷新验证码">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
         </div>
       </div>
 
@@ -70,6 +68,4 @@
   <p class="text-center text-xs text-gray-400 mt-6">到期提醒管理系统</p>
 </div>
 
-<script nonce="{{ csp_nonce }}">document.addEventListener('DOMContentLoaded', function() { lucide.createIcons(); });</script>
-<script src="/static/dark.js" nonce="{{ csp_nonce }}"></script></body>
-</html>
+{% endblock %}

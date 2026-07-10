@@ -5,7 +5,7 @@
   window.submitRestore = function (e) {
     e.preventDefault();
     var fileInput = document.getElementById('backup-file');
-    if (!fileInput || !fileInput.files.length) { alert('请选择备份文件'); return false; }
+    if (!fileInput || !fileInput.files.length) { showToast('请选择备份文件'); return false; }
     var btn = document.getElementById('restore-btn');
     btn.disabled = true;
     btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 恢复中...';

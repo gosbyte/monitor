@@ -35,6 +35,7 @@
   window.toggleDarkMode = function() {
     var isDark = !document.body.classList.contains('dark-mode');
     document.body.classList.toggle('dark-mode', isDark);
+    document.documentElement.classList.toggle('dark', isDark);
     localStorage.setItem('dark-mode', isDark);
     _applyDarkIcons(isDark);
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -45,18 +46,49 @@
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (prefersDark) {
       document.body.classList.add('dark-mode');
+      document.documentElement.classList.add('dark');
       localStorage.setItem('dark-mode', 'true');
       _applyDarkIcons(true);
     }
   }
 
-  // Listen for system theme changes
+  // Desktop sidebar toggle
+  window.toggleDesktopSidebar = function() {
+    var sb = document.getElementById('sidebar');
+    var mc = document.getElementById('main-content');
+    sb.classList.toggle('collapsed');
+    mc.classList.toggle('sidebar-collapsed');
+  };
+
+  // Mobile sidebar toggle
+  (function() {
+    var btn = document.getElementById('mobile-menu-btn');
+    var overlay = document.getElementById('sidebar-overlay');
+    if (btn && overlay) {
+      btn.addEventListener('click', function() {
+        var sb = document.getElementById('sidebar');
+        sb.classList.toggle('sidebar-open');
+        overlay.classList.toggle('sidebar-active');
+        document.body.classList.toggle('sidebar-open');
+      });
+      overlay.addEventListener('click', function() {
+        var sb = document.getElementById('sidebar');
+        sb.classList.remove('sidebar-open');
+        overlay.classList.remove('sidebar-active');
+        document.body.classList.remove('sidebar-open');
+      });
+    }
+  })();
+
+  // Listen for system theme changes (only when user hasn't set a preference)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
     if (localStorage.getItem('dark-mode') === null) {
       if (e.matches) {
         document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark');
       } else {
         document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark');
       }
     }
   });

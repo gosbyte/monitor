@@ -26,19 +26,7 @@ from auth import login_required, admin_required, csrf_required
 
 logger = logging.getLogger(__name__)
 
-
-def _check_api_csrf() -> bool:
-    """API CSRF 检查"""
-    if request.method == "GET":
-        return True
-    token = request.headers.get("X-CSRF-Token")
-    if not token and request.is_json:
-        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
-    if not token or token != session.get("_csrf_token"):
-        return False
-    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-        session["_csrf_token"] = secrets.token_hex(32)
-    return True
+from auth import _check_api_csrf
 
 
 def register_api_routes(app: Flask) -> None:

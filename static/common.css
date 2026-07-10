@@ -1,0 +1,105 @@
+/* ============================================
+   Cert-Monitor — Common Styles
+   Shared across all templates
+   ============================================ */
+
+/* ── Touch & Selection ─────────────────────── */
+* {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Allow text selection everywhere EXCEPT buttons/interactive elements */
+body {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+input, textarea, [contenteditable], .selectable {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* ── Safe Area Insets (iPhone notch/home bar) ── */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  #main-content {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  #toast-container {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    right: max(1rem, env(safe-area-inset-right));
+  }
+  .mobile-header {
+    padding-top: max(0.35rem, env(safe-area-inset-top));
+  }
+}
+
+/* ── 100dvh support ────────────────────────── */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+  #sidebar { height: 100dvh; }
+  .modal-overlay, [class*="fixed"] { min-height: 100dvh; }
+}
+
+/* ── Mobile Touch Targets ──────────────────── */
+@media (max-width: 767px) {
+  button, .action-btn, [role="button"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  select,
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="file"] {
+    font-size: 16px !important;
+    min-height: 44px !important;
+  }
+  input[type="file"]::-webkit-file-upload-button {
+    font-size: 16px !important;
+    padding: 0.5rem 1rem !important;
+    min-height: 44px !important;
+  }
+}
+
+/* ── Landscape Mode Optimization ───────────── */
+@media (max-width: 1023px) and (orientation: landscape) {
+  table { display: table !important; }
+  table thead, table tbody { display: table-header-group !important; display: table-row-group !important; }
+  table tr { display: table-row !important; }
+  table td, table th { display: table-cell !important; }
+}
+
+/* ── Reduced Motion ────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print Styles ──────────────────────────── */
+@media print {
+  #sidebar, .mobile-header, #sidebar-overlay, #toast-container,
+  .batch-toolbar, #global-loading, #confirm-modal {
+    display: none !important;
+  }
+  body { background: white !important; color: black !important; }
+  body.dark-mode, body.dark-mode * { background: white !important; color: black !important; }
+  main { margin: 0 !important; padding: 1cm !important; }
+  table { width: 100% !important; page-break-inside: auto !important; }
+  tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+  thead { display: table-header-group !important; }
+  a { text-decoration: underline !important; color: black !important; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.7em; }
+}

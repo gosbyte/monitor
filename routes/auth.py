@@ -29,7 +29,7 @@ from data import (
 )
 from auth import (
     inject_globals, csrf_required, login_required, admin_required,
-    generate_captcha, create_captcha_image,
+    generate_captcha, create_captcha_image, _check_api_csrf,
 )
 
 
@@ -40,6 +40,51 @@ logger = logging.getLogger(__name__)
 _LOGIN_ATTEMPTS: dict[str, list[tuple[float, bool]]] = {}  # {ip: [(timestamp, success)]}
 _LOGIN_MAX_ATTEMPTS: int = 10  # 10 次/分钟
 _LOGIN_COOLDOWN: int = 300  # 5 分钟冷却
+_LOGIN_ATTEMPTS_FILE = os.path.join(DATA_DIR, "login_attempts.json")
+
+
+def _persist_login_attempts():
+    """定期持久化登录限流数据"""
+    try:
+        tmp = _LOGIN_ATTEMPTS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_LOGIN_ATTEMPTS, f)
+        os.replace(tmp, _LOGIN_ATTEMPTS_FILE)
+    except Exception:
+        pass
+
+
+def _load_login_attempts():
+    """从文件加载登录限流数据"""
+    global _LOGIN_ATTEMPTS
+    try:
+        if os.path.exists(_LOGIN_ATTEMPTS_FILE):
+            with open(_LOGIN_ATTEMPTS_FILE, "r") as f:
+                saved = json.load(f)
+            now = time.time()
+            _LOGIN_ATTEMPTS = {
+                ip: [(t, s) for t, s in attempts if now - t < 300]
+                for ip, attempts in saved.items()
+            }
+    except Exception:
+        pass
+
+
+# 启动时加载
+_load_login_attempts()
+
+# 定时持久化（每 30 秒）
+import threading
+
+
+def _persist_login_loop():
+    while True:
+        time.sleep(30)
+        _persist_login_attempts()
+
+
+_persist_login_thread = threading.Thread(target=_persist_login_loop, daemon=True)
+_persist_login_thread.start()
 
 
 def _rate_limit_login(ip: str) -> bool:
@@ -293,16 +338,3 @@ def register_auth_routes(app: Flask) -> None:
         write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, request.remote_addr or '')
         return jsonify({"ok": True})
 
-
-def _check_api_csrf() -> bool:
-    """API CSRF 检查"""
-    if request.method == "GET":
-        return True
-    token = request.headers.get("X-CSRF-Token")
-    if not token and request.is_json:
-        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
-    if not token or token != session.get("_csrf_token"):
-        return False
-    if request.method in ("POST", "PUT", "DELETE", "PATCH"):
-        session["_csrf_token"] = secrets.token_hex(32)
-    return True
