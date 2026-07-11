@@ -223,7 +223,7 @@ def register_auth_routes(app: Flask) -> None:
         current_user = session.get("username", "")
         user_info = next((u for u in users if u["username"] == current_user), None)
         is_admin = user_info.get("role") == "admin" if user_info else False
-        return render_template("users.html", users=users, is_admin=is_admin)
+        return render_template("users.html", users=users, is_admin=is_admin, active_page="users")
 
     @app.route("/users/add", methods=["POST"])
     @admin_required
