@@ -307,6 +307,16 @@ from routes.admin import register_admin_routes
 from routes.api import register_api_routes
 from routes.pages import register_page_routes
 
+# ── Initialize database and data directory on startup ──────────
+try:
+    from init_data import init_data as _init_data
+    _init_data()
+except Exception as _e:
+    import logging
+    logging.getLogger(__name__).error(f"Data initialization failed: {_e}")
+    raise
+
+
 register_auth_routes(app)
 register_cert_routes(app)
 register_admin_routes(app)
