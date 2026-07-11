@@ -73,7 +73,7 @@ def register_cert_routes(app: Flask) -> None:
             c["days_left"] = calc_days_left(c["expire_date"])
             c["status"] = get_cert_status(c, c["days_left"])
         certs.sort(key=lambda x: x["days_left"])
-        stats = calc_stats()
+        stats = calc_stats(certs)
         users = load_users()
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
