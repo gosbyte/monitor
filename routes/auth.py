@@ -191,7 +191,7 @@ def register_auth_routes(app: Flask) -> None:
         session.clear()
         return redirect(url_for("login_page"))
 
-    @app.route("/change_password")
+    @app.route("/change_password", methods=["GET", "POST"])
     @login_required
     def change_password() -> _FlaskResponse:
         username = session.get("username", "")
