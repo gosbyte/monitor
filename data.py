@@ -46,11 +46,11 @@ LOG_CLEANUP_DIRS: list[str] = [DATA_DIR]  # 可被环境变量扩展
 
 # ── 统一缓存实例 ──────────────────────────────────────────
 # certs_cache: 缓存到期项列表（默认 TTL 30s，最大 5 条）
-certs_cache = LRUCache(maxsize=5, ttl=300.0)
+certs_cache = LRUCache(maxsize=5, ttl=30.0)
 # users_cache: 缓存用户列表（默认 TTL 30s，最大 5 条）
-users_cache = LRUCache(maxsize=5, ttl=300.0)
+users_cache = LRUCache(maxsize=5, ttl=30.0)
 # config_cache: 缓存配置字典（默认 TTL 60s，最大 5 条）
-config_cache = LRUCache(maxsize=5, ttl=600.0)
+config_cache = LRUCache(maxsize=5, ttl=60.0)
 
 # ── 旧配置缓存（向后兼容，保留 reload_config 逻辑）───────────
 _config_cache: dict[str, Any] = {}

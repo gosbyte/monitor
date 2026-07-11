@@ -47,7 +47,7 @@ def register_admin_routes(app: Flask) -> None:
                 cfg["remind_days"] = [7, 3, 1]
             save_config(cfg)
             return redirect(url_for("index") + "?success=配置已保存")
-        return render_template("config.html", cfg=cfg, is_admin=is_admin)
+        return render_template("config.html", cfg=cfg, is_admin=is_admin, active_page="config")
 
     @app.route("/api/save_config", methods=["POST"])
     @login_required
@@ -156,7 +156,7 @@ def register_admin_routes(app: Flask) -> None:
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
         is_admin = current_user.get("role") == "admin" if current_user else False
-        return render_template("logs.html", logs=logs[:200], total=len(logs), users=users, is_admin=is_admin)
+        return render_template("logs.html", logs=logs[:200], total=len(logs), users=users, is_admin=is_admin, active_page="logs")
 
     @app.route("/logs/clear", methods=["POST"])
     @admin_required
@@ -180,14 +180,14 @@ def register_admin_routes(app: Flask) -> None:
             with open(push_history_file, "r", encoding="utf-8") as f:
                 history = json.load(f)
         history.sort(key=lambda x: x.get("time", ""), reverse=True)
-        return render_template("push_history.html", history=history, is_admin=is_admin)
+        return render_template("push_history.html", history=history, is_admin=is_admin, active_page="push_history")
 
     # ── 数据管理 ──────────────────────────────────────────────
     @app.route("/data-manage")
     @login_required
     @admin_required
     def data_manage_page() -> _FlaskResponse:
-        return render_template("data_manage.html")
+        return render_template("data_manage.html", active_page="data_manage")
 
     # ── 日志清理 API ──────────────────────────────────────
     @app.route("/api/admin/cleanup-logs", methods=["POST"])

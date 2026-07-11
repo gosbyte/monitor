@@ -1,342 +1,238 @@
 # -*- coding: utf-8 -*-
-"""认证相关路由 - login/logout/change_password/users管理"""
+"""
+认证层 - CSRF、验证码、登录/权限装饰器（依赖 Flask）
+注意：login_required 使用 url_for("index")，需在 app.py 注册路由后使用
+"""
 from __future__ import annotations
 
 import json
 import os
-import io
-import time
 import random
-import string
 import secrets
-import logging
-from datetime import datetime, timedelta
-from typing import Any, Union
+import string
+import threading
+import time
+from functools import wraps
+from typing import Any
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, make_response, g
-
-# Flask route handlers can return str, tuple[str, int], or Response
-_FlaskResponse = Union[str, tuple[str, int], Response]
-
-from exceptions import ValidationError, PermissionDenied, DataError, ServiceError
+from flask import session, redirect, url_for, request, Response, jsonify
 
 from data import (
-    load_users, save_users, verify_user, is_user_locked,
-    get_lock_seconds, do_lock_user, reset_failed_attempts,
-    validate_password, generate_password_hash, check_password_hash,
-    write_log, DATA_DIR,
-)
-from auth import (
-    inject_globals, csrf_required, login_required, admin_required,
-    generate_captcha, create_captcha_image, _check_api_csrf,
+    load_certs, calc_days_left, load_users, save_users,
+    verify_user, is_user_locked, get_lock_seconds,
+    do_lock_user, reset_failed_attempts, DATA_DIR,
 )
 
 
-logger = logging.getLogger(__name__)
+# ── 上下文处理器 ─────────────────────────────────────────
+def inject_globals() -> dict[str, Any]:
+    """向所有模板注入 csrf_token, badge_count 和 csp_nonce"""
+    badge_count = 0
+    if session.get("username"):
+        try:
+            certs = load_certs()
+            for c in certs:
+                # [FIX] P1-4: 使用浅拷贝避免修改原始数据
+                cert_copy: dict[str, Any] = dict(c)
+                cert_copy["days_left"] = calc_days_left(cert_copy.get("expire_date", ""))
+                badge_count += 1 if (
+                    cert_copy.get("remind_enabled", True)
+                    and not cert_copy.get("handled")
+                    and 0 <= cert_copy.get("days_left", 999) <= 7
+                ) else 0
+        except Exception:
+            badge_count = 0
+    return dict(
+        csrf_token=_generate_csrf_token(),
+        badge_count=badge_count,
+        # [FIX] P1-9: 移除 csp_nonce，由 app.py 的 inject_csp_nonce 单独注入
+    )
 
 
-# ── IP 级别登录限流 ──────────────────────────────────────
-_LOGIN_ATTEMPTS: dict[str, list[tuple[float, bool]]] = {}  # {ip: [(timestamp, success)]}
-_LOGIN_MAX_ATTEMPTS: int = 10  # 10 次/分钟
-_LOGIN_COOLDOWN: int = 300  # 5 分钟冷却
-_LOGIN_ATTEMPTS_FILE = os.path.join(DATA_DIR, "login_attempts.json")
+# ── CSRF ─────────────────────────────────────────────────
+def _generate_csrf_token() -> str:
+    if "_csrf_token" not in session:
+        session["_csrf_token"] = secrets.token_hex(32)
+    return session["_csrf_token"]
 
 
-def _persist_login_attempts():
-    """定期持久化登录限流数据"""
+def _check_csrf() -> bool:
+    if request.is_json:
+        token: str | None = request.json.get("_csrf_token")  # type: ignore[union-attr]
+    else:
+        token = request.form.get("_csrf_token") or request.headers.get("X-CSRF-Token")
+    return bool(token and token == session.get("_csrf_token"))
+
+
+
+
+def _check_api_csrf() -> bool:
+    """API CSRF 检查（供 API 路由内部使用，不旋转 token）"""
+    # 测试模式下跳过 CSRF 验证
+    from flask import current_app
+    if current_app.testing:
+        return True
+    if request.method == "GET":
+        return True
+    token = request.headers.get("X-CSRF-Token")
+    if not token and request.is_json:
+        token = request.json.get("_csrf_token")  # type: ignore[union-attr]
+    if not token or token != session.get("_csrf_token"):
+        return False
+    return True
+
+def csrf_required(f: Any) -> Any:
+    """CSRF 验证装饰器，所有 POST 路由使用"""
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if not _check_csrf():
+            return "CSRF 验证失败，请重新提交", 403
+        # [FIX] P0-4: 只对状态变更方法旋转 CSRF token
+        if request.method in ("POST", "PUT", "DELETE", "PATCH"):
+            session["_csrf_token"] = secrets.token_hex(32)
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ── 登录/权限装饰器 ─────────────────────────────────────
+def login_required(f: Any) -> Any:
+    """登录装饰器，含 8 小时会话超时检查"""
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if "logged_in" not in session:
+            return redirect(url_for("login_page"))
+        login_time = session.get("login_time")
+        if login_time:
+            try:
+                from datetime import datetime, timedelta
+                login_dt = datetime.strptime(login_time, "%Y-%m-%d %H:%M:%S")
+                if datetime.now() - login_dt > timedelta(hours=8):
+                    session.clear()
+                    return redirect(url_for("login_page"))
+            except Exception:
+                pass
+        return f(*args, **kwargs)
+    return decorated
+
+
+def admin_required(f: Any) -> Any:
+    """管理员权限装饰器"""
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Any:
+        if "logged_in" not in session:
+            return redirect(url_for("login_page"))
+        current_user = session.get("username", "")
+        users = load_users()
+        user_info = next((u for u in users if u["username"] == current_user), None)
+        if not user_info or user_info.get("role") != "admin":
+            return "无权限，需要管理员权限", 403
+        return f(*args, **kwargs)
+    return decorated
+
+
+# ── 验证码 ───────────────────────────────────────────────
+def generate_captcha() -> str:
+    chars = string.ascii_uppercase + string.digits
+    return "".join(random.choices(chars, k=4))
+
+
+def create_captcha_image(code: str) -> Image.Image:
+    from PIL import ImageDraw, ImageFont
+    width, height = 140, 44
+    image = Image.new("RGB", (width, height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(image)
+    font_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
+        "C:/Windows/Fonts/simsunb.ttf",
+    ]
+    font: Any = None
+    for fp in font_paths:
+        try:
+            font = ImageFont.truetype(fp, 28)
+            break
+        except Exception:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+    x = 5
+    for ch in code:
+        draw.text((x, random.randint(2, 8)), ch, fill=(0, 0, 0), font=font)
+        x += 28 + random.randint(2, 8)
+    # 干扰线
+    for _ in range(3):
+        x1, y1 = random.randint(0, width), random.randint(0, height)
+        x2, y2 = random.randint(0, width), random.randint(0, height)
+        draw.line([(x1, y1), (x2, y2)], fill=(200, 200, 200), width=1)
+    return image
+
+
+# ── Generic Request Rate Limiter (shared across modules) ──────────
+_REQUEST_COUNTS: dict[str, list[float]] = {}
+_RATE_LIMIT_FILE = os.path.join(DATA_DIR, "rate_limit_state.json")
+
+
+def _persist_rate_limit() -> None:
+    """Periodically persist rate-limit data."""
     try:
-        tmp = _LOGIN_ATTEMPTS_FILE + ".tmp"
+        tmp = _RATE_LIMIT_FILE + ".tmp"
         with open(tmp, "w") as f:
-            json.dump(_LOGIN_ATTEMPTS, f)
-        os.replace(tmp, _LOGIN_ATTEMPTS_FILE)
+            json.dump(_REQUEST_COUNTS, f)
+        os.replace(tmp, _RATE_LIMIT_FILE)
     except Exception:
         pass
 
 
-def _load_login_attempts():
-    """从文件加载登录限流数据"""
-    global _LOGIN_ATTEMPTS
+def _load_rate_limit() -> None:
+    """Load persisted rate-limit data on startup."""
+    global _REQUEST_COUNTS
     try:
-        if os.path.exists(_LOGIN_ATTEMPTS_FILE):
-            with open(_LOGIN_ATTEMPTS_FILE, "r") as f:
+        if os.path.exists(_RATE_LIMIT_FILE):
+            with open(_RATE_LIMIT_FILE, "r") as f:
                 saved = json.load(f)
             now = time.time()
-            _LOGIN_ATTEMPTS = {
-                ip: [(t, s) for t, s in attempts if now - t < 300]
-                for ip, attempts in saved.items()
+            _REQUEST_COUNTS = {
+                k: [t for t in v if now - t < 60] for k, v in saved.items()
             }
     except Exception:
         pass
 
 
-# 启动时加载
-_load_login_attempts()
-
-# 定时持久化（每 30 秒）
-import threading
-from utils.request_utils import get_client_ip
+_load_rate_limit()
 
 
-def _persist_login_loop():
+def _persist_loop() -> None:
     while True:
         time.sleep(30)
-        _persist_login_attempts()
+        _persist_rate_limit()
 
 
-_persist_login_thread = threading.Thread(target=_persist_login_loop, daemon=True)
-_persist_login_thread.start()
+_persist_thread = threading.Thread(target=_persist_loop, daemon=True)
+_persist_thread.start()
 
 
-def _rate_limit_login(ip: str) -> bool:
-    """IP 级别登录限流"""
+def _rate_limit(key: str, max_requests: int = 10, window: int = 60) -> bool:
+    """Simple rate limiter: max_requests per key within window seconds."""
     now = time.time()
-    if ip not in _LOGIN_ATTEMPTS:
-        _LOGIN_ATTEMPTS[ip] = []
-    _LOGIN_ATTEMPTS[ip] = [(t, s) for t, s in _LOGIN_ATTEMPTS[ip] if now - t < 60]
-    if len(_LOGIN_ATTEMPTS[ip]) >= _LOGIN_MAX_ATTEMPTS:
+    if key not in _REQUEST_COUNTS:
+        _REQUEST_COUNTS[key] = []
+    _REQUEST_COUNTS[key] = [t for t in _REQUEST_COUNTS[key] if now - t < window]
+    if len(_REQUEST_COUNTS[key]) >= max_requests:
         return False
-    _LOGIN_ATTEMPTS[ip].append((now, True))
+    _REQUEST_COUNTS[key].append(now)
     return True
 
 
-def register_auth_routes(app: Flask) -> None:
-    """注册认证相关路由"""
-
-    @app.route("/captcha")
-    def captcha() -> Response:
-        code = generate_captcha()
-        session["captcha"] = code.lower()
-        img = create_captcha_image(code)
-        buf = io.BytesIO()
-        img.save(buf, 'PNG')
-        buf.seek(0)
-        return Response(buf.read(), mimetype='image/png')
-
-    @app.route("/login")
-    def login_page() -> _FlaskResponse:
-        if session.get("logged_in"):
-            return redirect(url_for("index"))
-        return render_template("login.html")
-
-    @app.route("/login", methods=["POST"])
-    def login() -> _FlaskResponse:
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        # Captcha disabled per user feedback (mobile input difficulty)
-        # captcha_code = request.form.get("captcha", "").strip().lower()
-        client_ip = request.remote_addr or "unknown"
-
-        now = time.time()
-        if client_ip not in _LOGIN_ATTEMPTS:
-            _LOGIN_ATTEMPTS[client_ip] = []
-        _LOGIN_ATTEMPTS[client_ip] = [(t, s) for t, s in _LOGIN_ATTEMPTS[client_ip] if now - t < 60]
-        if len(_LOGIN_ATTEMPTS[client_ip]) >= _LOGIN_MAX_ATTEMPTS:
-            logger.warning(f"IP {client_ip} 登录频率超限")
-            return render_template("login.html", error="请求过于频繁，请稍后再试")
-
-        # Captcha validation disabled
-        # if captcha_code != session.get("captcha", ""):
-        #     _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
-        #     return render_template("login.html", error="验证码错误")
-
-        if is_user_locked(username):
-            secs = get_lock_seconds(username)
-            mins = secs // 60
-            sec = secs % 60
-            return render_template("login.html", error=f"账户已锁定，请 {mins} 分 {sec:02d} 秒后再试")
-
-        users = load_users()
-        user_exists = any(u["username"] == username for u in users)
-
-        if verify_user(username, password):
-            reset_failed_attempts(username)
-            session.clear()
-            session["logged_in"] = True
-            session["username"] = username
-            session["login_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            session.permanent = True
-            logger.info(f"用户 {username} 登录成功 (IP: {client_ip})")
-            # [FIX] P0-6: 参数正确传递
-            write_log(username, "登录", "登录成功", "系统", client_ip)
-            if client_ip in _LOGIN_ATTEMPTS:
-                _LOGIN_ATTEMPTS[client_ip] = []
-            return redirect(url_for("index"))
-        else:
-            if user_exists:
-                for u in users:
-                    if u["username"] == username:
-                        u["failed_attempts"] = u.get("failed_attempts", 0) + 1
-                        remaining = 5 - u["failed_attempts"]
-                        save_users(users)
-                        if u["failed_attempts"] >= 5:
-                            do_lock_user(username)
-                            users2 = load_users()
-                            lu = next((x for x in users2 if x["username"] == username), None)
-                            lock_until = datetime.strptime(lu["lock_until"], "%Y-%m-%d %H:%M:%S")
-                            delta = lock_until - datetime.now()
-                            total_min = max(1, int(delta.total_seconds() // 60))
-                            return render_template("login.html", error=f"用户名或密码错误，账户已锁定 {total_min} 分钟")
-                        else:
-                            logger.warning(f"用户 {username} 登录失败，剩余 {remaining} 次机会")
-                            _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
-                            return render_template("login.html", error=f"用户名或密码错误，剩余 {remaining} 次机会")
-                        break
-            logger.warning(f"用户 {username} 登录失败 (IP: {client_ip})")
-            _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
-            return render_template("login.html", error="用户名或密码错误")
-
-    @app.route("/logout")
-    def logout() -> str:
-        username = session.get("username", "?")
-        session.clear()
-        return redirect(url_for("login_page"))
-
-    @app.route("/change_password")
-    @login_required
-    def change_password() -> _FlaskResponse:
-        username = session.get("username", "")
-        users = load_users()
-        current_user = next((u for u in users if u["username"] == username), None)
-        if request.method == "POST":
-            old_pwd = request.form.get("old_password", "")
-            new_pwd = request.form.get("new_password", "")
-            confirm_pwd = request.form.get("confirm_password", "")
-            if not current_user or not check_password_hash(current_user["password"], old_pwd):
-                return render_template("change_password.html", error="原密码错误")
-            valid, msg = validate_password(new_pwd)[:2]
-            if not valid:
-                return render_template("change_password.html", error=msg)
-            if new_pwd != confirm_pwd:
-                return render_template("change_password.html", error="两次密码不一致")
-            current_user["password"] = generate_password_hash(new_pwd)
-            current_user["force_change_password"] = 0
-            save_users(users)
-            write_log(username, "修改密码", "首次登录强制修改密码完成", "系统", get_client_ip(request))
-            return redirect(url_for("index"))
-        return render_template("change_password.html")
-
-    # ── 用户管理 ────────────────────────────────────────────
-    @app.route("/users")
-    @admin_required
-    def users_page() -> str:
-        users = load_users()
-        current_user = session.get("username", "")
-        user_info = next((u for u in users if u["username"] == current_user), None)
-        is_admin = user_info.get("role") == "admin" if user_info else False
-        return render_template("users.html", users=users, is_admin=is_admin)
-
-    @app.route("/users/add", methods=["POST"])
-    @admin_required
-    @csrf_required
-    def add_user() -> _FlaskResponse:
-        username = request.form.get("username", "").strip()
-        name = request.form.get("name", "").strip()
-        password = request.form.get("password", "").strip()
-        role = request.form.get("role", "user").strip()
-        if not username or not password:
-            raise DataError("用户名和密码不能为空")
-        valid, msg = validate_password(password)[:2]
-        if not valid:
-            raise DataError(msg)
-        if role not in ("admin", "user"):
-            role = "user"
-        users = load_users()
-        if any(u["username"] == username for u in users):
-            raise DataError("用户名已存在")
-        users.append({"username": username, "name": name or username, "password": generate_password_hash(password), "dingtalk_id": "", "role": role})
-        save_users(users)
-        write_log(session.get("username", "?"), "添加用户", f"添加用户 {username}（姓名：{name}）", username, get_client_ip(request))
-        return redirect(url_for("users_page") + "?success=用户添加成功")
-
-    @app.route("/users/edit/<username>", methods=["POST"])
-    @admin_required
-    @csrf_required
-    def edit_user(username: str) -> _FlaskResponse:
-        users = load_users()
-        target = next((u for u in users if u["username"] == username), None)
-        if not target:
-            raise ValidationError("用户不存在")
-        target["name"] = request.form.get("name", "").strip()
-        target["role"] = request.form.get("role", "user").strip()
-        password = request.form.get("password", "").strip()
-        if password:
-            valid, msg = validate_password(password)[:2]
-            if not valid:
-                raise DataError(msg)
-            target["password"] = generate_password_hash(password)
-        target["dingtalk_id"] = request.form.get("dingtalk_id", "").strip()
-        save_users(users)
-        write_log(session.get("username", "?"), "编辑用户", f"编辑用户 {username}", username, get_client_ip(request))
-        return redirect(url_for("users_page") + "?success=用户信息已保存")
-
-    @app.route("/users/password/<username>", methods=["POST"])
-    @login_required
-    @csrf_required
-    def change_user_password(username: str) -> _FlaskResponse:
-        new_pwd = request.form.get("new_password", "").strip()
-        valid, msg = validate_password(new_pwd)[:2]
-        if not valid:
-            raise DataError(msg)
-        current_user = session.get("username", "")
-        users = load_users()
-        for u in users:
-            if u["username"] == username:
-                if username != current_user:
-                    cr = next((x.get("role") for x in users if x["username"] == current_user), "user")
-                    if cr != "admin":
-                        raise PermissionDenied("无权限修改他人密码")
-                u["password"] = generate_password_hash(new_pwd)
-                break
-        else:
-            raise ValidationError("用户不存在")
-        save_users(users)
-        write_log(session.get("username", "?"), "修改密码", f"修改用户 {username} 的密码", username, get_client_ip(request))
-        return redirect(url_for("index") + "?success=密码修改成功")
-
-    @app.route("/users/delete/<username>", methods=["POST"])
-    @admin_required
-    @csrf_required
-    def delete_user(username: str) -> _FlaskResponse:
-        if username == "admin":
-            raise DataError("不能删除默认管理员")
-        users = [u for u in load_users() if u["username"] != username]
-        save_users(users)
-        write_log(session.get("username", "?"), "删除用户", f"删除用户 {username}", username, get_client_ip(request))
-        return redirect(url_for("users_page") + "?success=用户已删除")
-
-    @app.route("/users/unlock/<username>", methods=["POST"])
-    @admin_required
-    @csrf_required
-    def unlock_user(username: str) -> str:
-        users = load_users()
-        for u in users:
-            if u["username"] == username:
-                u["failed_attempts"] = 0
-                u["lock_until"] = None
-                u["consecutive_locks"] = 0
-                break
-        save_users(users)
-        write_log(session.get("username", "?"), "解锁用户", f"解锁用户 {username}", username, get_client_ip(request))
-        return redirect(url_for("users_page") + "?success=用户已解锁")
-
-    @app.route("/users/dingtalk_id", methods=["POST"])
-    @login_required
-    def update_dingtalk_id() -> Response:
-        if not _check_api_csrf():
-            return jsonify({"ok": False, "error": "CSRF验证失败"}), 403
-        username = request.form.get("username", "").strip()
-        dingtalk_id = request.form.get("dingtalk_id", "").strip()
-        if not username:
-            return jsonify({"ok": False, "error": "用户名不能为空"}), 400
-        users = load_users()
-        for u in users:
-            if u["username"] == username:
-                u["dingtalk_id"] = dingtalk_id
-                break
-        else:
-            return jsonify({"ok": False, "error": "用户不存在"}), 404
-        save_users(users)
-        logger.info(f"用户 {username} 钉钉ID已更新: {dingtalk_id}")
-        write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, get_client_ip(request))
-        return jsonify({"ok": True})
-
+def rate_limit(max_requests: int = 5, window: int = 60) -> Any:
+    """Rate-limit decorator factory."""
+    def decorator(f: Any) -> Any:
+        @wraps(f)
+        def decorated_function(*args: Any, **kwargs: Any) -> Any:
+            ip = request.remote_addr or "unknown"
+            key = f"{f.__name__}:{ip}"
+            if not _rate_limit(key, max_requests, window):
+                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

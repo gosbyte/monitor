@@ -73,7 +73,7 @@ def register_cert_routes(app: Flask) -> None:
             c["days_left"] = calc_days_left(c["expire_date"])
             c["status"] = get_cert_status(c, c["days_left"])
         certs.sort(key=lambda x: x["days_left"])
-        stats = db_calc_stats()
+        stats = calc_stats(certs)
         users = load_users()
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
@@ -225,7 +225,7 @@ def register_cert_routes(app: Flask) -> None:
             if is_ajax:
                 return jsonify({"ok": True, "success": True, "csrf_token": session.get("_csrf_token", "")})
             return redirect(url_for("index") + "?success=保存成功")
-        return render_template("edit.html", cert=cert, users=users, is_admin=is_admin)
+        return render_template("edit.html", cert=cert, users=users, is_admin=is_admin, active_page="edit")
 
     @app.route("/delete/<int:cert_id>", methods=["POST"])
     @login_required
@@ -498,7 +498,7 @@ def register_cert_routes(app: Flask) -> None:
     @admin_required
     def restore_data() -> Any:
         if request.method == "GET":
-            return render_template("restore.html")
+            return render_template("restore.html", active_page="restore")
         if "backup_file" not in request.files:
             return jsonify({"ok": False, "message": "未找到上传文件"})
         file = request.files["backup_file"]

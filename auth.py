@@ -30,10 +30,16 @@ def inject_globals() -> dict[str, Any]:
     badge_count = 0
     if session.get("username"):
         try:
-            # [PERF] Use SQL COUNT instead of Python iteration over all certs
-            from db import db_calc_stats
-            stats = db_calc_stats()
-            badge_count = stats.get("expiring", 0)
+            certs = load_certs()
+            for c in certs:
+                # [FIX] P1-4: 使用浅拷贝避免修改原始数据
+                cert_copy: dict[str, Any] = dict(c)
+                cert_copy["days_left"] = calc_days_left(cert_copy.get("expire_date", ""))
+                badge_count += 1 if (
+                    cert_copy.get("remind_enabled", True)
+                    and not cert_copy.get("handled")
+                    and 0 <= cert_copy.get("days_left", 999) <= 7
+                ) else 0
         except Exception:
             badge_count = 0
     return dict(
