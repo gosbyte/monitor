@@ -131,7 +131,7 @@ def generate_captcha() -> str:
 
 
 def create_captcha_image(code: str) -> Image.Image:
-    from PIL import ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFont
     width, height = 140, 44
     image = Image.new("RGB", (width, height), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
