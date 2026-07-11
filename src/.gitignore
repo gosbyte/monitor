@@ -1,0 +1,39 @@
+# 数据文件（运行时生成，不应提交）
+*.json
+*.lock
+*.tmp
+.secret_key
+.fernet_key
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Minified JS (using CDN now)
+static/*.min.js
+
+# Node modules (if building locally)
+node_modules/
+
+# Logs
+daemon.log
+flask.log
+audit.log
+
+# SQLite database
+monitor.db

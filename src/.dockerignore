@@ -1,0 +1,55 @@
+# Git
+.git/
+.gitignore
+
+# Data & runtime artifacts
+data/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment files
+.env
+.env.*
+
+# Tests
+tests/
+test_*.py
+conftest.py
+
+# Documentation
+*.md
+LICENSE
+README*
+
+# Coverage / HTML reports
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Backup / temp
+.backup_pre_refactor/
+*.orig*
+*original*

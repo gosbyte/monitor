@@ -1,0 +1,133 @@
+/* ============================================
+   Dark Mode — CSS Custom Properties Approach
+   Replaces fragile .dark-mode .bg-white overrides
+   ============================================ */
+
+/* Native form color scheme */
+@media (prefers-color-scheme: dark) {
+  :root { color-scheme: dark; }
+}
+
+/* ── Dark mode token definitions ─────────── */
+body.dark-mode {
+  --bg-base: #111827;
+  --bg-card: #1f2937;
+  --bg-muted: #374151;
+  --bg-hover: #4b5563;
+  --bg-accent-blue: #1e3a5f;
+  --bg-accent-green: #064e3b;
+  --bg-accent-red: #7f1d1d;
+  --bg-accent-orange: #78350f;
+  --bg-accent-teal: #134e4a;
+  --bg-accent-purple: #3b0764;
+  --border-default: #374151;
+  --border-subtle: #4b5563;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --text-faint: #6b7280;
+  --scrollbar-track: #111827;
+  --scrollbar-thumb: #374151;
+  --scrollbar-thumb-hover: #4b5563;
+  --table-hover: #1e3a5f;
+  --selected-row: #dbeafe;
+  --selected-row-dark: #1e3a5f;
+}
+
+/* ── Apply tokens to Tailwind classes ────── */
+body.dark-mode {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* Background colors */
+body.dark-mode .bg-white,
+body.dark-mode .bg-gray-50 { background-color: var(--bg-card); }
+body.dark-mode .bg-blue-50 { background-color: var(--bg-accent-blue); }
+body.dark-mode .bg-green-50,
+body.dark-mode .bg-green-100 { background-color: var(--bg-accent-green); }
+body.dark-mode .bg-red-50 { background-color: var(--bg-accent-red); }
+body.dark-mode .bg-orange-50,
+body.dark-mode .bg-orange-100,
+body.dark-mode .bg-yellow-100 { background-color: var(--bg-accent-orange); }
+body.dark-mode .bg-blue-100 { background-color: var(--bg-accent-blue); }
+body.dark-mode .bg-gray-100,
+body.dark-mode .bg-gray-200 { background-color: var(--bg-muted); }
+body.dark-mode .bg-teal-50 { background-color: var(--bg-accent-teal); }
+body.dark-mode .bg-purple-50 { background-color: var(--bg-accent-purple); }
+
+/* Border colors */
+body.dark-mode .border-gray-200,
+body.dark-mode .border-gray-100 { border-color: var(--border-default); }
+body.dark-mode .border-gray-300 { border-color: var(--border-subtle); }
+
+/* Text colors */
+body.dark-mode .text-gray-900 { color: var(--text-primary); }
+body.dark-mode .text-gray-800 { color: var(--text-secondary); }
+body.dark-mode .text-gray-700 { color: var(--text-secondary); }
+body.dark-mode .text-gray-600,
+body.dark-mode .text-gray-500 { color: var(--text-muted); }
+body.dark-mode .text-gray-400,
+body.dark-mode .text-gray-300,
+body.dark-mode .text-gray-200 { color: var(--text-faint); }
+
+/* Form elements */
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background-color: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+/* Hover states */
+body.dark-mode .hover\:bg-gray-50:hover { background-color: var(--bg-muted); }
+body.dark-mode .hover\:bg-gray-100:hover { background-color: var(--bg-hover); }
+
+/* Tables */
+body.dark-mode table { color: var(--text-primary); }
+body.dark-mode thead.bg-gray-50 { background-color: var(--bg-card); }
+body.dark-mode thead th { color: var(--text-muted); border-color: var(--border-default); }
+body.dark-mode tbody tr { border-color: var(--border-default); }
+body.dark-mode tbody tr:hover { background-color: var(--table-hover); }
+
+/* Cursor pointer hover */
+body.dark-mode .cursor-pointer:hover { border-color: #60a5fa; }
+
+/* Modal */
+body.dark-mode #confirm-modal > div { background-color: var(--bg-card); }
+body.dark-mode #confirm-modal h3 { color: var(--text-primary); }
+
+/* Buttons */
+body.dark-mode button.border {
+  border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+body.dark-mode button.border:hover { background-color: var(--bg-muted); }
+
+/* Admin menu */
+body.dark-mode #admin-menu {
+  background-color: var(--bg-card);
+  border-color: var(--border-default);
+}
+body.dark-mode #admin-menu a { color: var(--text-secondary); }
+body.dark-mode #admin-menu a:hover {
+  background-color: var(--bg-muted);
+  color: #60a5fa;
+}
+
+/* Mobile menu */
+body.dark-mode #mobile-menu {
+  background-color: var(--bg-card);
+  border-color: var(--border-default);
+}
+
+/* Selected row */
+body.dark-mode tr.selected-row { background-color: var(--selected-row-dark); }
+tr.selected-row { background-color: var(--selected-row); }
+
+/* ── Scrollbar ───────────────────────────── */
+body.dark-mode ::-webkit-scrollbar { width: 8px; height: 8px; }
+body.dark-mode ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+body.dark-mode ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+body.dark-mode ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
