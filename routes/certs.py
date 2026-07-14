@@ -25,6 +25,7 @@ from data import (
     load_users, DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, LOGS_FILE,
     USERS_FILE, USE_SQLITE,
 )
+from db import db_calc_stats
 from auth import login_required, csrf_required, admin_required, _check_api_csrf
 from utils.request_utils import get_client_ip
 
@@ -74,7 +75,6 @@ def register_cert_routes(app: Flask) -> None:
             c["status"] = get_cert_status(c, c["days_left"])
         certs.sort(key=lambda x: x["days_left"])
         stats = db_calc_stats()
-        users = load_users()
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
         is_admin = current_user.get("role") == "admin" if current_user else False
