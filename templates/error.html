@@ -9,7 +9,7 @@
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
     <!-- 图标 -->
     <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-5">
-      <span style="font-size:28px"><i data-lucide="alert-triangle" class="w-7 h-7 inline-block text-red-500"></i></span>
+      <span class="fs-28"><i data-lucide="alert-triangle" class="w-7 h-7 inline-block text-red-500"></i></span>
     </div>
 
     <!-- 错误码 -->
@@ -24,7 +24,7 @@
     <!-- 返回按钮 -->
     <a href="/"
        class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-      <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span>
+      <span class="fs-14"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span>
       返回首页
     </a>
   </div>
@@ -33,4 +33,12 @@
   <p class="text-center text-xs text-gray-400 mt-4">到期项到期提醒管理系统</p>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
 {% endblock %}

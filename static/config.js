@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  window._configCsrfToken = window._configCsrfToken || '{{ csrf_token }}';
+  window._configCsrfToken = window._configCsrfToken || (document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
 
   function _showResult(areaId, ok, message) {
     var area = document.getElementById(areaId);

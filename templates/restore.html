@@ -1,17 +1,17 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}数据恢复{% endblock %}
 
 {% block head %}
 
-  <style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
+  <style> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>{% endblock %}
 
 {% block content %}
 <div class="max-w-xl mx-auto px-4 py-8">
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
     <div class="flex items-center gap-3 mb-5">
       <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-        <span style="font-size:14px"><i data-lucide="alert-triangle" class="w-5 h-5 inline-block text-orange-600"></i></span>
+        <span class="fs-14"><i data-lucide="alert-triangle" class="w-5 h-5 inline-block text-orange-600"></i></span>
       </div>
       <div>
         <h2 class="text-base font-semibold text-gray-900">数据恢复</h2>
@@ -40,7 +40,7 @@
       <div class="flex justify-end gap-3">
         <a href="/" class="px-5 py-2.5 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm transition-colors">取消</a>
         <button type="submit" id="restore-btn" class="px-5 py-2.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-sm transition-colors flex items-center gap-2">
-          <span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复
+          <span class="fs-14"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复
         </button>
       </div>
     </form>
@@ -49,6 +49,12 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
+
 function submitRestore(event) {
   event.preventDefault();
   var fileInput = document.getElementById('backup-file');
@@ -81,7 +87,7 @@ function submitRestore(event) {
         resultArea.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
         resultArea.innerHTML = '<i data-lucide="x-circle" class="w-4 h-4 inline-block mr-1"></i> ' + (data.message || '恢复失败');
         btn.disabled = false;
-        btn.innerHTML = '<span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
+        btn.innerHTML = '<span class="fs-14"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
       }
     })
     .catch(err => {
@@ -89,7 +95,7 @@ function submitRestore(event) {
       resultArea.className = 'p-3 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200';
       resultArea.innerHTML = '<i data-lucide="x-circle" class="w-4 h-4 inline-block mr-1"></i> 网络错误：' + err.message;
       btn.disabled = false;
-      btn.innerHTML = '<span style="font-size:14px"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
+      btn.innerHTML = '<span class="fs-14"><i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i></span> 确认恢复';
     });
 
   return false;

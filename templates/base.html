@@ -9,9 +9,11 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="current-user" content="{{ current_username }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.production.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dark.css') }}">
   {% block head %}{% endblock %}
   <style>
+    /* ── Critical CSS: only non-loadable layout rules ── */
     /* Focus visible for keyboard navigation */
     *:focus-visible {
       outline: 2px solid #3b82f6;
@@ -29,36 +31,30 @@
       z-index: 100;
       transition: top 0.2s;
     }
-    .skip-link:focus {
-      top: 0;
-    }
-    /* Critical responsive CSS — sidebar + mobile layout */
+    .skip-link:focus { top: 0; }
+    body.dark-mode .skip-link { background: #60a5fa; color: #111827; }
+    body.dark-mode *:focus-visible { outline-color: #60a5fa; }
+
+    /* ── Sidebar + Mobile Layout (critical render) ── */
     @media (min-width: 768px) {
-      /* Hide mobile header on desktop */
       .mobile-header { display: none !important; }
-      /* Show sidebar on desktop — force visible, override any translate */
       #sidebar { translate: 0 0 !important; transform: translateX(0) !important; }
-      /* Remove mobile top padding on desktop */
       .pt-14 { padding-top: 0 !important; }
-      /* Hide sidebar overlay on desktop */
       #sidebar-overlay { display: none !important; }
     }
-    /* Desktop: sidebar collapsed by default */
     @media (min-width: 768px) {
-      #sidebar.collapsed {
-        translate: -100% 0 !important;
-        transform: none !important;
-      }
-      #main-content.sidebar-collapsed {
-        margin-left: 0 !important;
-      }
+      #sidebar.collapsed { translate: -100% 0 !important; transform: none !important; }
+      #main-content.sidebar-collapsed { margin-left: 0 !important; }
     }
-    /* On mobile, sidebar hidden by default */
     @media (max-width: 767px) {
-      /* Use BOTH translate AND transform to cover all browsers */
       #sidebar { translate: -100% 0 !important; transform: translateX(-100%) !important; }
       #sidebar.sidebar-open { translate: 0 0 !important; transform: translateX(0) !important; }
       #sidebar-overlay.sidebar-active { display: block !important; }
+    }
+    @media (max-width: 767px) {
+      #sidebar { width: 100vw !important; max-width: 300px !important; }
+      #sidebar nav a { min-height: 44px; padding: 0.75rem 1rem !important; }
+      #sidebar nav a span { font-size: 0.875rem; }
     }
   </style>
 </head>
@@ -66,7 +62,7 @@
   <!-- Skip to main content -->
   <a href="#main-content" class="skip-link">跳转到主要内容</a>
   <!-- Mobile Header -->
-  <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden">
+  <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden" style="padding-top: env(safe-area-inset-top, 0);">
     <div class="flex items-center justify-between px-4 h-14">
       <button id="mobile-menu-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle menu">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +80,7 @@
 
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-50 md:z-auto h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
-      <!-- Desktop Sidebar Toggle (inside sidebar, top of logo) -->
+      <!-- Desktop Sidebar Toggle -->
       <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <button onclick="toggleDesktopSidebar()"
           class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden md:flex items-center justify-center"
@@ -185,21 +181,22 @@
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite"></div>
 
   <script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
-  <script src="{{ url_for('static', filename='dark.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='dark.js') }}"></script>
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 
   {% block scripts %}{% endblock %}
 
 
-  <!-- Dark mode init (localStorage persistence) -->
-  <script nonce="{{ csp_nonce }}">
+  <!-- Prevent FOUC: apply dark mode before paint -->
+  <script>
     (function() {
-      var saved = localStorage.getItem('dark-mode');
-      var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (saved === 'true' || (!saved && prefersDark)) {
-        document.documentElement.classList.add('dark');
-        document.body.classList.add('dark-mode');
-      }
+      try {
+        var s = localStorage.getItem('dark-mode');
+        if (s === 'true' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+          document.body.classList.add('dark-mode');
+        }
+      } catch(e) {}
     })();
   </script>
   <script>

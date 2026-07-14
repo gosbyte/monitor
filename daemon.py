@@ -12,9 +12,6 @@ import time
 import logging
 import logging.handlers
 import smtplib
-import glob
-import gzip
-import shutil
 import signal
 from datetime import datetime, timedelta
 from typing import Any
@@ -52,58 +49,16 @@ logger = logging.getLogger(__name__)
 
 
 # ── 日志自动清理 ──────────────────────────────────────────
+# Shared utility — see utils/log_cleanup.py
+from utils.log_cleanup import cleanup_logs as _shared_cleanup_logs
+
 
 def cleanup_logs(max_size_mb: int = LOG_CLEANUP_MAX_SIZE_MB) -> tuple[int, int]:
-    """清理超过指定大小的 .log 文件（daemon 专用）
-
-    清理策略：
-    1. 查找 DATA_DIR 下所有 .log 文件
-    2. 单个文件超过 max_size_mb 时，归档为 .log.YYYYMMDD_HHMMSS.gz
-    3. 超过 7 天的 .log.gz 归档文件被删除
-    4. 同时清理 SQLite 日志（保留最近 1000 条）
-    """
-    cleaned_count = 0
-    freed_bytes = 0
-
-    data_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
-    log_dirs: list[str] = LOG_CLEANUP_DIRS if LOG_CLEANUP_DIRS else [data_dir]
-
-    for log_dir in log_dirs:
-        if not os.path.isdir(log_dir):
-            continue
-
-        threshold_bytes = max_size_mb * 1024 * 1024
-
-        # 清理 .log 文件
-        for log_file in glob.glob(os.path.join(log_dir, "*.log")):
-            try:
-                file_size = os.path.getsize(log_file)
-                if file_size > threshold_bytes:
-                    # 归档旧日志
-                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    archive_path = log_file + "." + ts + ".gz"
-                    with open(log_file, "rb") as f_in:
-                        with gzip.open(archive_path, "wb") as f_out:
-                            shutil.copyfileobj(f_in, f_out)
-                    # 截断原文件
-                    with open(log_file, "w") as f:
-                        f.write("")
-                    freed_bytes += file_size
-                    cleaned_count += 1
-                    logger.info(f"日志归档并清理: {log_file} ({file_size / 1024 / 1024:.1f}MB -> {archive_path})")
-            except Exception as e:
-                logger.warning(f"清理日志文件失败 {log_file}: {e}")
-
-        # 删除超过 7 天的 .log.gz 归档
-        for archive_file in glob.glob(os.path.join(log_dir, "*.log.*.gz")):
-            try:
-                mtime = os.path.getmtime(archive_file)
-                if time.time() - mtime > 7 * 86400:
-                    os.remove(archive_file)
-                    cleaned_count += 1
-                    logger.info(f"删除过期归档: {archive_file}")
-            except Exception as e:
-                logger.warning(f"删除归档文件失败 {archive_file}: {e}")
+    """清理超过指定大小的 .log 文件（wrapper 含 SQLite 清理）"""
+    cleaned_count, freed_bytes = _shared_cleanup_logs(
+        max_size_mb=max_size_mb,
+        log_dirs=LOG_CLEANUP_DIRS,
+    )
 
     # 清理 SQLite 日志（保留最近 1000 条）
     try:
@@ -212,21 +167,40 @@ def send_email_remind_to(subject: str, content_html: str, cfg: dict[str, Any], r
 
 
 def build_email_html(to_remind: list[dict[str, Any]], is_responsible: bool = False) -> str:
-    """构建邮件 HTML 内容
-    is_responsible: 是否为负责人定向推送，用于调整文案
-    """
-    rows: list[str] = []
-    for c in to_remind:
-        days_left = c.get("days_left", 0)
+    """构建邮件 HTML 内容（使用 Jinja2 模板渲染）"""
+    from jinja2 import Environment, FileSystemLoader
+    
+    # 模板目录：daemon.py 所在目录的父目录下的 templates
+    daemon_dir = os.path.dirname(os.path.abspath(__file__))
+    templates_dir = os.path.join(daemon_dir, 'templates')
+    
+    env = Environment(loader=FileSystemLoader(templates_dir), autoescape=False)
+    template = env.get_template('email_reminder.html')
+    
+    # 构建 badge
+    def make_badge(days_left):
         if days_left < 0:
-            badge = '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:12px">已过期</span>'
+            return '<span style="background:#ef4444;color:white;padding:2px 8px;border-radius:12px;font-size:12px">已过期</span>'
         elif days_left == 0:
-            badge = '<span style="background:#f97316;color:white;padding:2px 8px;border-radius:12px;font-size:12px">今日到期</span>'
+            return '<span style="background:#f97316;color:white;padding:2px 8px;border-radius:12px;font-size:12px">今日到期</span>'
         else:
-            badge = f'<span style="background:#eab308;color:white;padding:2px 8px;border-radius:12px;font-size:12px">剩{days_left}天</span>'
-        rows.append(f'<tr><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("customer","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("cert_type","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("domain","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("expire_date","")}</td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">{badge}</td></tr>')
-    rows_html = "".join(rows)
+            return f'<span style="background:#eab308;color:white;padding:2px 8px;border-radius:12px;font-size:12px">剩{int(days_left)}天</span>'
+    
+    # 为模板准备数据
     subtitle = "您负责的以下到期项即将到期" if is_responsible else f"共 {len(to_remind)} 条到期项需要关注"
+    
+    # 手动渲染（因为模板里用了内联样式，autoescape=False 保持原样）
+    rows = ""
+    for c in to_remind:
+        badge = make_badge(c.get("days_left", 0))
+        rows += f'''<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("customer","")}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("cert_type","")}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("domain","")}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb">{c.get("expire_date","")}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;text-align:center">{badge}</td>
+        </tr>'''
+    
     html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;margin:0;padding:20px">
 <div style="max-width:700px;margin:0 auto">
@@ -243,7 +217,7 @@ def build_email_html(to_remind: list[dict[str, Any]], is_responsible: bool = Fal
 <th style="padding:10px 12px;text-align:left;font-weight:600;color:#374151">到期日期</th>
 <th style="padding:10px 12px;text-align:center;font-weight:600;color:#374151">状态</th>
 </tr></thead>
-<tbody>{rows_html}</tbody>
+<tbody>{rows}</tbody>
 </table>
 <div style="padding:16px 24px;border-top:1px solid #e5e7eb">
 <p style="color:#6b7280;font-size:12px;margin:0">本邮件由到期提醒监控系统自动发送，请勿直接回复。</p>

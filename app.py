@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
 """Flask Web 管理界面 - 带登录和验证码（安全加固版）"""
-import json
 import os
 import io
 import sys
 import signal
 import time
-import random
-import string
 import re
 import logging
 import logging.handlers
 import secrets
+import uuid
 from functools import wraps
 from datetime import datetime, date, timedelta
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, make_response, g
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, g
 from werkzeug.security import generate_password_hash, check_password_hash
 from data import (
     atomic_write_json, save_logs, write_log,
@@ -25,10 +23,11 @@ from data import (
     DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, USERS_FILE,
     LOGS_FILE, SECRET_KEY_FILE, USE_SQLITE,
     FileLock, locked_read_json, locked_write_json, encrypt_field, decrypt_field,
+    certs_cache, users_cache, config_cache,
 )
 from auth import (
     inject_globals, csrf_required, login_required, admin_required,
-    generate_captcha, create_captcha_image,
+    generate_captcha, create_captcha_image, rate_limit,
 )
 
 from webhook import (
@@ -48,75 +47,6 @@ logging.basicConfig(
     ), logging.StreamHandler()]
 )
 logger = logging.getLogger(__name__)
-
-# ── IP 级别登录限流 ──────────────────────────────────────
-# NOTE: _LOGIN_ATTEMPTS is defined in routes/auth.py, not here.
-# This file only handles generic request rate limiting.
-
-# ── 通用请求速率限制 ──────────────────────────────────────
-_REQUEST_COUNTS = {}
-
-# [FIX] P2-7: 限流数据持久化到文件（重启后保留部分状态）
-_RATE_LIMIT_FILE = os.path.join(DATA_DIR, "rate_limit_state.json")
-
-def _persist_rate_limit():
-    """定期持久化限流数据"""
-    try:
-        tmp = _RATE_LIMIT_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(_REQUEST_COUNTS, f)
-        os.replace(tmp, _RATE_LIMIT_FILE)
-    except Exception:
-        pass
-
-def _load_rate_limit():
-    """从文件加载限流数据"""
-    global _REQUEST_COUNTS
-    try:
-        if os.path.exists(_RATE_LIMIT_FILE):
-            with open(_RATE_LIMIT_FILE, "r") as f:
-                saved = json.load(f)
-            now = time.time()
-            _REQUEST_COUNTS = {k: [t for t in v if now - t < 60] for k, v in saved.items()}
-    except Exception:
-        pass
-
-# 启动时加载限流状态
-_load_rate_limit()
-
-# 定时持久化（每 30 秒）
-import threading
-def _persist_loop():
-    while True:
-        time.sleep(30)
-        _persist_rate_limit()
-
-_persist_thread = threading.Thread(target=_persist_loop, daemon=True)
-_persist_thread.start()
-
-def _rate_limit(key, max_requests=10, window=60):
-    """简单速率限制：同一 key 在 window 秒内最多 max_requests 次"""
-    now = time.time()
-    if key not in _REQUEST_COUNTS:
-        _REQUEST_COUNTS[key] = []
-    _REQUEST_COUNTS[key] = [t for t in _REQUEST_COUNTS[key] if now - t < window]
-    if len(_REQUEST_COUNTS[key]) >= max_requests:
-        return False
-    _REQUEST_COUNTS[key].append(now)
-    return True
-
-def rate_limit(max_requests=5, window=60):
-    """速率限制装饰器工厂"""
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            ip = request.remote_addr or "unknown"
-            key = f"{f.__name__}:{ip}"
-            if not _rate_limit(key, max_requests, window):
-                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
 
 app = Flask(__name__, template_folder="templates")
 
@@ -166,6 +96,7 @@ def set_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Request-ID"] = getattr(g, 'request_id', '')
     # CSP - 仅对 HTML 响应设置，使用 unsafe-inline 避免 nonce 同步问题
     if response.content_type and 'text/html' in response.content_type:
         response.headers["Content-Security-Policy"] = (
@@ -258,6 +189,115 @@ def _shutdown_signal_handler(signum, frame):
 
 signal.signal(signal.SIGTERM, _shutdown_signal_handler)
 signal.signal(signal.SIGINT, _shutdown_signal_handler)
+
+
+# ── Audit Log Middleware ──────────────────────────────────────
+_audit_logger = logging.getLogger("audit")
+_audit_logger.setLevel(logging.INFO)
+_audit_handler = logging.handlers.RotatingFileHandler(
+    os.path.join(DATA_DIR, "audit.log"), maxBytes=10_485_760, backupCount=5, encoding='utf-8'
+)
+_audit_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+_audit_logger.addHandler(_audit_handler)
+
+
+@app.before_request
+def _audit_log_request():
+    """记录请求审计日志"""
+    g.request_start_time = time.time()
+    if request.path.startswith('/health') or request.path == '/metrics':
+        return
+    _audit_logger.info(
+        f"REQUEST|id={getattr(g, 'request_id', '?')}|"
+        f"method={request.method}|"
+        f"path={request.path}|"
+        f"remote_addr={request.remote_addr or 'unknown'}|"
+        f"user_agent={request.headers.get('User-Agent', '')[:200]}|"
+        f"content_length={request.content_length or 0}"
+    )
+
+
+@app.after_request
+def _audit_log_response(response):
+    """记录响应审计日志"""
+    if request.path.startswith('/health') or request.path == '/metrics':
+        return response
+    duration_ms = int((time.time() - getattr(g, 'request_start_time', time.time())) * 1000)
+    _audit_logger.info(
+        f"RESPONSE|id={getattr(g, 'request_id', '?')}|"
+        f"status={response.status_code}|"
+        f"duration={duration_ms}ms|"
+        f"path={request.path}|"
+        f"user={session.get('username', 'anonymous')}"
+    )
+    return response
+
+
+# ── Global Error Handlers ──────────────────────────────────────
+from exceptions import MonitorException
+
+
+@app.errorhandler(MonitorException)
+def handle_monitor_exception(e):
+    request_id = getattr(g, 'request_id', '?')
+    logger.error(f"[req={request_id}] {e.code} | {e.message}")
+    _audit_logger.info(f"ERROR|id={request_id}|{e.code} | {e.message}")
+    is_html = request.accept_mimetypes.best == 'text/html' and \
+              'application/json' not in [m for m, _ in request.accept_mimetypes]
+    if is_html:
+        from flask import flash
+        flash(f"{e.code}: {e.message}", "error")
+        return redirect(url_for("index"))
+    return jsonify({"success": False, "code": e.code, "message": e.message}), e.status_code
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(e):
+    request_id = getattr(g, 'request_id', '?')
+    is_html = request.accept_mimetypes.best == 'text/html' and \
+              'application/json' not in [m for m, _ in request.accept_mimetypes]
+    logger.error(f"[req={request_id}] UNEXPECTED EXCEPTION | {type(e).__name__}: {e}", exc_info=True)
+    _audit_logger.info(f"ERROR|id={request_id}|UNEXPECTED EXCEPTION | {type(e).__name__}: {e}")
+    if is_html:
+        from flask import flash
+        if app.debug:
+            flash(f"系统错误: {e}", "error")
+        else:
+            flash("系统发生未知错误，请联系管理员", "error")
+        return redirect(url_for("index"))
+    if app.debug:
+        return jsonify({"success": False, "code": "ERR_SERVICE", "message": str(e)}), 500
+    return jsonify({"success": False, "code": "ERR_SERVICE", "message": "系统内部错误"}), 500
+
+
+@app.errorhandler(404)
+def handle_404(e):
+    is_html = request.accept_mimetypes.best == 'text/html' and \
+              'application/json' not in [m for m, _ in request.accept_mimetypes]
+    if is_html:
+        return render_template("error.html", code="404", title="页面未找到", message="您访问的页面不存在或已被移除"), 404
+    return jsonify({"success": False, "code": "ERR_NOT_FOUND", "message": "页面不存在"}), 404
+
+
+@app.errorhandler(500)
+def handle_500(e):
+    is_html = request.accept_mimetypes.best == 'text/html' and \
+              'application/json' not in [m for m, _ in request.accept_mimetypes]
+    if is_html:
+        return render_template("error.html", code="500", title="服务器内部错误", message="服务器遇到意外错误，请稍后重试"), 500
+    return jsonify({"success": False, "code": "ERR_SERVICE", "message": "服务器内部错误"}), 500
+
+
+# ── Cache Stats Endpoint ──────────────────────────────────────
+@app.route("/api/cache-stats")
+@admin_required
+def cache_stats():
+    """管理员端点：返回所有缓存的统计信息"""
+    return jsonify({
+        "certs": certs_cache.stats(),
+        "users": users_cache.stats(),
+        "config": config_cache.stats(),
+    })
 
 
 # ── Register routes from modular blueprint functions ──────────────

@@ -18,7 +18,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # Install Python dependencies into the venv
 WORKDIR /build
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
+RUN pip install --no-cache-dir supervisor -i https://mirrors.aliyun.com/pypi/simple/ && \
+    pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 ##############################################
 # Stage 2: Runtime — minimal production image
@@ -46,8 +47,11 @@ COPY daemon.py .
 COPY dingtalk.py .
 COPY webhook.py .
 COPY auth.py .
+COPY cache.py .
+COPY exceptions.py .
 COPY init_data.py .
 COPY supervisord.conf .
+COPY utils/ ./utils/
 COPY templates/ ./templates/
 COPY static/ ./static/
 
@@ -74,4 +78,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=10s \
 USER appuser
 
 # Start supervisord (manages web + daemon)
-ENTRYPOINT ["/usr/bin/supervisord", "-c", "/app/supervisord.conf"]
+ENTRYPOINT ["/opt/venv/bin/supervisord", "-c", "/app/supervisord.conf"]

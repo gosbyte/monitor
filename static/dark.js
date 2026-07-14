@@ -80,13 +80,15 @@
     }
   })();
 
-  // Listen for system theme changes
+  // Listen for system theme changes (only when user hasn't set a preference)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
     if (localStorage.getItem('dark-mode') === null) {
       if (e.matches) {
         document.body.classList.add('dark-mode');
+        document.documentElement.classList.add('dark');
       } else {
         document.body.classList.remove('dark-mode');
+        document.documentElement.classList.remove('dark');
       }
     }
   });

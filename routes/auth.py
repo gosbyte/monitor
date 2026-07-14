@@ -11,10 +11,9 @@ import string
 import secrets
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Union
 
 from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, make_response, g
-from typing import Union
 
 # Flask route handlers can return str, tuple[str, int], or Response
 _FlaskResponse = Union[str, tuple[str, int], Response]
@@ -122,7 +121,8 @@ def register_auth_routes(app: Flask) -> None:
     def login() -> _FlaskResponse:
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
-        captcha_code = request.form.get("captcha", "").strip().lower()
+        # Captcha disabled per user feedback (mobile input difficulty)
+        # captcha_code = request.form.get("captcha", "").strip().lower()
         client_ip = request.remote_addr or "unknown"
 
         now = time.time()
@@ -133,9 +133,10 @@ def register_auth_routes(app: Flask) -> None:
             logger.warning(f"IP {client_ip} 登录频率超限")
             return render_template("login.html", error="请求过于频繁，请稍后再试")
 
-        if captcha_code != session.get("captcha", ""):
-            _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
-            return render_template("login.html", error="验证码错误")
+        # Captcha validation disabled
+        # if captcha_code != session.get("captcha", ""):
+        #     _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
+        #     return render_template("login.html", error="验证码错误")
 
         if is_user_locked(username):
             secs = get_lock_seconds(username)

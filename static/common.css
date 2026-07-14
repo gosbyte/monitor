@@ -112,3 +112,56 @@ input, textarea, [contenteditable], .selectable {
 .inline-block { display: inline-block; }
 .inline-flex { display: inline-flex; }
 
+
+/* ── Mobile Optimizations ──────────────────── */
+/* Fix iOS 100vh issue with address bar */
+@supports (height: 100dvh) {
+  body { min-height: 100dvh; }
+}
+
+/* Improve select dropdown appearance on mobile */
+select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  padding-right: 2.5rem !important;
+}
+
+/* Ensure smooth sidebar transitions on mobile */
+#sidebar {
+  will-change: transform;
+}
+
+/* Prevent tap highlight on non-clickable elements */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Improve touch targets for small buttons */
+@media (max-width: 640px) {
+  .page-btn, .btn-sm, .pagination button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* Make table more mobile-friendly */
+  table th, table td {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Prevent overflow issues */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Toast notification positioning for mobile keyboards */
+@media (max-height: 500px) {
+  #toast-container {
+    bottom: 2rem !important;
+  }
+}

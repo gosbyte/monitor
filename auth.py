@@ -5,20 +5,22 @@
 """
 from __future__ import annotations
 
-import secrets
-import random
-import string
+import json
 import os
+import random
+import secrets
+import string
+import threading
+import time
 from functools import wraps
 from typing import Any
-from PIL import Image
 
-from flask import session, redirect, url_for, request, Response
+from flask import session, redirect, url_for, request, Response, jsonify
 
 from data import (
     load_certs, calc_days_left, load_users, save_users,
     verify_user, is_user_locked, get_lock_seconds,
-    do_lock_user, reset_failed_attempts,
+    do_lock_user, reset_failed_attempts, DATA_DIR,
 )
 
 
@@ -164,3 +166,73 @@ def create_captcha_image(code: str) -> Image.Image:
         x2, y2 = random.randint(0, width), random.randint(0, height)
         draw.line([(x1, y1), (x2, y2)], fill=(200, 200, 200), width=1)
     return image
+
+
+# ── Generic Request Rate Limiter (shared across modules) ──────────
+_REQUEST_COUNTS: dict[str, list[float]] = {}
+_RATE_LIMIT_FILE = os.path.join(DATA_DIR, "rate_limit_state.json")
+
+
+def _persist_rate_limit() -> None:
+    """Periodically persist rate-limit data."""
+    try:
+        tmp = _RATE_LIMIT_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(_REQUEST_COUNTS, f)
+        os.replace(tmp, _RATE_LIMIT_FILE)
+    except Exception:
+        pass
+
+
+def _load_rate_limit() -> None:
+    """Load persisted rate-limit data on startup."""
+    global _REQUEST_COUNTS
+    try:
+        if os.path.exists(_RATE_LIMIT_FILE):
+            with open(_RATE_LIMIT_FILE, "r") as f:
+                saved = json.load(f)
+            now = time.time()
+            _REQUEST_COUNTS = {
+                k: [t for t in v if now - t < 60] for k, v in saved.items()
+            }
+    except Exception:
+        pass
+
+
+_load_rate_limit()
+
+
+def _persist_loop() -> None:
+    while True:
+        time.sleep(30)
+        _persist_rate_limit()
+
+
+_persist_thread = threading.Thread(target=_persist_loop, daemon=True)
+_persist_thread.start()
+
+
+def _rate_limit(key: str, max_requests: int = 10, window: int = 60) -> bool:
+    """Simple rate limiter: max_requests per key within window seconds."""
+    now = time.time()
+    if key not in _REQUEST_COUNTS:
+        _REQUEST_COUNTS[key] = []
+    _REQUEST_COUNTS[key] = [t for t in _REQUEST_COUNTS[key] if now - t < window]
+    if len(_REQUEST_COUNTS[key]) >= max_requests:
+        return False
+    _REQUEST_COUNTS[key].append(now)
+    return True
+
+
+def rate_limit(max_requests: int = 5, window: int = 60) -> Any:
+    """Rate-limit decorator factory."""
+    def decorator(f: Any) -> Any:
+        @wraps(f)
+        def decorated_function(*args: Any, **kwargs: Any) -> Any:
+            ip = request.remote_addr or "unknown"
+            key = f"{f.__name__}:{ip}"
+            if not _rate_limit(key, max_requests, window):
+                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

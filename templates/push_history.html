@@ -1,12 +1,6 @@
-{% extends 'base.html' %}
+﻿{% extends "base.html" %}
 
-{% block title %}推送历史{% endblock %}
-
-{% block head %}
-
-  <style nonce="{{ csp_nonce }}">
-    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  </style>{% endblock %}
+{% block title %}推送记录{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto px-4 py-6">
@@ -25,13 +19,13 @@
       <table class="w-full min-w-[600px] text-sm">
         <thead>
           <tr class="bg-gray-50 border-b border-gray-200">
-            <th class="px-4 py-3 text-left font-semibold text-gray-600 w-16">#</th>
-            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">时间</th>
-            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">渠道</th>
-            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">关联事项</th>
-            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">接收人</th>
-            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">状态</th>
-            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">操作</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 w-16" scope="col">#</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap" scope="col">时间</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap" scope="col">渠道</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap" scope="col">关联事项</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap" scope="col">接收人</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap" scope="col">状态</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap" scope="col">操作</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-100">
@@ -94,7 +88,4 @@
   {% endif %}
 
 </div>
-{% endblock %}
-
-{% block scripts %}
 {% endblock %}

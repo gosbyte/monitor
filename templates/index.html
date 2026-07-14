@@ -3,65 +3,7 @@
 {% block title %}到期提醒管理系统{% endblock %}
 
 {% block head %}
-<style nonce="{{ csp_nonce }}">
-    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-    .modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-    #cert-tbody tr { transition: opacity 0.2s ease, transform 0.2s ease; }
-    /* Toast slide-in animation */
-    @keyframes toast-slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @keyframes toast-slide-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
-    .toast-enter { animation: toast-slide-in 0.3s ease-out forwards; }
-    .toast-exit { animation: toast-slide-out 0.3s ease-in forwards; }
-    /* Toast progress bar */
-    .toast-progress { height: 3px; border-radius: 0 0 4px 4px; animation: toast-progress 3s linear forwards; }
-    @keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
-    /* Body scroll lock */
-    body.modal-open { overflow: hidden; }
-    /* Table row hover enhancement */
-    #cert-tbody tr:hover { background: #eff6ff !important; }
-    #cert-tbody tr.expired-row:hover { background: #fef2f2 !important; }
-    #cert-tbody tr:hover td:first-child { position: relative; }
-    #cert-tbody tr:hover td:first-child::before {
-      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-      background: #3b82f6; border-radius: 0 2px 2px 0;
-    }
-    /* Batch toolbar button wrap */
-    .batch-btn { white-space: nowrap; }
-    /* Pagination overflow */
-    #page-buttons { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
-    #page-buttons::-webkit-scrollbar { height: 2px; }
-    #page-buttons::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
-    /* 小黑优化：统计卡片 hover */
-    .stat-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    /* 小黑优化：操作按钮微交互 */
-    .action-btn { transition: all 0.15s ease; }
-    .action-btn:hover { transform: scale(1.1); }
-    .action-btn:active { transform: scale(0.95); }
-    /* 小黑优化：淡入动画 */
-    .fade-in { animation: fadeIn 0.3s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    /* 小黑优化：行动画 */
-    .row-animate { animation: rowFadeIn 0.3s ease-out; }
-    @keyframes rowFadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-
-    /* ── 移动端优化 ───────────────────────── */
-    @media (max-width: 767px) {
-      /* 统计卡片：缩小间距和图标 */
-      .stat-card { padding: 0.75rem !important; }
-      .stat-card .w-10 { width: 2rem !important; height: 2rem !important; }
-      .stat-card .text-2xl { font-size: 1.25rem !important; }
-      .stat-card .text-sm { font-size: 0.75rem !important; }
-      .stat-card .flex { gap: 0.5rem !important; }
-      /* 主内容区：缩小 padding */
-      main { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
-      /* 表格：更紧凑的行高 */
-      #cert-tbody td { padding: 0.5rem 0.375rem !important; font-size: 0.75rem !important; }
-      #cert-thead th { padding: 0.375rem 0.375rem !important; font-size: 0.7rem !important; }
-      /* 卡片圆角缩小 */
-      .rounded-xl { border-radius: 0.5rem !important; }
-    }
-  </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -116,8 +58,8 @@
   </div>
 
   <!-- 统计面板 -->
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all" onclick="quickFilter('all')">
+  <div id="stat-cards-wrapper" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-blue-300 transition-all" data-filter="all" role="button" tabindex="0" aria-label="筛选全部记录">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
           <i data-lucide="key" class="w-4 h-4 inline-block"></i>
@@ -128,7 +70,7 @@
         </div>
       </div>
     </div>
-    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-green-300 transition-all" onclick="quickFilter('normal')">
+    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-green-300 transition-all" data-filter="normal" role="button" tabindex="0" aria-label="筛选正常记录">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
           <i data-lucide="check-circle" class="w-4 h-4 inline-block"></i>
@@ -139,7 +81,7 @@
         </div>
       </div>
     </div>
-    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition-all" onclick="quickFilter('expiring')">
+    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-orange-300 transition-all" data-filter="expiring" role="button" tabindex="0" aria-label="筛选即将到期记录">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
           <i data-lucide="clock" class="w-4 h-4 inline-block"></i>
@@ -150,7 +92,7 @@
         </div>
       </div>
     </div>
-    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-red-300 transition-all" onclick="quickFilter('expired')">
+    <div class="stat-card bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:shadow-md hover:border-red-300 transition-all" data-filter="expired" role="button" tabindex="0" aria-label="筛选已过期记录">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
           <i data-lucide="alert-triangle" class="w-4 h-4 inline-block"></i>
@@ -165,7 +107,7 @@
 
   <!-- 图表总览（可折叠） -->
   <div id="chart-section" class="bg-white rounded-xl border border-gray-200 mb-6">
-    <div onclick="toggleChart()" class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors rounded-t-xl">
+    <div data-action="toggle-chart" class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors rounded-t-xl">
       <div class="flex items-center gap-2">
         <i data-lucide="bar-chart-3" class="w-5 h-5 text-blue-600 inline-block"></i>
         <span class="text-sm font-semibold text-gray-700">数据总览</span>
@@ -230,15 +172,15 @@
 
   <!-- 搜索栏 -->
   <div class="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-    <div class="relative">
-      <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"></i>
-      <input type="text" id="search-input" placeholder="搜索客户名称、类型…" aria-label="搜索客户名称或提醒类型" autocomplete="off"
-        oninput="filterTable(); showSearchSuggestions(this.value)" onkeydown="if(event.key==='Enter')filterTable(); if(event.key==='ArrowDown')selectSuggestion(1); if(event.key==='ArrowUp')selectSuggestion(-1); if(event.key==='Escape')hideSearchSuggestions();"
+    <div class="relative flex-1">
+      <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
+      <input type="text" id="search-input" placeholder="搜索客户名称、域名、备注..."
+        
         class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" autocomplete="off">
     </div>
-    <div id="search-suggestions" class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 hidden max-h-48 overflow-y-auto"></div>
-    <div class="flex flex-wrap gap-2 mt-3">
-      <select id="filter-status" aria-label="筛选状态" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+    <div id="search-suggestions" class="hidden absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"></div>
+    <div id="filter-bar-mobile" class="flex flex-wrap gap-2 mt-3">
+      <select id="filter-status" aria-label="筛选状态" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">全部状态</option>
         <option value="mine">我负责的</option>
         <option value="normal">正常</option>
@@ -247,15 +189,15 @@
         <option value="handled">已处理</option>
         <option value="unhandled">未处理</option>
       </select>
-      <select id="filter-type" aria-label="筛选提醒类型" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
+      <select id="filter-type" aria-label="筛选提醒类型" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500">
         <option value="">全部类型</option>
         {% for t in cert_types %}
         <option value="{{ t }}">{{ t }}</option>
         {% endfor %}
       </select>
-      <input type="date" id="filter-date-from" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期起始日期">
-      <input type="date" id="filter-date-to" onchange="filterTable()" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期截止日期">
-      <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+      <input type="date" id="filter-date-from" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期起始日期">
+      <input type="date" id="filter-date-to" class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-blue-500" aria-label="到期截止日期">
+      <button data-action="reset-filters" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline-block"></i> 重置筛选
       </button>
     </div><!-- /relative -->
@@ -266,7 +208,7 @@
   <div id="batch-toolbar" class="bg-white rounded-xl border border-gray-200 p-3 mb-4">
     <div class="flex items-center gap-3 flex-wrap">
       <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-        <input type="checkbox" id="select-all" onchange="toggleSelectAll()" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+        <input type="checkbox" id="select-all" data-action="select-all" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
         全选
       </label>
       <span class="text-sm text-gray-400">|</span>
@@ -274,37 +216,37 @@
       <span class="text-sm text-gray-400 hidden sm:inline">|</span>
       <!-- 状态操作（下拉分组） -->
       <div class="relative group">
-        <button onclick="toggleBatchDropdown()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
+        <button data-batch-dropdown="" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 disabled:bg-gray-50 disabled:text-gray-300 disabled:cursor-not-allowed transition-colors">
           <i data-lucide="settings-2" class="w-3.5 h-3.5 inline-block"></i> 状态操作
           <i data-lucide="chevron-down" class="w-3 h-3 inline-block"></i>
         </button>
-        <div id="batch-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-40">
-          <button onclick="batchHandle(true)" id="btn-batch-handle" disabled
+        <div id="batch-dropdown" class="hidden absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-40">
+          <button data-batch-action="handle" data-batch-value="true" id="btn-batch-handle" disabled
             class="w-full text-left px-3 py-2 text-sm text-teal-700 hover:bg-teal-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
             <i data-lucide="check-circle-2" class="w-3.5 h-3.5 inline-block"></i> 标记已处理
           </button>
-          <button onclick="batchHandle(false)" id="btn-batch-unhandle" disabled
+          <button data-batch-action="handle" data-batch-value="false" id="btn-batch-unhandle" disabled
             class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
             <i data-lucide="circle" class="w-3.5 h-3.5 inline-block"></i> 取消已处理
           </button>
           <div class="border-t border-gray-100 my-1"></div>
-          <button onclick="batchRemind(true)" id="btn-batch-remind-on" disabled
+          <button data-batch-action="remind" data-batch-value="true" id="btn-batch-remind-on" disabled
             class="w-full text-left px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
             <i data-lucide="bell" class="w-3.5 h-3.5 inline-block"></i> 启用提醒
           </button>
-          <button onclick="batchRemind(false)" id="btn-batch-remind-off" disabled
+          <button data-batch-action="remind" data-batch-value="false" id="btn-batch-remind-off" disabled
             class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
             <i data-lucide="bell-off" class="w-3.5 h-3.5 inline-block"></i> 禁用提醒
           </button>
           <div class="border-t border-gray-100 my-1"></div>
-          <button onclick="batchDelete()" id="btn-batch-delete" disabled
+          <button data-batch-action="delete" id="btn-batch-delete" disabled
             class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:text-gray-300 disabled:hover:bg-white transition-colors flex items-center gap-2">
             <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 批量删除
           </button>
         </div>
       </div>
       <!-- 添加记录（移到操作栏最右） -->
-      <button onclick="openAddModal()" class="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors whitespace-nowrap">
+      <button data-action="open-add-modal" class="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors whitespace-nowrap md:whitespace-normal">
         <i data-lucide="plus" class="w-3.5 h-3.5 inline-block"></i> 添加记录
       </button>
     </div>
@@ -319,98 +261,20 @@
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
             {% if is_admin %}
-            <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 w-10">
-              <input type="checkbox" id="select-all-header" onchange="toggleSelectAll()" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" aria-label="全选所有记录">
+            <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 w-10" scope="col">
+              <input type="checkbox" id="select-all-header" data-action="select-all" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" aria-label="全选所有记录">
             </th>
             {% endif %}
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('customer')" aria-label="按客户名称排序">客户名称 <span class="sort-icon" data-col="customer"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('cert_type')" aria-label="按提醒类型排序">提醒类型 <span class="sort-icon" data-col="cert_type"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('expire_date')" aria-label="按到期时间排序">到期时间 <span class="sort-icon" data-col="expire_date"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" onclick="sortTable('days_left')" aria-label="按状态排序">状态 <span class="sort-icon" data-col="days_left"></span></th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell">备注</th>
-            <th class="px-4 py-3 text-center text-sm font-medium text-gray-600">操作</th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" data-sort-col="customer" aria-label="按客户名称排序" scope="col">客户名称 <span class="sort-icon" data-col="customer"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" data-sort-col="cert_type" aria-label="按提醒类型排序" scope="col">提醒类型 <span class="sort-icon" data-col="cert_type"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" data-sort-col="expire_date" aria-label="按到期时间排序" scope="col">到期时间 <span class="sort-icon" data-col="expire_date"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 cursor-pointer hover:text-blue-600" data-sort-col="days_left" aria-label="按状态排序" scope="col">状态 <span class="sort-icon" data-col="days_left"></span></th>
+            <th class="px-4 py-3 text-left text-sm font-medium text-gray-600 hidden md:table-cell" scope="col">备注</th>
+            <th class="px-4 py-3 text-center text-sm font-medium text-gray-600" scope="col">操作</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200" id="cert-tbody">
-          {% for c in certs %}
-          <tr id="row-{{ c.id }}" class="hover:bg-gray-50 {% if c.get('handled') %}opacity-60{% endif %}{% if c.days_left >= 0 and c.days_left < 1 %}bg-red-50 border-l-4 border-red-400{% endif %}"
-              data-customer="{{ c.customer }}" data-status="{{ c.status }}"
-              data-type="{{ c.cert_type }}" data-days="{{ c.days_left }}" data-handled="{{ c.get('handled', false) }}"
-              data-id="{{ c.id }}" data-note="{{ c.get("note","") }}" data-expire="{{ c.expire_date }}" data-createdby="{{ c.get("created_by", "") }}">
-            {% if is_admin %}
-            <td class="px-4 py-3 text-center">
-              <input type="checkbox" class="row-checkbox w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" value="{{ c.id }}" aria-label="选择 {{ c.customer }} 的记录" onchange="onRowSelect(this, {{ c.id }})">
-            </td>
-            {% endif %}
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
-                <i data-lucide="building-2" class="w-4 h-4 inline-block"></i>
-                <span class="font-medium text-gray-900">{{ c.customer }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">{{ c.cert_type }}</span>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
-                <i data-lucide="calendar" class="w-4 h-4 inline-block"></i>
-                <span class="text-gray-900 text-sm">{{ c.expire_date.replace('T', ' ') }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              {% if c.days_left < 0 %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 cursor-help" title="到期日期：{{ c.expire_date }} | 已过期 {{ "%.1f"|format((-c.days_left)) }}天"><i data-lucide="x" class="w-4 h-4 inline-block"></i> 已过期 {{ "%.1f"|format((-c.days_left)) }}天</span>
-              {% elif c.days_left <= 7 %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 cursor-help" title="到期日期：{{ c.expire_date }} | 还剩 {{ '%.1f'|format(c.days_left) }}天，请尽快处理"><i data-lucide="alert-triangle" class="w-4 h-4 inline-block"></i> {{ "%.1f"|format(c.days_left) }}天后</span>
-              {% elif c.days_left <= 30 %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 cursor-help" title="到期日期：{{ c.expire_date }} | 还剩 {{ '%.1f'|format(c.days_left) }}天"><i data-lucide="clock" class="w-4 h-4 inline-block"></i> {{ "%.1f"|format(c.days_left) }}天</span>
-              {% elif c.status == 'disabled' %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 cursor-help" title="提醒已禁用 | 到期日期：{{ c.expire_date }}"><i data-lucide="bell-off" class="w-4 h-4 inline-block"></i> 已禁用</span>
-              {% else %}
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help" title="到期日期：{{ c.expire_date }} | 还剩 {{ '%.1f'|format(c.days_left) }}天"><i data-lucide="check-circle" class="w-4 h-4 inline-block"></i> {{ "%.1f"|format(c.days_left) }}天</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-3 text-gray-500 text-sm max-w-xs truncate hidden md:table-cell" title="{{ c.note }}">{{ c.note or '-' }}</td>
-            <td class="px-4 py-3 text-right">
-              <div class="flex items-center justify-end gap-0.5 md:gap-1">
-                <!-- 常用操作直接显示 -->
-                <button onclick="openEditModal({{ c.id }})" class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="编辑">
-                  <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
-                </button>
-                <!-- 更多操作下拉菜单 -->
-                <div class="relative group">
-                  <button onclick="toggleRowMenu({{ c.id }}, this, event)" class="action-btn p-1.5 md:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="更多操作">
-                    <i data-lucide="more-horizontal" class="w-4 h-4 inline-block"></i>
-                  </button>
-                  <div id="row-menu-{{ c.id }}" class="hidden fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44" style="right:auto;left:auto;top:auto;">
-                    {% if is_admin %}
-                    <button onclick='closeRowMenu({{ c.id }});pushCert({{ c.id }}, {{ c.customer|tojson }})' class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
-                      <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
-                    </button>
-                    {% endif %}
-                    <button onclick="closeRowMenu({{ c.id }});toggleStatus({{ c.id }})" class="w-full text-left px-3 py-2 text-sm {% if c.remind_enabled %}text-blue-600 hover:bg-blue-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
-                      <i data-lucide="{% if c.remind_enabled %}bell{% else %}bell-off{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
-                      {% if c.remind_enabled %}禁用提醒{% else %}启用提醒{% endif %}
-                    </button>
-                    <button onclick="closeRowMenu({{ c.id }});toggleHandled({{ c.id }})" id="btn-handled-{{ c.id }}" class="w-full text-left px-3 py-2 text-sm {% if c.get('handled') %}text-teal-600 hover:bg-teal-50{% else %}text-gray-600 hover:bg-gray-50{% endif %} transition-colors flex items-center gap-2">
-                      <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
-                      {% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}
-                    </button>
-                    <button onclick="closeRowMenu({{ c.id }});duplicateCert({{ c.id }})" class="w-full text-left px-3 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors flex items-center gap-2">
-                      <i data-lucide="copy" class="w-3.5 h-3.5 inline-block"></i> 复制记录
-                    </button>
-                    <div class="border-t border-gray-100 my-1"></div>
-                    {% if is_admin %}
-                    <button onclick='closeRowMenu({{ c.id }});confirmDelete({{ c.id }}, {{ c.customer|tojson }})' class="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors flex items-center gap-2">
-                      <i data-lucide="trash-2" class="w-3.5 h-3.5 inline-block"></i> 删除记录
-                    </button>
-                    {% endif %}
-                  </div>
-                </div>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
+          {% include 'cert_rows.html' %}
         </tbody>
       </table>
     </div>
@@ -419,7 +283,7 @@
       <i data-lucide="inbox" class="w-16 h-16 inline-block text-gray-300 mb-4"></i>
       <p class="text-gray-400 text-base mb-2">还没有任何提醒记录</p>
       <p class="text-gray-400 text-sm mb-4">点击下方按钮添加第一条记录，开始管理到期提醒</p>
-      <button onclick="openAddModal()" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors">
+      <button data-action="open-add-modal" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm transition-colors">
         <i data-lucide="plus" class="w-4 h-4 inline-block"></i> 添加第一条记录
       </button>
     </div>
@@ -432,7 +296,7 @@
       <span id="page-info"></span>
       <label class="flex items-center gap-1 text-xs text-gray-500">
         每页
-        <select id="per-page-select" onchange="changePerPage(this.value)" class="border border-gray-300 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-500">
+        <select id="per-page-select"  class="border border-gray-300 rounded px-1 py-0.5 text-xs outline-none focus:ring-1 focus:ring-blue-500">
           <option value="10">10</option>
           <option value="20" selected>20</option>
           <option value="50">50</option>
@@ -446,7 +310,7 @@
 
   <!-- 使用说明 -->
   <div class="bg-white rounded-xl border border-gray-200 mb-6" id="help-section">
-    <div onclick="toggleHelp()" class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors rounded-t-xl">
+    <div data-action="toggle-help" class="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors rounded-t-xl">
       <div class="flex items-center gap-2">
         <i data-lucide="info" class="w-5 h-5 text-blue-600 inline-block"></i>
         <span class="text-sm font-semibold text-gray-700">使用说明</span>
@@ -469,11 +333,11 @@
 </div>
 
 <!-- 添加记录弹窗 -->
-<div id="add-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
+<div id="add-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[60] p-4">
   <div class="bg-white rounded-xl w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b border-gray-200">
       <h2 class="text-lg font-semibold text-gray-900">添加记录</h2>
-      <button onclick="closeAddModal()" class="p-1 hover:bg-gray-100 rounded"><i data-lucide="x" class="w-4 h-4 inline-block"></i></button>
+      <button data-action="close-add-modal" class="p-1 hover:bg-gray-100 rounded"><i data-lucide="x" class="w-4 h-4 inline-block"></i></button>
     </div>
     <form method="POST" action="/add" class="p-4 space-y-4">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
@@ -497,11 +361,11 @@
           <div class="flex flex-col gap-1">
             <span class="text-xs text-gray-500">快捷</span>
             <div class="flex gap-1 flex-wrap">
-              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
-              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
-              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
-              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
-              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+              <button type="button" data-days="7" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" data-days="30" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" data-days="90" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" data-days="180" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" data-days="365" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
             </div>
           </div>
         </div>
@@ -538,7 +402,7 @@
         </label>
       </div>
       <div class="flex justify-end gap-3 pt-2 border-t border-gray-200">
-        <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">取消</button>
+        <button type="button" data-action="close-add-modal" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">取消</button>
         <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">添加</button>
       </div>
     </form>
@@ -546,11 +410,11 @@
 </div>
 
 <!-- 编辑记录弹窗 -->
-<div id="edit-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
+<div id="edit-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[60] p-4">
   <div class="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
     <div class="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-xl">
       <h2 class="text-lg font-semibold text-gray-900">编辑记录</h2>
-      <button onclick="closeEditModal()" class="p-1 hover:bg-gray-100 rounded">
+      <button data-action="close-edit-modal" class="p-1 hover:bg-gray-100 rounded">
         <i data-lucide="x" class="w-4 h-4 inline-block"></i>
       </button>
     </div>
@@ -582,11 +446,11 @@
           <div class="flex flex-col gap-1">
             <span class="text-xs text-gray-500">快捷</span>
             <div class="flex gap-1 flex-wrap">
-              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
-              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
-              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
-              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
-              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+              <button type="button" data-days="7" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" data-days="30" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" data-days="90" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" data-days="180" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" data-days="365" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
             </div>
           </div>
         </div>
@@ -605,7 +469,7 @@
             class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors text-sm">
             <input type="checkbox" name="responsible_users" value="{{ u.username }}"
               class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              onchange="toggleEditRespLabel('{{ u.username }}', this.checked)">
+              data-username="{{ u.username }}">
             <span>{{ u.username }}</span>
           </label>
           {% endfor %}
@@ -624,7 +488,7 @@
         </label>
       </div>
       <div class="flex justify-end gap-3 pt-3 border-t border-gray-200">
-        <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg text-sm transition-colors">取消</button>
+        <button type="button" data-action="close-edit-modal" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg text-sm transition-colors">取消</button>
         <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
           <i data-lucide="save" class="w-4 h-4 inline-block"></i> 保存修改
         </button>
@@ -635,11 +499,19 @@
 
 
 <datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
-<script nonce="{{ csp_nonce }}">
+<script>
+// ── DOM 缓存（app.js 已初始化 window.$，此处做页面特定补充）──────────────
+(function() {
+  if (!window.$) window.$ = {};
+  // 页面特有的缓存（app.js 已缓存常用ID）
+  var ids = ['chart-body','chart-toggle','help-body','mobile-menu','admin-menu-btn','admin-menu'];
+  ids.forEach(function(id) { if (!window.$[id]) window.$[id] = document.getElementById(id); });
+})();
+
 // ── 弹窗控制 ──────────────────────────────────────────
 function setExpiryDays(days) {
-  var dateInput = document.getElementById('add-expire-date') || document.getElementById('edit-expire-date');
-  var timeInput = document.getElementById('add-expire-time') || document.getElementById('edit-expire-time');
+  var dateInput = $.['add-expire-date'] || $.['edit-expire-date'];
+  var timeInput = $.['add-expire-time'] || $.['edit-expire-time'];
   if (!dateInput || !timeInput) return;
   var today = new Date();
   today.setDate(today.getDate() + days);
@@ -651,9 +523,9 @@ function setExpiryDays(days) {
 }
 
 function openAddModal() {
-  document.getElementById('add-modal').classList.remove('hidden');
-  document.getElementById('add-modal').classList.add('flex');
-  document.getElementById('continue-add').checked = false;
+  $.['add-modal'].classList.remove('hidden');
+  $.['add-modal'].classList.add('flex');
+  $.['continue-add'].checked = false;
   document.body.classList.add('modal-open');
 }
 
@@ -661,7 +533,7 @@ function duplicateCert(certId) {
   var row = document.querySelector('tr[data-id="' + certId + '"]');
   var customer = row ? (row.dataset.customer || '') : '';
   showConfirmModal('确认复制', '确定复制「' + customer + '」的记录吗？', '确认复制', function() {
-  var form = document.getElementById('add-modal').querySelector('form');
+  var form = $.['add-modal'].querySelector('form');
   form.reset();
   // 重置负责人勾选
   form.querySelectorAll('input[name="responsible_users"]').forEach(function(cb) { cb.checked = false; });
@@ -695,8 +567,8 @@ function duplicateCert(certId) {
       }
       form.querySelector('textarea[name="note"]').value = data.note || '';
       form.querySelector('input[name="remind_enabled"]').checked = data.remind_enabled !== false;
-      document.getElementById('add-modal').classList.remove('hidden');
-      document.getElementById('add-modal').classList.add('flex');
+      $.['add-modal'].classList.remove('hidden');
+      $.['add-modal'].classList.add('flex');
       showToast('已复制到表单，修改到期时间后提交', 'info');
     })
     .catch(function(e) { showToast('加载失败', 'error'); });
@@ -704,33 +576,33 @@ function duplicateCert(certId) {
 }
 
 function closeAddModal() {
-  document.getElementById('add-modal').classList.add('hidden');
-  document.getElementById('add-modal').classList.remove('flex');
+  $.['add-modal'].classList.add('hidden');
+  $.['add-modal'].classList.remove('flex');
   document.body.classList.remove('modal-open');
 }
 
 // ── 编辑弹窗 ──────────────────────────
 function openEditModal(certId) {
-  var modal = document.getElementById('edit-modal');
-  document.getElementById('edit-cert-id').value = certId;
+  var modal = $.['edit-modal'];
+  $.['edit-cert-id'].value = certId;
   document.body.classList.add('modal-open');
   fetch('/api/cert_status/' + certId)
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.ok) { showToast('获取数据失败', 'error'); return; }
       // 使用API返回的完整数据填充表单
-      document.getElementById('edit-customer').value = data.customer || '';
-      document.getElementById('edit-cert-type').value = data.cert_type || '';
-      document.getElementById('edit-domain').value = data.domain || '';
+      $.['edit-customer'].value = data.customer || '';
+      $.['edit-cert-type'].value = data.cert_type || '';
+      $.['edit-domain'].value = data.domain || '';
       // 统一日期格式：支持 "2026-07-15T10:00" 和 "2026-07-15 10:00"
       var dt = data.expire_date || '';
       dt = dt.replace('T', ' ').trim();
       var parts = dt.split(' ');
-      document.getElementById('edit-expire-date').value = parts[0] || '';
-      document.getElementById('edit-expire-time').value = parts[1] || '00:00';
-      document.getElementById('edit-note').value = data.note || '';
-      document.getElementById('edit-remind-enabled').checked = data.remind_enabled !== false;
-      document.getElementById('edit-handled').checked = data.handled === true;
+      $.['edit-expire-date'].value = parts[0] || '';
+      $.['edit-expire-time'].value = parts[1] || '00:00';
+      $.['edit-note'].value = data.note || '';
+      $.['edit-remind-enabled'].checked = data.remind_enabled !== false;
+      $.['edit-handled'].checked = data.handled === true;
       // 负责人复选框
       var responsibleUsers = data.responsible_users || [];
       if (typeof responsibleUsers === 'string') {
@@ -749,8 +621,8 @@ function openEditModal(certId) {
 }
 
 function closeEditModal() {
-  document.getElementById('edit-modal').classList.add('hidden');
-  document.getElementById('edit-modal').classList.remove('flex');
+  $.['edit-modal'].classList.add('hidden');
+  $.['edit-modal'].classList.remove('flex');
   document.body.classList.remove('modal-open');
 }
 
@@ -765,9 +637,9 @@ function toggleEditRespLabel(username, checked) {
 }
 
 // 表单AJAX提交
-document.getElementById('edit-cert-form').addEventListener('submit', function(e) {
+$.['edit-cert-form'].addEventListener('submit', function(e) {
   e.preventDefault();
-  var certId = document.getElementById('edit-cert-id').value;
+  var certId = $.['edit-cert-id'].value;
   var formData = new FormData(this);
   var payload = {};
   formData.forEach(function(v, k) {
@@ -778,11 +650,11 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
     }
   });
   // Handle checkboxes properly
-  payload['remind_enabled'] = document.getElementById('edit-remind-enabled').checked;
-  payload['handled'] = document.getElementById('edit-handled').checked;
+  payload['remind_enabled'] = $.['edit-remind-enabled'].checked;
+  payload['handled'] = $.['edit-handled'].checked;
   // 合并日期和时间（格式: YYYY-MM-DD HH:mm）
-  var dateVal = document.getElementById('edit-expire-date').value;
-  var timeVal = document.getElementById('edit-expire-time').value;
+  var dateVal = $.['edit-expire-date'].value;
+  var timeVal = $.['edit-expire-time'].value;
   if (dateVal && timeVal) {
     payload['expire_date'] = dateVal + ' ' + timeVal;
   } else if (dateVal) {
@@ -797,7 +669,7 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
   var submitBtn = this.querySelector('button[type=submit]');
   var origLabel = submitBtn.innerHTML;
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin inline-block"></i> 保存中…';
+  submitBtn.innerHTML = '<svg class="animate-spin w-4 h-4 inline-block mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 保存中…';
 
   fetch('/edit/' + certId, {
     method: 'POST',
@@ -866,18 +738,18 @@ document.getElementById('edit-cert-form').addEventListener('submit', function(e)
 
 
 // ── 添加表单 AJAX 提交（支持继续添加）──────────────────
-document.getElementById('add-modal').querySelector('form').addEventListener('submit', function(e) {
+$.['add-modal'].querySelector('form').addEventListener('submit', function(e) {
   e.preventDefault();
   var form = e.target;
   var btn = form.querySelector('button[type="submit"]');
-  var continueAdd = document.getElementById('continue-add').checked;
+  var continueAdd = $.['continue-add'].checked;
   btn.disabled = true;
   btn.textContent = '添加中…';
 
   // 合并日期和时间（格式: YYYY-MM-DD HH:mm）
   // 注意：不要修改DOM中的expire_date输入框，否则后端再次拼接会导致"2027-07-02 10:30 10:30"
-  var dateVal = document.getElementById('add-expire-date').value;
-  var timeVal = document.getElementById('add-expire-time').value;
+  var dateVal = $.['add-expire-date'].value;
+  var timeVal = $.['add-expire-time'].value;
   var combined = '';
   if (dateVal && timeVal) {
     combined = dateVal + ' ' + timeVal;
@@ -907,7 +779,7 @@ document.getElementById('add-modal').querySelector('form').addEventListener('sub
     }
     return r.json();
   }).then(function(data) {
-    console.log('Add response:', data);
+    // console.log('Add response:', data);
     if (data.csrf_token) _csrfToken = data.csrf_token;
     form.querySelectorAll('input[name="_csrf_token"]').forEach(function(inp) { inp.value = data.csrf_token || _csrfToken; });
     if (!data.ok) {
@@ -948,17 +820,18 @@ document.addEventListener('click', function(e) {
 });
 
 
-// ── 图表折叠 ──────────────────────────────────────────
+// ── 图表切换 ────────────────────────────────────────────
 function toggleChart() {
-  var content = document.getElementById('chart-content');
-  var chevron = document.getElementById('chart-chevron');
-  if (content.classList.contains('hidden')) {
-    content.classList.remove('hidden');
-    chevron.classList.remove('rotate-180');
+  var chartBody = $.['chart-body'];
+  var chartToggle = $.['chart-toggle'];
+  if (chartBody.classList.contains('hidden')) {
+    chartBody.classList.remove('hidden');
+    chartToggle.innerHTML = '<i data-lucide="chevron-down" class="w-4 h-4 inline-block"></i> 收起图表';
   } else {
-    content.classList.add('hidden');
-    chevron.classList.add('rotate-180');
+    chartBody.classList.add('hidden');
+    chartToggle.innerHTML = '<i data-lucide="chevron-up" class="w-4 h-4 inline-block"></i> 展开图表';
   }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ── 移动端菜单 ────────────────────────────────────────
@@ -989,7 +862,7 @@ function getSelectedIds() {
 function updateBatchUI() {
   var ids = getSelectedIds();
   var count = ids.length;
-  var countEl = document.getElementById('selected-count');
+  var countEl = $.['selected-count'];
   if (countEl) countEl.textContent = '已选 ' + count + ' 条';
 
   var btns = ['btn-batch-handle', 'btn-batch-unhandle', 'btn-batch-remind-on', 'btn-batch-remind-off', 'btn-batch-delete'];
@@ -1000,8 +873,8 @@ function updateBatchUI() {
 
   // Update select-all checkbox state
   var allCheckboxes = document.querySelectorAll('.row-checkbox');
-  var selectAllHeader = document.getElementById('select-all-header');
-  var selectAllToolbar = document.getElementById('select-all');
+  var selectAllHeader = $.['select-all-header'];
+  var selectAllToolbar = $.['select-all'];
   var allChecked = allCheckboxes.length > 0 && count === allCheckboxes.length;
   if (selectAllHeader) selectAllHeader.checked = allChecked;
   if (selectAllToolbar) selectAllToolbar.checked = allChecked;
@@ -1009,8 +882,8 @@ function updateBatchUI() {
 
 function toggleSelectAll() {
   var checkboxes = document.querySelectorAll('.row-checkbox');
-  var selectAllHeader = document.getElementById('select-all-header');
-  var selectAllToolbar = document.getElementById('select-all');
+  var selectAllHeader = $.['select-all-header'];
+  var selectAllToolbar = $.['select-all'];
   var isChecked = selectAllHeader ? selectAllHeader.checked : (selectAllToolbar ? selectAllToolbar.checked : false);
   // Sync both select-all checkboxes
   if (selectAllHeader) selectAllHeader.checked = isChecked;
@@ -1021,27 +894,27 @@ function toggleSelectAll() {
 
 // ── 通用确认弹窗 ────────────────────────────────────────
 function showConfirmModal(title, message, okText, okCallback) {
-  document.getElementById('confirm-title').textContent = title;
-  document.getElementById('confirm-msg').textContent = message;
-  document.getElementById('confirm-ok').textContent = okText || '确认';
-  document.getElementById('confirm-ok').onclick = function() {
+  $.['confirm-title'].textContent = title;
+  $.['confirm-msg'].textContent = message;
+  $.['confirm-ok'].textContent = okText || '确认';
+  $.['confirm-ok'].onclick = function() {
     closeConfirmModal();
     if (okCallback) okCallback();
   };
-  document.getElementById('confirm-modal').classList.remove('hidden');
-  document.getElementById('confirm-modal').classList.add('flex');
+  $.['confirm-modal'].classList.remove('hidden');
+  $.['confirm-modal'].classList.add('flex');
   document.body.classList.add('modal-open');
 }
 function closeConfirmModal() {
-  document.getElementById('confirm-modal').classList.add('hidden');
-  document.getElementById('confirm-modal').classList.remove('flex');
+  $.['confirm-modal'].classList.add('hidden');
+  $.['confirm-modal'].classList.remove('flex');
   document.body.classList.remove('modal-open');
 }
 
 // ESC 键关闭确认弹窗
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    var confirmModal = document.getElementById('confirm-modal');
+    var confirmModal = $.['confirm-modal'];
     if (confirmModal && !confirmModal.classList.contains('hidden')) {
       closeConfirmModal();
     }
@@ -1050,18 +923,22 @@ document.addEventListener('keydown', function(e) {
 
 // ── 行操作下拉菜单 ────────────────────────────────────────
 function closeRowMenu(certId) {
-  var dd = document.getElementById('row-menu-' + certId);
+  var dd = $.['row-menu-' + certId];
   if (dd) dd.classList.add('hidden');
 }
 
 function toggleRowMenu(certId, btnEl, evt) {
-  var dd = document.getElementById('row-menu-' + certId);
+  var dd = $.['row-menu-' + certId];
   if (!dd) return;
   var wasHidden = dd.classList.contains('hidden');
-  // 先关闭所有其他菜单
+  // 先关闭所有其他菜单并重置 aria-expanded
   document.querySelectorAll('[id^="row-menu-"]').forEach(function(m) {
     if (m.id !== 'row-menu-' + certId) m.classList.add('hidden');
   });
+  document.querySelectorAll('[data-row-menu-btn]').forEach(function(btn) {
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  btnEl.setAttribute('aria-expanded', String(!wasHidden));
   if (wasHidden) {
     dd.classList.remove('hidden');
     // 计算按钮位置，用 fixed 定位菜单
@@ -1102,12 +979,12 @@ document.addEventListener('click', function(e) {
 
 // ── 批量下拉菜单 ────────────────────────────────────────
 function toggleBatchDropdown() {
-  var dd = document.getElementById('batch-dropdown');
+  var dd = $.['batch-dropdown'];
   dd.classList.toggle('hidden');
 }
 document.addEventListener('click', function(e) {
   var dd = document.getElementById('batch-dropdown');
-  var btn = document.querySelector('[onclick="toggleBatchDropdown()"]');
+  var btn = document.querySelector('[data-batch-dropdown=""]');
   if (dd && !dd.contains(e.target) && btn && !btn.contains(e.target)) {
     dd.classList.add('hidden');
   }
@@ -1183,7 +1060,7 @@ function batchHandle(handled) {
   var btnId = handled ? 'btn-batch-handle' : 'btn-batch-unhandle';
   var btn = document.getElementById(btnId);
   var origLabel = handled ? '标记已处理' : '取消已处理';
-  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline-block"></i> 处理中…';
+  btn.disabled = true; btn.innerHTML = '<svg class="animate-spin w-3.5 h-3.5 inline-block mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 处理中…';
   fetch('/api/batch_handle', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken },
@@ -1198,7 +1075,7 @@ function batchHandle(handled) {
   })
   .then(function(data) {
     if (data.csrf_token) _csrfToken = data.csrf_token;
-    if (data.ok) { location.reload(); }
+    if (data.ok) { _searchCacheDirty = true; filterTable(); }
     else { showToast(data.message || '操作失败', 'error'); btn.disabled = false; btn.innerHTML = origLabel; }
   })
   .catch(function(e) { showToast('网络错误：' + e.message, 'error'); btn.disabled = false; btn.innerHTML = origLabel; });
@@ -1210,7 +1087,7 @@ function batchRemind(remind_enabled) {
   var btnId = remind_enabled ? 'btn-batch-remind-on' : 'btn-batch-remind-off';
   var btn = document.getElementById(btnId);
   var origLabel = remind_enabled ? '启用提醒' : '禁用提醒';
-  btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin inline-block"></i> 处理中…';
+  btn.disabled = true; btn.innerHTML = '<svg class="animate-spin w-3.5 h-3.5 inline-block mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 处理中…';
   fetch('/api/batch_remind', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken },
@@ -1225,7 +1102,7 @@ function batchRemind(remind_enabled) {
   })
   .then(function(data) {
     if (data.csrf_token) _csrfToken = data.csrf_token;
-    if (data.ok) { location.reload(); }
+    if (data.ok) { _searchCacheDirty = true; filterTable(); }
     else { showToast(data.message || '操作失败', 'error'); btn.disabled = false; btn.innerHTML = origLabel; }
   })
   .catch(function(e) { showToast('网络错误：' + e.message, 'error'); btn.disabled = false; btn.innerHTML = origLabel; });
@@ -1256,18 +1133,18 @@ function onRowSelect(checkbox, certId) {
 
 // ── 筛选 ────────────────────────────────────────────────
 function filterTable() {
-  const search = document.getElementById('search-input').value.trim().toLowerCase();
-  const statusFilter = document.getElementById('filter-status').value;
-  const typeFilter = document.getElementById('filter-type').value;
-  const dateFrom = document.getElementById('filter-date-from').value;
-  const dateTo = document.getElementById('filter-date-to').value;
+  const search = ($.['search-input'] || document.getElementById('search-input')).value.trim().toLowerCase();
+  const statusFilter = ($.['filter-status'] || document.getElementById('filter-status')).value;
+  const typeFilter = ($.['filter-type'] || document.getElementById('filter-type')).value;
+  const dateFrom = ($.['filter-date-from'] || document.getElementById('filter-date-from')).value;
+  const dateTo = ($.['filter-date-to'] || document.getElementById('filter-date-to')).value;
   const rows = document.querySelectorAll('#cert-tbody tr');
   let visible = 0;
   const today = new Date(); today.setHours(0,0,0,0);
 
   rows.forEach(row => {
     const customer = row.dataset.customer.toLowerCase();
-    const status = row.dataset.status;
+    const status = row.dataset.status || '';
     const certType = row.dataset.type;
     const days = parseInt(row.dataset.days) || 0;
     const handled = row.dataset.handled === 'true';
@@ -1279,7 +1156,16 @@ function filterTable() {
       if (statusFilter === 'handled') matchStatus = handled;
       else if (statusFilter === 'unhandled') matchStatus = !handled;
       else if (statusFilter === 'mine') matchStatus = row.dataset.createdby === currentUser;
-      else matchStatus = status === statusFilter;
+      else {
+        // Derive status from days_left and handled
+        var days = parseInt(row.dataset.days) || 0;
+        var handled = row.dataset.handled === 'true';
+        if (statusFilter === 'normal') matchStatus = !handled && days >= 7;
+        else if (statusFilter === 'expiring') matchStatus = !handled && days >= 0 && days < 7;
+        else if (statusFilter === 'expired') matchStatus = !handled && days < 0;
+        else if (statusFilter === 'disabled') matchStatus = false; // no longer track disabled separately
+        else matchStatus = true;
+      }
     }
     const matchType = !typeFilter || certType === typeFilter;
 
@@ -1294,8 +1180,15 @@ function filterTable() {
     if (row.style.display !== 'none') visible++;
   });
 
-  // 排序可见行
-  const tbody = document.getElementById('cert-tbody');
+  // 排序可见行（使用 DocumentFragment 减少重排）
+  const tbody = $.['cert-tbody'] || document.getElementById('cert-tbody');
+  if (!tbody) {
+    // 没有表格（无数据时跳过表格渲染），直接隐藏骨架屏并返回
+    var sk = $.['skeleton-loading'];
+    if (sk) sk.classList.add('hidden');
+    updateLastTime();
+    return;
+  }
   const visibleRows = Array.from(tbody.querySelectorAll('tr')).filter(r => r.style.display !== 'none');
   visibleRows.sort((a, b) => {
     let va, vb;
@@ -1312,11 +1205,13 @@ function filterTable() {
       return sortDesc ? (va > vb ? -1 : 1) : (va < vb ? -1 : 1);
     return sortDesc ? va.localeCompare(vb, 'zh') : vb.localeCompare(va, 'zh');
   });
-  // 添加行滑入动画类
+  // 使用 DocumentFragment 一次性移动 DOM 节点
+  const frag = document.createDocumentFragment();
   visibleRows.forEach(row => {
     row.classList.add('row-animate');
-    tbody.appendChild(row);
+    frag.appendChild(row);
   });
+  tbody.appendChild(frag);
 
   // 分页
   const totalPages = Math.max(1, Math.ceil(visible / perPage));
@@ -1327,19 +1222,19 @@ function filterTable() {
   });
 
   // 渲染分页
-  const pageInfo = document.getElementById('page-info');
-  const pageButtons = document.getElementById('page-buttons');
+  const pageInfo = $.['page-info'];
+  const pageButtons = $.['page-buttons'];
   if (pageInfo) pageInfo.textContent = '第 ' + currentPage + '/' + totalPages + ' 页，共 ' + visible + ' 条';
   if (pageButtons) {
     let html = '';
-    if (currentPage > 1) html += '<button onclick="goPage('+(currentPage-1)+')" class="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100">上一页</button>';
+    if (currentPage > 1) html += '<button onclick="goPage('+(currentPage-1)+')" class="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100" aria-label="上一页">上一页</button>';
     const maxBtns = 5; let startP = Math.max(1, currentPage-2); let endP = Math.min(totalPages, startP+maxBtns-1);
     if (endP-startP < maxBtns-1) startP = Math.max(1, endP-maxBtns+1);
     for (let p=startP; p<=endP; p++) {
       const active = p===currentPage ? 'bg-blue-600 text-white border-blue-600':'border-gray-200 hover:bg-gray-100';
-      html += '<button onclick="goPage('+p+')" class="px-3 py-1 border rounded '+active+'">'+p+'</button>';
+      html += '<button onclick="goPage('+p+')" class="px-3 py-1 border rounded '+active+'" aria-label="第'+p+'页">'+p+'</button>';
     }
-    if (currentPage < totalPages) html += '<button onclick="goPage('+(currentPage+1)+')" class="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100">下一页</button>';
+    if (currentPage < totalPages) html += '<button onclick="goPage('+(currentPage+1)+')" class="px-3 py-1 border border-gray-200 rounded hover:bg-gray-100" aria-label="下一页">下一页</button>';
     pageButtons.innerHTML = html;
   }
 
@@ -1352,7 +1247,7 @@ function filterTable() {
   updateLastTime();
   
   // 隐藏骨架屏
-  var sk = document.getElementById('skeleton-loading');
+  var sk = $.['skeleton-loading'];
   if (sk) sk.classList.add('hidden');
 }
 
@@ -1385,7 +1280,7 @@ function _buildSearchCache() {
 function showSearchSuggestions(query) {
   if (!query || query.length < 1) { hideSearchSuggestions(); return; }
   _buildSearchCache();
-  var container = document.getElementById('search-suggestions');
+  var container = $.['search-suggestions'];
   var lower = query.toLowerCase();
   var matches = _searchCache.filter(function(item) { return item.toLowerCase().includes(lower); }).slice(0, 8);
   if (matches.length === 0) { hideSearchSuggestions(); return; }
@@ -1399,16 +1294,16 @@ function showSearchSuggestions(query) {
 }
 
 function hideSearchSuggestions() {
-  var container = document.getElementById('search-suggestions');
+  var container = $.['search-suggestions'];
   if (container) container.classList.add('hidden');
 }
 
 function selectSuggestion(index) {
-  var container = document.getElementById('search-suggestions');
+  var container = $.['search-suggestions'];
   if (!container || container.classList.contains('hidden')) return;
   var items = container.querySelectorAll('div');
   if (items[index]) {
-    document.getElementById('search-input').value = items[index].textContent;
+    ($.['search-input'] || document.getElementById('search-input')).value = items[index].textContent;
     hideSearchSuggestions();
     filterTable();
   }
@@ -1416,18 +1311,18 @@ function selectSuggestion(index) {
 
 // ── 重置筛选 ────────────────────────────────────────────
 function resetFilters() {
-  document.getElementById('search-input').value = '';
-  document.getElementById('filter-status').value = '';
-  document.getElementById('filter-type').value = '';
-  document.getElementById('filter-date-from').value = '';
-  document.getElementById('filter-date-to').value = '';
+  ($.['search-input'] || document.getElementById('search-input')).value = '';
+  ($.['filter-status'] || document.getElementById('filter-status')).value = '';
+  ($.['filter-type'] || document.getElementById('filter-type')).value = '';
+  ($.['filter-date-from'] || document.getElementById('filter-date-from')).value = '';
+  ($.['filter-date-to'] || document.getElementById('filter-date-to')).value = '';
   _searchCacheDirty = true;
   filterTable();
 }
 
 // ── 最后更新时间 ────────────────────────────────────────────
 function updateLastTime() {
-  var el = document.getElementById('last-update-time');
+  var el = $.['last-update-time'];
   if (el) {
     var now = new Date();
     var h = String(now.getHours()).padStart(2, '0');
@@ -1442,7 +1337,7 @@ document.addEventListener('keydown', function(e) {
   // Ctrl+K 聚焦搜索
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault();
-    document.getElementById('search-input').focus();
+    ($.['search-input'] || document.getElementById('search-input')).focus();
   }
   // Ctrl+N 新建记录
   if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -1452,19 +1347,16 @@ document.addEventListener('keydown', function(e) {
   // Escape 关闭弹窗
   if (e.key === 'Escape') {
     hideSearchSuggestions();
-    var addModal = document.getElementById('add-modal');
-    var editModal = document.getElementById('edit-modal');
-    var confirmModal = document.getElementById('confirm-modal');
-    if (addModal && !addModal.classList.contains('hidden')) { closeAddModal(); return; }
-    if (editModal && !editModal.classList.contains('hidden')) { closeEditModal(); return; }
-    if (confirmModal && !confirmModal.classList.contains('hidden')) { closeConfirmModal(); return; }
+    if (!$['add-modal']?.classList.contains('hidden')) { closeAddModal(); return; }
+    if (!$['edit-modal']?.classList.contains('hidden')) { closeEditModal(); return; }
+    if (!$['confirm-modal']?.classList.contains('hidden')) { closeConfirmModal(); return; }
   }
 });
 
 function goPage(p) { currentPage = p; filterTable(); }
 
 // ── CSRF Token ──────────────────────────────────────────
-let _csrfToken = "{{ csrf_token }}";
+// _csrfToken is read from meta tag by app.js — do NOT override with inline Jinja
 let currentUser = "{{ current_username }}";
 
 // ── API 操作 ────────────────────────────────────────────
@@ -1538,8 +1430,8 @@ function pushCert(certId, customerName) {
 
 // ── 使用说明折叠（首次访问自动展开）──────────────────────
 function toggleHelp() {
-  var content = document.getElementById('help-content');
-  var chevron = document.getElementById('help-chevron');
+  var content = $.['help-content'];
+  var chevron = $.['help-chevron'];
   if (content.classList.contains('hidden')) {
     content.classList.remove('hidden');
     chevron.setAttribute('data-lucide', 'chevron-up');
@@ -1549,7 +1441,7 @@ function toggleHelp() {
     chevron.setAttribute('data-lucide', 'chevron-down');
     localStorage.setItem('help-expanded', 'false');
   }
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 (function() {
   if (!localStorage.getItem('help-expanded')) {
@@ -1559,7 +1451,7 @@ function toggleHelp() {
       var chevron = document.getElementById('help-chevron');
       if (content) content.classList.remove('hidden');
       if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
-      lucide.createIcons();
+      if (typeof lucide !== 'undefined') lucide.createIcons();
     }, 500);
   }
 })();
@@ -1591,13 +1483,13 @@ var daysIcon = document.querySelector('.sort-icon[data-col="days_left"]');
 if (daysIcon) daysIcon.textContent = ' ▼';
 
 // 初始化每页展示选择器
-var ppSel = document.getElementById('per-page-select');
+var ppSel = $.['per-page-select'] || document.getElementById('per-page-select');
 if (ppSel) ppSel.value = perPage;
 
 // ── 快速筛选（点击统计卡片）──────────────────────────────
 function quickFilter(status) {
-  var statusSelect = document.getElementById('filter-status');
-  var searchInput = document.getElementById('search-input');
+  var statusSelect = $.['filter-status'] || document.getElementById('filter-status');
+  var searchInput = $.['search-input'] || document.getElementById('search-input');
   if (status === 'all') {
     statusSelect.value = '';
     searchInput.value = '';
@@ -1605,30 +1497,51 @@ function quickFilter(status) {
     statusSelect.value = status;
   }
   currentPage = 1;
+  // 视觉反馈：点击时短暂高亮
+  var map = { normal: ['green', 'ring-green-300', 'bg-green-50'], expiring: ['orange', 'ring-orange-300', 'bg-orange-50'], expired: ['red', 'ring-red-300', 'bg-red-50'] };
+  if (status !== 'all') {
+    var info = map[status];
+    var ringClass = info[1];
+    var bgClass = info[2];
+    var selector = '[onclick="quickFilter(\'' + status + '\')"]';
+    var activeCard = document.querySelector(selector);
+    if (activeCard) {
+      activeCard.classList.add(ringClass, 'ring-2', bgClass);
+      setTimeout(function() {
+        activeCard.classList.remove(ringClass, 'ring-2', bgClass);
+      }, 300);
+    }
+  }
   filterTable();
   // 视觉反馈：高亮当前筛选的统计卡片
   document.querySelectorAll('[onclick^="quickFilter"]').forEach(function(card) {
     card.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500');
   });
   if (status !== 'all') {
-    var map = { normal: 'green', expiring: 'orange', expired: 'red' };
-    var color = map[status];
+    var map = { normal: ['green', 'ring-green-300', 'bg-green-50'], expiring: ['orange', 'ring-orange-300', 'bg-orange-50'], expired: ['red', 'ring-red-300', 'bg-red-50'] };
+    var info = map[status];
+    var color = info[0];
+    var ringClass = info[1];
+    var bgClass = info[2];
     var selector = '[onclick="quickFilter(\'' + status + '\')"]';
     var activeCard = document.querySelector(selector);
-    if (activeCard) activeCard.classList.add('ring-2', 'ring-offset-2', 'ring-' + color + '-500');
+    if (activeCard) {
+      activeCard.classList.add(ringClass, 'ring-2');
+      activeCard.classList.add(bgClass);
+    }
   }
   // 滚动到表格
-  document.getElementById('cert-tbody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  ($.['cert-tbody'] || document.getElementById('cert-tbody')).scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 </script>
 <!-- 修改密码弹窗 -->
-<div id="selfPwdModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+<div id="selfPwdModal" class="fixed inset-0 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 relative">
     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
       <i data-lucide="key-round" class="w-4 h-4 inline-block"></i>
       修改密码
     </h3>
-    <form method="POST" action="/users/password/{{ session.username }}" id="selfPwdForm" onsubmit="return checkSelfPwd()">
+    <form method="POST" action="/users/password/{{ session.username }}" id="selfPwdForm" data-action="self-pwd-submit">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1.5">新密码</label>
@@ -1641,7 +1554,7 @@ function quickFilter(status) {
           class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm">
       </div>
       <div class="flex justify-end gap-3">
-        <button type="button" onclick="closeSelfPwdModal()"
+        <button type="button" data-action="close-self-pwd"
           class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
         <button type="submit"
           class="px-4 py-2 text-sm text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors">确认修改</button>
@@ -1649,28 +1562,7 @@ function quickFilter(status) {
     </form>
   </div>
 </div>
-<script nonce="{{ csp_nonce }}">updateLastTime(); setInterval(updateLastTime, 1000);</script>
-
-<!-- 自定义确认弹窗（通用） -->
-<div id="confirm-modal" class="fixed inset-0 z-[99999] hidden items-center justify-center bg-black/40 backdrop-blur-sm">
-  <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
-    <div class="p-6">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-          <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
-        </div>
-        <div>
-          <h3 id="confirm-title" class="text-base font-semibold text-gray-900">确认操作</h3>
-          <p id="confirm-msg" class="text-sm text-gray-500 mt-1"></p>
-        </div>
-      </div>
-      <div class="flex justify-end gap-3">
-        <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
-        <button id="confirm-ok" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">确认</button>
-      </div>
-    </div>
-  </div>
-</div>
+<script>updateLastTime(); setInterval(updateLastTime, 30000);</script>
 {% endblock %}
 
 {% block scripts %}

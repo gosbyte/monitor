@@ -1,11 +1,36 @@
-// app.js — 公共 JS（sidebar toggle、批量选择、三点菜单、CSRF、Toast、暗色模式）
+// app.js — 公共 JS（sidebar toggle、批量选择、三点菜单、CSRF、Toast、暗色模式、DOM缓存、事件委托）
 (function () {
   'use strict';
 
+  // ── DOM 缓存对象（同步初始化，确保 index.html inline script 可用） ──
+  var $ = {};
+  window.$ = $;
+  (function initDomCacheSync() {
+    var ids = [
+      'add-modal','edit-modal','confirm-modal','selfPwdModal',
+      'chart-content','chart-chevron','help-content','help-chevron',
+      'search-input','search-suggestions','filter-status','filter-type',
+      'filter-date-from','filter-date-to','cert-tbody','pagination',
+      'page-info','page-buttons','per-page-select','selected-count',
+      'select-all','select-all-header','toast-container','flash-container',
+      'sidebar','sidebar-overlay','mobile-menu-btn','confirm-title',
+      'confirm-msg','confirm-ok','batch-dropdown','batch-toolbar',
+      'add-expire-date','edit-expire-date','add-expire-time','edit-expire-time',
+      'continue-add','edit-cert-id','edit-customer','edit-cert-type','edit-domain',
+      'edit-expire-date','edit-expire-time','edit-note','edit-remind-enabled',
+      'edit-handled','edit-responsible-users','last-update-time',
+      'skeleton-loading','filter-bar-mobile','type-suggestions',
+      'chart-section','chart-body','chart-toggle','help-section','help-body',
+      'mobile-menu','admin-menu','admin-menu-btn',
+      'stat-cards-wrapper'
+    ];
+    ids.forEach(function(id) { $[id] = document.getElementById(id); });
+  })();
+
   // ── Sidebar Toggle (移动端抽屉菜单) ─────────────────────
   window.toggleSidebar = function () {
-    var sidebar = document.getElementById('sidebar');
-    var overlay = document.getElementById('sidebar-overlay');
+    var sidebar = $['sidebar'];
+    var overlay = $['sidebar-overlay'];
     if (!sidebar) return;
     var isOpen = sidebar.classList.contains('sidebar-open');
     if (isOpen) {
@@ -25,10 +50,9 @@
       lucide.createIcons();
     }
     // Overlay 点击关闭 sidebar
-    var overlay = document.getElementById('sidebar-overlay');
-    if (overlay) {
-      overlay.addEventListener('click', function () {
-        var sidebar = document.getElementById('sidebar');
+    if ($['sidebar-overlay']) {
+      $['sidebar-overlay'].addEventListener('click', function () {
+        var sidebar = $['sidebar'];
         if (sidebar) sidebar.classList.remove('sidebar-open');
         overlay.classList.add('hidden');
         overlay.classList.remove('sidebar-active');
@@ -36,16 +60,15 @@
     }
 
     // 汉堡菜单按钮
-    var btn = document.getElementById('mobile-menu-btn');
-    if (btn) {
-      btn.addEventListener('click', window.toggleSidebar);
+    if ($['mobile-menu-btn']) {
+      $['mobile-menu-btn'].addEventListener('click', window.toggleSidebar);
     }
 
     // 点击导航链接关闭 sidebar（移动端）
     document.querySelectorAll('#sidebar nav a').forEach(function (link) {
       link.addEventListener('click', function () {
-        var sidebar = document.getElementById('sidebar');
-        var ov = document.getElementById('sidebar-overlay');
+        var sidebar = $['sidebar'];
+        var ov = $['sidebar-overlay'];
         if (sidebar) sidebar.classList.remove('sidebar-open');
         if (ov) { ov.classList.add('hidden'); ov.classList.remove('sidebar-active'); }
       });
@@ -62,7 +85,7 @@
     })();
 
     // Auto-dismiss flash messages after 5s
-    var container = document.getElementById('flash-container');
+    var container = $['flash-container'];
     if (container) {
       setTimeout(function () {
         var msgs = container.querySelectorAll('> div');
@@ -73,6 +96,237 @@
         });
       }, 5000);
     }
+  
+    // ── 事件委托：统计卡片筛选 ──────────────────────────
+    document.querySelectorAll('.stat-card').forEach(function(card) {
+      card.addEventListener('click', function() {
+        var filter = card.getAttribute('data-filter');
+        if (filter && typeof window.quickFilter === 'function') window.quickFilter(filter);
+      });
+    });
+
+    // ── 事件委托：图表/说明折叠 ──────────────────────────
+    var chartHeader = document.getElementById('chart-section');
+    if (chartHeader) {
+      chartHeader.addEventListener('click', function(e) {
+        if (e.target.closest('#chart-toggle-area')) {
+          if (typeof window.toggleChart === 'function') window.toggleChart();
+        }
+      });
+    }
+    var helpSection = document.getElementById('help-section');
+    if (helpSection) {
+      helpSection.addEventListener('click', function(e) {
+        if (e.target.closest('#help-toggle-area')) {
+          if (typeof window.toggleHelp === 'function') window.toggleHelp();
+        }
+      });
+    }
+
+    // ── 事件委托：表头排序 ──────────────────────────────
+    var thead = document.querySelector('#cert-tbody')?.closest('table')?.querySelector('thead tr');
+    if (thead) {
+      thead.addEventListener('click', function(e) {
+        var th = e.target.closest('th[onclick]');
+        if (!th) return;
+        var col = th.getAttribute('data-sort-col');
+        if (col && typeof window.sortTable === 'function') window.sortTable(col);
+      });
+    }
+
+    // ── 事件委托：行操作按钮 (编辑/更多) ─────────────────
+    var tbody = document.getElementById('cert-tbody');
+    if (tbody) {
+      tbody.addEventListener('click', function(e) {
+        var editBtn = e.target.closest('button[data-action="edit"]');
+        if (editBtn) {
+          var certId = editBtn.getAttribute('data-cert-id');
+          if (typeof window.openEditModal === 'function') window.openEditModal(parseInt(certId));
+          return;
+        }
+        var menuBtn = e.target.closest('button[data-action="menu"]');
+        if (menuBtn) {
+          var certId = menuBtn.getAttribute('data-cert-id');
+          if (typeof window.toggleRowMenu === 'function') window.toggleRowMenu(parseInt(certId), menuBtn, e);
+          return;
+        }
+        var rowMenu = e.target.closest('[id^="row-menu-"] button[data-row-action]');
+        if (rowMenu) {
+          var action = rowMenu.getAttribute('data-row-action');
+          var certId = parseInt(rowMenu.getAttribute('data-cert-id'));
+          if (action === 'push') {
+            var customer = rowMenu.getAttribute('data-customer');
+            if (typeof window.pushCert === 'function') window.pushCert(certId, customer);
+          } else if (action === 'toggle-status') {
+            if (typeof window.toggleStatus === 'function') window.toggleStatus(certId);
+          } else if (action === 'toggle-handled') {
+            if (typeof window.toggleHandled === 'function') window.toggleHandled(certId);
+          } else if (action === 'duplicate') {
+            if (typeof window.duplicateCert === 'function') window.duplicateCert(certId);
+          } else if (action === 'delete') {
+            var customer = rowMenu.getAttribute('data-customer');
+            if (typeof window.confirmDelete === 'function') window.confirmDelete(certId, customer);
+          }
+          return;
+        }
+        // 行选择 checkbox
+        var checkbox = e.target.closest('.row-checkbox');
+        if (checkbox) {
+          var certId = parseInt(checkbox.value);
+          if (typeof window.onRowSelect === 'function') window.onRowSelect(checkbox, certId);
+        }
+      });
+    }
+
+    // ── 事件委托：搜索/筛选 ─────────────────────────────
+    var searchBar = document.getElementById('search-input');
+    if (searchBar) {
+      searchBar.addEventListener('input', function() {
+        if (typeof window.filterTable === 'function') window.filterTable();
+        if (typeof window.showSearchSuggestions === 'function') window.showSearchSuggestions(this.value);
+      });
+      searchBar.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); if (typeof window.filterTable === 'function') window.filterTable(); }
+        if (e.key === 'ArrowDown') { e.preventDefault(); if (typeof window.selectSuggestion === 'function') window.selectSuggestion(1); }
+        if (e.key === 'ArrowUp') { e.preventDefault(); if (typeof window.selectSuggestion === 'function') window.selectSuggestion(-1); }
+        if (e.key === 'Escape') { if (typeof window.hideSearchSuggestions === 'function') window.hideSearchSuggestions(); }
+      });
+    }
+    document.querySelectorAll('#filter-bar-mobile select, .filter-bar select').forEach(function(sel) {
+      sel.addEventListener('change', function() {
+        if (typeof window.filterTable === 'function') window.filterTable();
+      });
+    });
+
+    // ── 事件委托：批量操作 ──────────────────────────────
+    var batchToolbar = document.getElementById('batch-toolbar');
+    if (batchToolbar) {
+      batchToolbar.addEventListener('click', function(e) {
+        var selectAll = e.target.closest('#select-all');
+        if (selectAll) {
+          if (typeof window.toggleSelectAll === 'function') window.toggleSelectAll();
+          return;
+        }
+        var batchBtn = e.target.closest('button[data-batch-action]');
+        if (batchBtn) {
+          var action = batchBtn.getAttribute('data-batch-action');
+          var value = batchBtn.getAttribute('data-batch-value');
+          if (action === 'handle') window.batchHandle(value === 'true');
+          else if (action === 'remind') window.batchRemind(value === 'true');
+          else if (action === 'delete') window.batchDelete();
+          return;
+        }
+        var dropdownBtn = e.target.closest('button[data-batch-dropdown]');
+        if (dropdownBtn) {
+          if (typeof window.toggleBatchDropdown === 'function') window.toggleBatchDropdown();
+        }
+      });
+    }
+
+    // ── 事件委托：弹窗遮罩关闭 ──────────────────────────
+    document.querySelectorAll('.modal-overlay, [class*="modal-overlay"]').forEach(function(overlay) {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+          var addModal = document.getElementById('add-modal');
+          var editModal = document.getElementById('edit-modal');
+          if (overlay === addModal) { if (typeof window.closeAddModal === 'function') window.closeAddModal(); }
+          if (overlay === editModal) { if (typeof window.closeEditModal === 'function') window.closeEditModal(); }
+        }
+      });
+    });
+
+    // ── 事件委托：快捷日期按钮 ──────────────────────────
+    document.querySelectorAll('.expiry-shortcuts button').forEach(function(btn) {
+      var days = parseInt(btn.getAttribute('data-days'));
+      if (days) {
+        btn.addEventListener('click', function() { if (typeof window.setExpiryDays === 'function') window.setExpiryDays(days); });
+      }
+    });
+
+    // ── 事件委托：添加/编辑弹窗打开按钮 ─────────────────
+    document.querySelectorAll('[data-action="open-add-modal"]').forEach(function(btn) {
+      btn.addEventListener('click', function() { if (typeof window.openAddModal === 'function') window.openAddModal(); });
+    });
+
+    // ── 事件委托：修改密码弹窗 ──────────────────────────
+    var selfPwdModal = document.getElementById('selfPwdModal');
+    if (selfPwdModal) {
+      selfPwdModal.addEventListener('click', function(e) {
+        if (e.target === selfPwdModal) { if (typeof window.closeSelfPwdModal === 'function') window.closeSelfPwdModal(); }
+      });
+    }
+    var selfPwdForm = document.getElementById('selfPwdForm');
+    if (selfPwdForm) {
+      selfPwdForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (typeof window.checkSelfPwd === 'function') window.checkSelfPwd();
+      });
+    }
+
+    // ── 事件委托：分页按钮 ──────────────────────────────
+    var pagination = document.getElementById('pagination');
+    if (pagination) {
+      pagination.addEventListener('click', function(e) {
+        var pageBtn = e.target.closest('button[data-page]');
+        if (pageBtn) {
+          var p = parseInt(pageBtn.getAttribute('data-page'));
+          if (typeof window.goPage === 'function') window.goPage(p);
+        }
+        var perPageSel = document.getElementById('per-page-select');
+        if (e.target === perPageSel) {
+          if (typeof window.changePerPage === 'function') window.changePerPage(perPageSel.value);
+        }
+      });
+    }
+
+    // ── 事件委托：重置筛选按钮 ──────────────────────────
+    var resetBtn = document.querySelector('button[data-action="reset-filters"]');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function() { if (typeof window.resetFilters === 'function') window.resetFilters(); });
+    }
+
+    // ── 点击外部关闭菜单 ────────────────────────────────
+    document.addEventListener('click', function(e) {
+      // 关闭行菜单
+      document.querySelectorAll('[id^="row-menu-"]').forEach(function(dd) {
+        if (dd.classList.contains('hidden')) return;
+        if (dd.contains(e.target)) return;
+        var confirmModal = document.getElementById('confirm-modal');
+        if (confirmModal && !confirmModal.classList.contains('hidden')) return;
+        dd.classList.add('hidden');
+      });
+      // 关闭批量下拉
+      var batchDd = document.getElementById('batch-dropdown');
+      if (batchDd && !batchDd.classList.contains('hidden') && !batchDd.contains(e.target)) {
+        var batchBtn = document.querySelector('button[data-batch-dropdown]');
+        if (batchBtn && !batchBtn.contains(e.target)) batchDd.classList.add('hidden');
+      }
+      // 关闭管理员下拉
+      var adminDd = document.getElementById('admin-menu');
+      if (adminDd && !adminDd.contains(e.target)) {
+        var adminBtn = document.getElementById('admin-menu-btn');
+        if (adminBtn && !adminBtn.contains(e.target)) adminDd.classList.add('hidden');
+      }
+      // 关闭移动端菜单
+      var mobileMenu = document.getElementById('mobile-menu');
+      if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
+        var hamburger = document.querySelector('button[aria-label="菜单"]');
+        if (hamburger && !hamburger.contains(e.target)) mobileMenu.classList.add('hidden');
+      }
+    });
+
+    // ── ESC 关闭确认弹窗 ────────────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        var cm = document.getElementById('confirm-modal');
+        if (cm && !cm.classList.contains('hidden')) {
+          if (typeof window.closeConfirmModal === 'function') window.closeConfirmModal();
+        }
+      }
+    });
+  });
+
+
   });
 
   // ── CSRF Token ──────────────────────────────────────────
@@ -84,31 +338,31 @@
     if (metaUser) window._currentUser = window._currentUser || metaUser.getAttribute('content');
   })();
 
-  // ── Toast 提示 ──────────────────────────────────────────
+  // ── Toast 提示 (全局共享，index.html 内联脚本也依赖此函数) ──
   window.showToast = function (msg, type) {
-    var container = document.getElementById('toast-container');
+    var container = $['toast-container'];
     if (!container) return;
     var toast = document.createElement('div');
     var colors = {
       success: 'bg-green-50 border-green-300 text-green-800',
       error: 'bg-red-50 border-red-300 text-red-800',
+      warning: 'bg-yellow-50 border-yellow-300 text-yellow-800',
       info: 'bg-blue-50 border-blue-300 text-blue-800'
     };
     var c = colors[type] || colors.info;
-    var iconSvg = '';
-    if (type === 'error') {
-      iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    } else if (type === 'info') {
-      iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
-    } else {
-      iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-    }
-    var progressColor = type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : '#3b82f6';
     toast.className = c + ' px-4 py-3 rounded-lg border shadow-lg text-sm font-medium flex items-center gap-2 toast-enter';
     toast.style.position = 'relative';
-    toast.innerHTML = iconSvg + '<span class="flex-1">' + msg + '</span>' +
-      '<div class="toast-progress rounded" style="position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 4px 4px;background:' + progressColor + ';animation:toast-progress 3s linear forwards;"></div>';
+    var iconMap = {
+      success: '<i data-lucide="check-circle" class="w-4 h-4 flex-shrink-0"></i>',
+      error: '<i data-lucide="x-circle" class="w-4 h-4 flex-shrink-0"></i>',
+      warning: '<i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>',
+      info: '<i data-lucide="info" class="w-4 h-4 flex-shrink-0"></i>'
+    };
+    toast.innerHTML = (iconMap[type] || iconMap.info) + '<span class="flex-1">' + msg + '</span>' +
+      '<div class="toast-progress" style="position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 4px 4px;background:' + (type==='error'?'#dc2626':type==='success'?'#16a34a':'#3b82f6') + ';animation:toast-progress 3s linear forwards;"></div>';
     container.appendChild(toast);
+    // Re-render lucide icons in toast
+    if (window.lucide) lucide.createIcons();
     setTimeout(function () {
       toast.classList.remove('toast-enter');
       toast.classList.add('toast-exit');
@@ -310,7 +564,7 @@
         return data;
       });
     }).catch(function (e) {
-      console.error('fetchWithCsrf error:', e);
+      // console.error('fetchWithCsrf error:', e);  // removed: errors are thrown to caller
       throw e;
     });
   };
@@ -343,4 +597,53 @@
     }
   });
 
-})();
+  // ── 移动端触摸优化 ────────────────────────────────────────
+  // 防止双击缩放
+  document.addEventListener('dblclick', function (e) {
+    e.preventDefault();
+  }, { passive: false });
+
+  // 触摸反馈
+  document.addEventListener('touchstart', function (e) {
+    var target = e.target.closest('button, a, .cursor-pointer');
+    if (target) {
+      target.style.opacity = '0.7';
+      target._touchStart = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', function (e) {
+    var target = e.target.closest('button, a, .cursor-pointer');
+    if (target && target._touchStart) {
+      target.style.opacity = '';
+      target._touchStart = false;
+    }
+  }, { passive: true });
+
+  // 防止移动端输入框缩放 (iOS)
+  (function() {
+    var inputs = document.querySelectorAll('input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="tel"], input[type="url"], input[type="search"], textarea');
+    inputs.forEach(function(input) {
+      // 设置合适的字体大小防止 iOS 缩放
+      if (window.getComputedStyle(input).fontSize !== '16px') {
+        input.style.fontSize = '16px';
+      }
+    });
+  })();
+
+  // ═══════════════════════════════════════════════════════════
+// 通用结果提示（带 lucide 图标）
+// ═══════════════════════════════════════════════════════════
+window._showResult = function(areaId, ok, message) {
+  var area = document.getElementById(areaId);
+  if (!area) return;
+  area.classList.remove('hidden', 'bg-green-50', 'text-green-700', 'border', 'border-green-200', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-yellow-50', 'text-yellow-700', 'border-yellow-200');
+  if (ok) {
+    area.classList.add('bg-green-50', 'text-green-700', 'border', 'border-green-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600 mr-1"></i></span> ' + message;
+  } else {
+    area.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + message;
+  }
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+};

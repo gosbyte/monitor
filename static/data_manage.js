@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var _csrfToken = '{{ csrf_token }}';
+  var _csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
   var previewData = null;
 
   window.switchTab = function (tab) {

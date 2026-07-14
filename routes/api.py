@@ -8,9 +8,7 @@ import json
 import secrets
 import logging
 import smtplib
-import threading
 from datetime import datetime
-from functools import wraps
 from typing import Any
 
 from flask import Flask, request, jsonify, session
@@ -21,12 +19,10 @@ from data import (
     load_certs, save_certs, load_config, calc_days_left, get_cert_status,
     encrypt_field, decrypt_field, load_users, write_log, DATA_DIR,
 )
-from auth import login_required, admin_required, csrf_required
+from auth import login_required, admin_required, csrf_required, _check_api_csrf, rate_limit
 
 
 logger = logging.getLogger(__name__)
-
-from auth import _check_api_csrf
 
 
 def register_api_routes(app: Flask) -> None:
@@ -182,74 +178,3 @@ def register_api_routes(app: Flask) -> None:
         success = send_dingtalk_card(webhook_url, title, content, secret, at_user_ids=at_ids if at_ids else None)
         write_log(session.get("username", "?"), "推送提醒", f"推送 {cert['customer']}（剩余 {cert['days_left']:.0f} 天）", f"到期项 #{cert_id}", request.remote_addr or '')
         return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session.get("_csrf_token", "")})
-
-
-# ── 通用请求速率限制 ──────────────────────────────────────
-_REQUEST_COUNTS: dict[str, list[float]] = {}
-
-# [FIX] P2-7: 限流数据持久化到文件（重启后保留部分状态）
-_RATE_LIMIT_FILE = os.path.join(DATA_DIR, "rate_limit_state.json")
-
-
-def _persist_rate_limit() -> None:
-    """定期持久化限流数据"""
-    try:
-        tmp = _RATE_LIMIT_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(_REQUEST_COUNTS, f)
-        os.replace(tmp, _RATE_LIMIT_FILE)
-    except Exception:
-        pass
-
-
-def _load_rate_limit() -> None:
-    """从文件加载限流数据"""
-    global _REQUEST_COUNTS
-    try:
-        if os.path.exists(_RATE_LIMIT_FILE):
-            with open(_RATE_LIMIT_FILE, "r") as f:
-                saved = json.load(f)
-            now = time.time()
-            _REQUEST_COUNTS = {k: [t for t in v if now - t < 60] for k, v in saved.items()}
-    except Exception:
-        pass
-
-
-# 启动时加载限流状态
-_load_rate_limit()
-
-# 定时持久化（每 30 秒）
-def _persist_loop() -> None:
-    while True:
-        time.sleep(30)
-        _persist_rate_limit()
-
-
-_persist_thread = threading.Thread(target=_persist_loop, daemon=True)
-_persist_thread.start()
-
-
-def _rate_limit(key: str, max_requests: int = 10, window: int = 60) -> bool:
-    """简单速率限制：同一 key 在 window 秒内最多 max_requests 次"""
-    now = time.time()
-    if key not in _REQUEST_COUNTS:
-        _REQUEST_COUNTS[key] = []
-    _REQUEST_COUNTS[key] = [t for t in _REQUEST_COUNTS[key] if now - t < window]
-    if len(_REQUEST_COUNTS[key]) >= max_requests:
-        return False
-    _REQUEST_COUNTS[key].append(now)
-    return True
-
-
-def rate_limit(max_requests: int = 5, window: int = 60) -> Any:
-    """速率限制装饰器工厂"""
-    def decorator(f: Any) -> Any:
-        @wraps(f)
-        def decorated_function(*args: Any, **kwargs: Any) -> Any:
-            ip = request.remote_addr or "unknown"
-            key = f"{f.__name__}:{ip}"
-            if not _rate_limit(key, max_requests, window):
-                return jsonify({"ok": False, "message": f"请求过于频繁，请 {window} 秒后再试"}), 429
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator

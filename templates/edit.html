@@ -4,7 +4,7 @@
 
 {% block head %}
 
-  <style nonce="{{ csp_nonce }}">
+  <style>
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
   </style>{% endblock %}
 
@@ -96,6 +96,12 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
+
 function toggleRespLabel(username, checked) {
   var label = document.getElementById('resp-label-' + username);
   if (!label) return;

@@ -32,6 +32,20 @@ _FlaskResponse = Union[str, tuple[str, int], Response, dict[str, Any], Any]
 logger = logging.getLogger(__name__)
 
 
+# ── Badge 模板（内联，最多2处调用）─────────────────────────
+
+def _build_badge(status: str, days_left: float, expire_str: str) -> str:
+    """根据状态构建 badge HTML"""
+    days = f"{abs(days_left):.0f}"
+    badges = {
+        "disabled": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>',
+        "expired": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="到期日期：{expire_str}"><i data-lucide="x" class="w-3 h-3"></i> 已过期 {days}天</span>',
+        "expiring": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="到期日期：{expire_str}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {days}天后</span>',
+        "normal": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title="到期日期：{expire_str}"><i data-lucide="check-circle" class="w-3 h-3"></i> {days}天</span>',
+    }
+    return badges.get(status, f'<span>{expire_str}</span>')
+
+
 def register_cert_routes(app: Flask) -> None:
     """注册到期项相关路由"""
 
@@ -108,8 +122,7 @@ def register_cert_routes(app: Flask) -> None:
         }
         return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
                                chart_data=chart_data, cert_types=cert_types, current_username=current_username,
-                               badge_count=badge_count, active_page='index', page_title='到期提醒管理系统',
-                               csrf_token=session.get("_csrf_token", ""))
+                               badge_count=badge_count, active_page='index', page_title='到期提醒管理系统')
 
     @app.route("/add", methods=["POST"])
     @login_required
@@ -258,16 +271,7 @@ def register_cert_routes(app: Flask) -> None:
                 handled = c.get("handled", False)
                 # 统一日期格式用于显示
                 expire_str = c.get("expire_date", "").replace("T", " ").strip()
-                if status == "disabled":
-                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>'
-                elif status == "expired":
-                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="到期日期：{expire_str}"><i data-lucide="x" class="w-3 h-3"></i> 已过期 {abs(days_left):.0f}天</span>'
-                elif status == "expiring":
-                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="到期日期：{expire_str}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {days_left:.0f}天后</span>'
-                elif status == "normal":
-                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title="到期日期：{expire_str}"><i data-lucide="check-circle" class="w-3 h-3"></i> {days_left:.0f}天</span>'
-                else:
-                    badge = f'<span>{expire_str}</span>'
+                badge = _build_badge(status, days_left, expire_str)
                 return jsonify({
                     "ok": True, "days_left": days_left, "status": status, "badge_html": badge,
                     "remind_enabled": enabled, "handled": handled,
@@ -960,186 +964,7 @@ def register_cert_routes(app: Flask) -> None:
             logger.exception("CSV导入预览失败")
             raise ServiceError(f"CSV导入预览失败: {str(e)}")
 
-    # ── 内部辅助函数 ─────────────────────────────────────────
-    @staticmethod
-    def _detect_encoding(raw_bytes: bytes) -> str:
-        """自动检测文本编码（UTF-8 / GBK / GB2312 / latin-1）"""
-        # UTF-8 BOM
-        if raw_bytes[:3] == b"\xef\xbb\xbf":
-            return "utf-8-sig"
-        # UTF-8 无 BOM：尝试解码
-        try:
-            raw_bytes.decode("utf-8")
-            return "utf-8"
-        except UnicodeDecodeError:
-            pass
-        # GBK
-        try:
-            raw_bytes.decode("gbk")
-            return "gbk"
-        except UnicodeDecodeError:
-            pass
-        # GB2312
-        try:
-            raw_bytes.decode("gb2312")
-            return "gb2312"
-        except UnicodeDecodeError:
-            pass
-        return "latin-1"
-
-    @staticmethod
-    def _detect_delimiter(text: str) -> str:
-        """自动检测 CSV 分隔符（逗号 / 制表符 / 分号）"""
-        first_line = text.split("\n")[0]
-        delimiters = [",", "\t", ";", "|"]
-        counts = {d: first_line.count(d) for d in delimiters}
-        best = max(counts, key=counts.get)
-        if counts[best] == 0:
-            return ","
-        return best
-
-    @staticmethod
-    def _parse_csv_file(file) -> tuple[list[dict[str, str]], dict[str, str]]:
-        """解析 CSV 文件，返回 (记录列表, 字段映射)"""
-        raw_bytes = file.read()
-        encoding = _detect_encoding(raw_bytes)
-        text = raw_bytes.decode(encoding)
-        delimiter = _detect_delimiter(text)
-
-        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
-        headers = reader.fieldnames or []
-
-        # 智能字段映射：将 CSV 列名映射到标准字段
-        field_mapping = {}
-        standard_fields = ["customer", "cert_type", "domain", "expire_date", "note",
-                           "remind_enabled", "handled", "created_by", "created_at",
-                           "id", "responsible_users", "ip"]
-        chinese_aliases = {
-            "客户名称": "customer", "客户": "customer", "企业名称": "customer",
-            "提醒类型": "cert_type", "证书类型": "cert_type", "类型": "cert_type",
-            "域名": "domain", "host": "domain", "主机名": "domain",
-            "到期日期": "expire_date", "过期日期": "expire_date", "到期时间": "expire_date",
-            "expire_date": "expire_date", "expiry_date": "expire_date",
-            "备注": "note", "说明": "note", "描述": "note",
-            "提醒启用": "remind_enabled", "是否提醒": "remind_enabled", "提醒": "remind_enabled",
-            "已处理": "handled", "处理状态": "handled", "状态": "handled",
-            "创建人": "created_by", "负责人": "responsible_users",
-            "id": "id", "序号": "id",
-        }
-
-        for h in headers:
-            h_stripped = h.strip()
-            if h_stripped in standard_fields:
-                field_mapping[h_stripped] = h_stripped
-            elif h_stripped in chinese_aliases:
-                field_mapping[h_stripped] = chinese_aliases[h_stripped]
-            else:
-                # 模糊匹配
-                hl = h_stripped.lower()
-                for alias, std in chinese_aliases.items():
-                    if alias.lower() in hl or hl in alias.lower():
-                        field_mapping[h_stripped] = std
-                        break
-                else:
-                    field_mapping[h_stripped] = h_stripped  # 保持原名
-
-        records = []
-        for row in reader:
-            mapped = {}
-            for orig_col, std_field in field_mapping.items():
-                val = row.get(orig_col, "")
-                if val is not None:
-                    mapped[std_field] = str(val).strip()
-            if mapped:
-                records.append(mapped)
-
-        return records, field_mapping
-
-    @staticmethod
-    def _validate_record(item: dict, index: int, existing_certs: list[dict]) -> dict:
-        """验证单条记录，返回验证结果"""
-        customer = str(item.get("customer", "")).strip()
-        expire_date = str(item.get("expire_date", "")).strip()
-        cert_type = str(item.get("cert_type", "")).strip()
-        domain = str(item.get("domain", "")).strip()
-        note = str(item.get("note", "")).strip()
-        remind_enabled = item.get("remind_enabled")
-        handled = item.get("handled")
-        responsible_users = item.get("responsible_users", [])
-        cert_id = item.get("id") or item.get("cert_id")
-
-        errors = []
-
-        if not customer:
-            errors.append(f"第 {index} 条: 缺少客户名称")
-        if not expire_date:
-            errors.append(f"第 {index} 条: 缺少到期日期")
-        else:
-            try:
-                calc_days_left(expire_date)
-            except Exception:
-                errors.append(f"第 {index} 条: 日期格式无效 '{expire_date}'")
-
-        # 重复检查
-        if customer and expire_date:
-            dup = any(
-                c.get("customer") == customer and c.get("expire_date") == expire_date
-                for c in existing_certs
-            )
-            if dup:
-                errors.append(f"第 {index} 条: 重复记录 (客户名: {customer}, 到期日期: {expire_date})")
-
-        if errors:
-            return {"valid": False, "errors": errors, "record_index": index}
-
-        # 解析布尔值
-        if remind_enabled is None:
-            remind_enabled = True
-        elif isinstance(remind_enabled, str):
-            remind_enabled = remind_enabled.strip().lower() in ("是", "yes", "true", "1", "y")
-        else:
-            remind_enabled = bool(remind_enabled)
-
-        if handled is None:
-            handled = False
-        elif isinstance(handled, str):
-            handled = handled.strip().lower() in ("是", "yes", "true", "1", "y")
-        else:
-            handled = bool(handled)
-
-        if isinstance(responsible_users, str):
-            responsible_users = [u.strip() for u in responsible_users.split(",") if u.strip()]
-
-        clean_data = {
-            "customer": customer,
-            "cert_type": cert_type,
-            "domain": domain,
-            "expire_date": expire_date,
-            "note": note,
-            "remind_enabled": remind_enabled,
-            "handled": handled,
-            "responsible_users": responsible_users,
-        }
-        if cert_id:
-            try:
-                clean_data["id"] = int(cert_id)
-            except (ValueError, TypeError):
-                pass
-
-        return {"valid": True, "data": clean_data, "record_index": index}
-
-    @staticmethod
-    def _apply_field_mapping(item: dict, mapping: dict) -> dict:
-        """应用字段映射：将原始 CSV 列名映射为标准字段"""
-        mapped = {}
-        for orig_col, std_field in mapping.items():
-            if orig_col in item:
-                mapped[std_field] = item[orig_col]
-        # 也保留未被映射的原始字段
-        for k, v in item.items():
-            if k not in mapping:
-                mapped[k] = v
-        return mapped
+    # ── CSV 解析辅助函数（模块级，供路由调用）─────────────────
 
 
 def _detect_encoding(raw_bytes: bytes) -> str:

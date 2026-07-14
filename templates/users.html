@@ -1,9 +1,9 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}用户管理{% endblock %}
 
 {% block head %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='users.css') }}" nonce="{{ csp_nonce }}">{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='users.css') }}">{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -78,7 +78,7 @@
             <option value="user">普通用户</option>
             <option value="admin">管理员</option>
           </select>
-          <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium whitespace-nowrap flex items-center gap-1.5 shadow-sm">
+          <button type="submit" class="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium whitespace-nowrap md:whitespace-normal flex items-center gap-1.5 shadow-sm">
             <i data-lucide="plus" class="w-4 h-4 inline-block"></i> 添加
           </button>
         </div>
@@ -211,7 +211,7 @@
           <!-- 操作 -->
           <div class="flex items-center gap-1 flex-shrink-0">
             {% if u.locked and is_admin %}
-            <form method="POST" action="/users/unlock/{{ u.username }}" style="display:inline">
+            <form method="POST" action="/users/unlock/{{ u.username }}" class="inline-block">
               <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
               <button type="submit" class="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="解除锁定" aria-label="解除锁定">
                 <i data-lucide="unlock" class="w-4 h-4 inline-block"></i>
@@ -223,7 +223,7 @@
               <i data-lucide="pencil" class="w-4 h-4 inline-block"></i>
             </button>
             {% if u.username != 'admin' %}
-            <form method="POST" action="/users/delete/{{ u.username }}" style="display:inline" onsubmit="return confirm('确定删除用户 {{ u.username }}？')">
+            <form method="POST" action="/users/delete/{{ u.username }}" class="inline-block" onsubmit="return showConfirmModal('确认删除', '确定删除用户 {{ u.username }}？', '确认删除', function(){})" && true>
               <button type="submit" class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="删除用户" aria-label="删除用户">
                 <i data-lucide="trash-2" class="w-4 h-4 inline-block"></i>
               </button>
@@ -362,7 +362,7 @@
   </div>
 </div>
 <!-- 添加用户弹窗 -->
-<div id="addUserModal" class="fixed inset-0 z-[99999] hidden items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+<div id="addUserModal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/30 backdrop-blur-sm p-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-auto overflow-hidden max-h-[90vh] flex flex-col">
     <div class="px-6 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-between">
       <h3 class="font-semibold flex items-center gap-2 text-sm">
@@ -438,9 +438,9 @@
 
 {% endblock %}
 
-<script src="{{ url_for('static', filename='users.js') }}" nonce="{{ csp_nonce }}"></script>
+<script src="{{ url_for('static', filename='users.js') }}"></script>
 
-<script nonce="{{ csp_nonce }}">
+<script>
   // 添加用户弹窗
   function openAddUserModal() {
     document.getElementById('addUserModal').classList.remove('hidden');
@@ -503,7 +503,7 @@
     var promises = Array.from(checkboxes).map(function(cb) {
       return fetch('/users/delete/' + cb.dataset.username, {
         method: 'POST',
-        headers: {'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content},
+        headers: {'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content},
         body: '_csrf_token=' + encodeURIComponent(document.querySelector('meta[name="csrf-token"]').content)
       }).then(function(r) { return r.json(); });
     });
@@ -521,3 +521,11 @@
     });
   }
 </script>
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  });
+</script>
+{% endblock %}

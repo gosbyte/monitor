@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import json
+import json as json_mod
 import logging
 from datetime import datetime
 from typing import Any
@@ -137,7 +137,8 @@ def init_db() -> None:
         
         # 插入默认管理员用户
         from werkzeug.security import generate_password_hash
-        default_password = generate_password_hash("admin123")
+        default_password = os.environ.get("DEFAULT_ADMIN_PASSWORD", "admin123")
+        default_password = generate_password_hash(default_password)
         conn.execute(
             "INSERT OR IGNORE INTO users (username, name, password, role) VALUES (?, ?, ?, ?)",
             ("admin", "管理员", default_password, "admin")
@@ -148,7 +149,6 @@ def init_db() -> None:
 
 def migrate_json_to_sqlite() -> int:
     """从 JSON 文件迁移数据到 SQLite"""
-    import json as json_mod
     
     json_dir = os.environ.get("DATA_DIR", os.path.dirname(os.path.abspath(__file__)))
     certs_file = os.path.join(json_dir, "certs.json")
@@ -246,7 +246,7 @@ def db_load_certs() -> list[dict[str, Any]]:
         certs: list[dict[str, Any]] = []
         for r in rows:
             cert = dict(r)
-            cert["responsible_users"] = json.loads(cert.get("responsible_users", "[]"))
+            cert["responsible_users"] = json_mod.loads(cert.get("responsible_users", "[]"))
             cert["remind_enabled"] = bool(cert.get("remind_enabled", True))
             cert["handled"] = bool(cert.get("handled", False))
             certs.append(cert)
@@ -269,7 +269,7 @@ def db_save_cert(cert_data: dict[str, Any]) -> None:
                     (cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
                      cert_data["expire_date"], cert_data.get("note", ""),
                      int(cert_data.get("remind_enabled", True)), int(cert_data.get("handled", False)),
-                     json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
+                     json_mod.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      now, cert_id))
             else:
                 # 不存在则 INSERT
@@ -279,7 +279,7 @@ def db_save_cert(cert_data: dict[str, Any]) -> None:
                     (cert_id, cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
                      cert_data["expire_date"], cert_data.get("note", ""),
                      int(cert_data.get("remind_enabled", True)), int(cert_data.get("handled", False)),
-                     json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
+                     json_mod.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                      cert_data.get("created_by", ""), now, now))
         else:
             conn.execute("""INSERT INTO certs (customer, cert_type, domain, expire_date, note,
@@ -288,7 +288,7 @@ def db_save_cert(cert_data: dict[str, Any]) -> None:
                 (cert_data["customer"], cert_data.get("cert_type", ""), cert_data.get("domain", ""),
                  cert_data["expire_date"], cert_data.get("note", ""),
                  int(cert_data.get("remind_enabled", True)), int(cert_data.get("handled", False)),
-                 json.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
+                 json_mod.dumps(cert_data.get("responsible_users", []), ensure_ascii=False),
                  cert_data.get("created_by", ""), now, now))
 
 
@@ -312,7 +312,7 @@ def db_get_cert(cert_id: int) -> dict[str, Any] | None:
         row = conn.execute("SELECT * FROM certs WHERE id=?", (cert_id,)).fetchone()
         if row:
             cert = dict(row)
-            cert["responsible_users"] = json.loads(cert.get("responsible_users", "[]"))
+            cert["responsible_users"] = json_mod.loads(cert.get("responsible_users", "[]"))
             cert["remind_enabled"] = bool(cert.get("remind_enabled", True))
             cert["handled"] = bool(cert.get("handled", False))
             return cert
@@ -375,8 +375,8 @@ def db_load_config() -> dict[str, Any]:
             # 尝试解析 JSON 数组
             if v.startswith("["):
                 try:
-                    v = json.loads(v)
-                except json.JSONDecodeError:
+                    v = json_mod.loads(v)
+                except json_mod.JSONDecodeError:
                     pass
             elif v.lower() in ("true", "false"):
                 v = v.lower() == "true"
@@ -389,7 +389,7 @@ def db_save_config(cfg_dict: dict[str, Any]) -> None:
     with db_transaction() as conn:
         for k, v in cfg_dict.items():
             if isinstance(v, (list, dict)):
-                v = json.dumps(v, ensure_ascii=False)
+                v = json_mod.dumps(v, ensure_ascii=False)
             elif isinstance(v, bool):
                 v = str(v).lower()
             else:
@@ -431,7 +431,7 @@ def db_save_push_history(customer: str, domain: str, channels: list[str], status
         conn.execute(
             "INSERT INTO push_history (time, cert_customer, cert_domain, channels, status, message) VALUES (?, ?, ?, ?, ?, ?)",
             (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), customer, domain,
-             json.dumps(channels, ensure_ascii=False), status, message)
+             json_mod.dumps(channels, ensure_ascii=False), status, message)
         )
 
 
