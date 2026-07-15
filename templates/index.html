@@ -1866,9 +1866,11 @@ renderActivity();
     </form>
   </div>
 </div>
-<script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
+<script src="/static/lucide.min.js" nonce="{{ csp_nonce }}"></script>
 <script nonce="{{ csp_nonce }}">document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); updateLastTime(); setInterval(updateLastTime, 1000); });</script>
 <script src="/static/dark.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/app.js" nonce="{{ csp_nonce }}"></script>
+<script src="/static/index.js" nonce="{{ csp_nonce }}"></script>
 
 <!-- 自定义确认弹窗（通用） -->
 <div id="confirm-modal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/40 backdrop-blur-sm">

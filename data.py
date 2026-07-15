@@ -587,7 +587,7 @@ def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
 
 
 def calc_stats(certs: list[dict[str, Any]]) -> dict[str, int]:
-    normal = expiring = expired = disabled = 0
+    normal = expiring = expired = disabled = today_expiring = 0
     for c in certs:
         days_left = calc_days_left(c["expire_date"])
         status = get_cert_status(c, days_left)
@@ -599,7 +599,14 @@ def calc_stats(certs: list[dict[str, Any]]) -> dict[str, int]:
             expired += 1
         elif status == "disabled":
             disabled += 1
-    return {"total": len(certs), "normal": normal, "expiring": expiring, "expired": expired, "disabled": disabled}
+        # 今天到期
+        try:
+            expire_dt = datetime.strptime(c["expire_date"], "%Y-%m-%d")
+            if expire_dt.date() == date.today():
+                today_expiring += 1
+        except (ValueError, KeyError):
+            pass
+    return {"total": len(certs), "normal": normal, "expiring": expiring, "expired": expired, "disabled": disabled, "today_expiring": today_expiring}
 
 
 # ── 辅助函数：供 app.py 直接调用 db.py ──────────────────
