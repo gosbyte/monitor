@@ -1,0 +1,471 @@
+{# index_macros.jinja2 — index.html 的 Jinja Macro 组件 #}
+
+{# ── 统计卡片 ────────────────────────────────────── #}
+{% macro render_stat_cards(stats, active_page) %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+  <!-- 总计 -->
+  <div onclick="quickFilter('all')" class="stat-card bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow" data-filter="all">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">总计</p>
+        <p class="text-xl md:text-2xl font-bold mt-1">{{ stats.total }}</p>
+      </div>
+      <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+        <i data-lucide="server" class="w-5 h-5 md:w-6 md:h-6 text-blue-600 dark:text-blue-400"></i>
+      </div>
+    </div>
+  </div>
+  <!-- 正常 -->
+  <div onclick="quickFilter('normal')" class="stat-card bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow" data-filter="normal">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">正常</p>
+        <p class="text-xl md:text-2xl font-bold mt-1 text-green-600">{{ stats.normal }}</p>
+      </div>
+      <div class="w-10 h-10 md:w-12 md:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+        <i data-lucide="circle-check" class="w-5 h-5 md:w-6 md:h-6 text-green-600 dark:text-green-400"></i>
+      </div>
+    </div>
+  </div>
+  <!-- 即将过期 -->
+  <div onclick="quickFilter('expiring')" class="stat-card bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow" data-filter="expiring">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">即将过期</p>
+        <p class="text-xl md:text-2xl font-bold mt-1 text-orange-600">{{ stats.expiring }}</p>
+      </div>
+      <div class="w-10 h-10 md:w-12 md:h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+        <i data-lucide="clock" class="w-5 h-5 md:w-6 md:h-6 text-orange-600 dark:text-orange-400"></i>
+      </div>
+    </div>
+  </div>
+  <!-- 已过期 -->
+  <div onclick="quickFilter('expired')" class="stat-card bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm border border-gray-200 dark:border-gray-700 cursor-pointer hover:shadow-md transition-shadow" data-filter="expired">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-xs text-gray-500 dark:text-gray-400">已过期</p>
+        <p class="text-xl md:text-2xl font-bold mt-1 text-red-600">{{ stats.expired }}</p>
+      </div>
+      <div class="w-10 h-10 md:w-12 md:h-12 bg-red-100 dark:bg-red-900/30 rounded-xl flex items-center justify-center">
+        <i data-lucide="circle-x" class="w-5 h-5 md:w-6 md:h-6 text-red-600 dark:text-red-400"></i>
+      </div>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 图表区域 ────────────────────────────────────── #}
+{% macro render_chart(chart_data) %}
+<div id="chart-section" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+  <div id="chart-toggle-area" class="flex items-center justify-between cursor-pointer mb-2" onclick="toggleChart()">
+    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+      <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+      月度趋势
+    </h3>
+    <i id="chart-chevron" data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+  </div>
+  <div id="chart-body" class="hidden">
+    <div id="chart-content" class="flex items-end gap-1 md:gap-2 h-32 md:h-40 overflow-x-auto pb-2">
+      {% for m in chart_data.months %}
+      <div class="flex flex-col items-center min-w-[24px] md:min-w-[36px]">
+        <div class="relative w-full" style="height: 100px;">
+          <div class="absolute bottom-0 w-full rounded-t bg-gradient-to-t from-blue-600 to-blue-400 dark:from-blue-500 dark:to-blue-300 transition-all duration-500" style="height:{{ (m.count / chart_data.max_monthly * 100)|round|int if chart_data.max_monthly else 0 }}%;min-height:2px;"></div>
+          <span class="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] text-gray-500 whitespace-nowrap">{{ m.count }}</span>
+        </div>
+        <span class="text-[10px] text-gray-400 mt-1 whitespace-nowrap">{{ m.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 使用说明 ────────────────────────────────────── #}
+{% macro render_help() %}
+<div id="help-section" class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+  <div id="help-toggle-area" class="flex items-center justify-between cursor-pointer mb-2" onclick="toggleHelp()">
+    <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+      <i data-lucide="info" class="w-4 h-4"></i>
+      使用说明
+    </h3>
+    <i id="help-chevron" data-lucide="chevron-down" class="w-4 h-4 text-gray-400"></i>
+  </div>
+  <div id="help-content" class="hidden space-y-2 text-xs text-gray-600 dark:text-gray-300">
+    <p>• 点击统计卡片可快速筛选对应状态的证书</p>
+    <p>• 点击表头可按该列排序（再次点击反转顺序）</p>
+    <p>• 使用搜索框和筛选条件组合过滤证书</p>
+    <p>• 快捷键：<kbd class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+K</kbd> 聚焦搜索 / <kbd class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+N</kbd> 新建 / <kbd class="px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded">Esc</kbd> 关闭弹窗</p>
+    <p>• 支持批量操作：勾选后使用工具栏进行批量标记/删除</p>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 筛选栏 ────────────────────────────────────── #}
+{% macro render_filter_bar() %}
+<div id="filter-bar" class="bg-white dark:bg-gray-800 rounded-xl p-3 md:p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
+  <!-- 搜索框 -->
+  <div class="relative mb-3">
+    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+    </div>
+    <input type="text" id="search-input" placeholder="搜索客户名称、证书类型、备注..."
+      class="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+      oninput="filterTable(); showSearchSuggestions(this.value)" onkeydown="if(event.key==='Enter')filterTable(); if(event.key==='ArrowDown')selectSuggestion(1); if(event.key==='ArrowUp')selectSuggestion(-1); if(event.key==='Escape')hideSearchSuggestions();">
+    <div id="search-suggestions" class="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg hidden max-h-48 overflow-y-auto"></div>
+  </div>
+  <!-- 筛选条件 -->
+  <div class="flex flex-wrap gap-2 md:gap-3">
+    <select id="filter-status" onchange="filterTable()" class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+      <option value="">全部状态</option>
+      <option value="normal">✅ 正常</option>
+      <option value="expiring">⚠️ 即将过期</option>
+      <option value="expired">❌ 已过期</option>
+      <option value="disabled">🔕 禁用</option>
+      <option value="handled">✔️ 已处理</option>
+      <option value="unhandled">○ 未处理</option>
+      <option value="mine">👤 我的</option>
+    </select>
+    <select id="filter-type" onchange="filterTable()" class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+      <option value="">全部类型</option>
+      {% for ct in cert_types %}<option value="{{ ct }}">{{ ct }}</option>{% endfor %}
+    </select>
+    <input type="date" id="filter-date-from" onchange="filterTable()" class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none" title="到期日范围（起）">
+    <input type="date" id="filter-date-to" onchange="filterTable()" class="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none" title="到期日范围（止）">
+    <button onclick="resetFilters()" class="px-3 py-2 text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1">
+      <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+      重置
+    </button>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 表格头部 ────────────────────────────────────── #}
+{% macro render_table_header() %}
+<div class="overflow-x-auto">
+<table class="w-full text-sm" id="cert-table">
+  <thead>
+    <tr class="border-b border-gray-200 dark:border-gray-700">
+      <th scope="col" class="px-2 md:px-4 py-3 text-left w-10">
+        <input type="checkbox" id="select-all-header" class="rounded border-gray-300" title="全选">
+      </th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">客户</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">类型</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">到期日</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">剩余天数</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400">状态</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">负责人</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-left font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">备注</th>
+      <th scope="col" class="px-2 md:px-4 py-3 text-center font-medium text-gray-500 dark:text-gray-400">操作</th>
+    </tr>
+  </thead>
+  <tbody id="cert-tbody">
+  </tbody>
+</table>
+</div>
+{% endmacro %}
+
+{# ── 表格行 ────────────────────────────────────── #}
+{% macro render_cert_row(c, show_checkbox, current_user) %}
+<tr data-id="{{ c.id }}" data-customer="{{ c.customer }}" data-status="{{ c.status }}" data-type="{{ c.cert_type }}"
+    data-days="{{ c.days_left }}" data-expire="{{ c.expire_date }}" data-handled="{{ c.handled|lower }}"
+    data-createdby="{{ c.created_by or '' }}" data-note="{{ c.note or '' }}"
+    class="border-b border-gray-100 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors group">
+  <td class="px-2 md:px-4 py-3">
+    {% if show_checkbox %}
+    <input type="checkbox" class="row-checkbox rounded border-gray-300" value="{{ c.id }}" title="选择">
+    {% endif %}
+  </td>
+  <td class="px-2 md:px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+    <div class="truncate max-w-[120px] md:max-w-[200px]" title="{{ c.customer }}">{{ c.customer }}</div>
+  </td>
+  <td class="px-2 md:px-4 py-3">
+    <span class="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded text-xs">{{ c.cert_type }}</span>
+  </td>
+  <td class="px-2 md:px-4 py-3 text-gray-600 dark:text-gray-300">
+    <div class="truncate max-w-[100px] md:max-w-[150px]" title="{{ c.expire_date }}">{{ c.expire_date }}</div>
+  </td>
+  <td class="px-2 md:px-4 py-3">
+    <span class="text-xs font-medium {{ 'text-red-600' if c.days_left <= 0 else 'text-orange-600' if c.days_left <= 30 else 'text-green-600' }}">
+      {{ c.days_left|round|int }}天
+    </span>
+  </td>
+  <td class="px-2 md:px-4 py-3">
+    {{ c.badge_html|safe }}
+  </td>
+  <td class="px-2 md:px-4 py-3 text-gray-600 dark:text-gray-300 hidden md:table-cell">
+    <div class="truncate max-w-[80px] md:max-w-[120px]">{{ c.responsible_users or '-' }}</div>
+  </td>
+  <td class="px-2 md:px-4 py-3 text-gray-500 dark:text-gray-400 hidden md:table-cell">
+    <div class="truncate max-w-[100px] md:max-w-[150px]" title="{{ c.note or '' }}">{{ c.note or '-' }}</div>
+  </td>
+  <td class="px-2 md:px-4 py-3 text-center">
+    <div class="flex items-center justify-center gap-1">
+      <button data-action="edit" data-cert-id="{{ c.id }}" class="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="编辑">
+        <i data-lucide="pencil" class="w-4 h-4"></i>
+      </button>
+      <button data-action="menu" data-cert-id="{{ c.id }}" class="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="更多">
+        <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+      </button>
+      <!-- 行菜单 -->
+      <div id="row-menu-{{ c.id }}" class="hidden fixed z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg py-1 min-w-[160px]">
+        <button data-row-action="push" data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}"
+          class="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          onclick="event.stopPropagation(); closeRowMenu({{ c.id }}); pushCert({{ c.id }}, {{ c.customer|tojson }})">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i> 钉钉推送
+        </button>
+        <button data-row-action="toggle-status" data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}"
+          class="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          onclick="event.stopPropagation(); closeRowMenu({{ c.id }}); toggleStatus({{ c.id }})">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> 切换状态
+        </button>
+        <button data-row-action="toggle-handled" data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}"
+          class="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          onclick="event.stopPropagation(); closeRowMenu({{ c.id }}); toggleHandled({{ c.id }})">
+          <i data-lucide="{{ 'check-circle' if c.handled else 'circle' }}" class="w-3.5 h-3.5"></i>
+          {{ '已处理' if c.handled else '标记处理' }}
+        </button>
+        <button data-row-action="duplicate" data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}"
+          class="w-full px-4 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+          onclick="event.stopPropagation(); closeRowMenu({{ c.id }}); duplicateCert({{ c.id }})">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i> 复制
+        </button>
+        <hr class="my-1 border-gray-200 dark:border-gray-600">
+        <button data-row-action="delete" data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}"
+          class="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+          onclick="event.stopPropagation(); closeRowMenu({{ c.id }}); confirmDelete({{ c.id }}, {{ c.customer|tojson }})">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 删除
+        </button>
+      </div>
+    </div>
+  </td>
+</tr>
+{% endmacro %}
+
+{# ── 分页栏 ────────────────────────────────────── #}
+{% macro render_pagination(current_page, per_page, total_visible) %}
+<div class="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+  <div id="page-info" class="text-sm text-gray-500 dark:text-gray-400">加载中...</div>
+  <div class="flex items-center gap-2">
+    <span class="text-sm text-gray-500">每页</span>
+    <select id="per-page-select" onchange="changePerPage(this.value)" class="px-2 py-1 border border-gray-200 dark:border-gray-600 rounded text-sm bg-gray-50 dark:bg-gray-700">
+      <option value="10">10</option>
+      <option value="20" selected>20</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+    <span class="text-sm text-gray-500">条</span>
+  </div>
+  <div id="page-buttons" class="flex items-center gap-1"></div>
+</div>
+{% endmacro %}
+
+{# ── 骨架屏 ────────────────────────────────────── #}
+{% macro render_skeleton() %}
+<div id="skeleton-loading" class="space-y-3">
+  {% for i in range(5) %}
+  <div class="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+    <div class="flex items-center gap-4 animate-pulse">
+      <div class="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+      <div class="flex-1 space-y-2">
+        <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/6"></div>
+      </div>
+      <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+      <div class="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# ── 添加弹窗 ────────────────────────────────────── #}
+{% macro render_add_modal() %}
+<div id="add-modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 backdrop-blur-sm modal-overlay z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+      <i data-lucide="plus-circle" class="w-4 h-4"></i>
+      添加证书
+    </h3>
+    <form id="add-form" method="POST" action="/api/add" class="space-y-3">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">客户名称 <span class="text-red-500">*</span></label>
+          <input type="text" name="customer" required placeholder="例：阿里巴巴"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">证书类型</label>
+          <input type="text" name="cert_type" list="cert-type-list" placeholder="例：DV SSL"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+          <datalist id="cert-type-list">
+            {% for ct in cert_types %}<option value="{{ ct }}">{% endfor %}
+          </datalist>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">域名 <span class="text-red-500">*</span></label>
+        <input type="text" name="domain" required placeholder="例：example.com"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">到期日期 <span class="text-red-500">*</span></label>
+          <input type="date" name="expire_date" id="add-expire-date" required
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">到期时间</label>
+          <input type="time" name="expire_time" id="add-expire-time" value="00:00"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" name="remind_enabled" checked class="rounded border-gray-300 text-blue-600">
+          启用到期提醒
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" name="handled" class="rounded border-gray-300">
+          标记为已处理
+        </label>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">备注</label>
+        <textarea name="note" rows="2" placeholder="可选备注信息..."
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <input type="checkbox" id="continue-add" class="rounded border-gray-300">
+          添加后继续
+        </label>
+        <span class="text-xs text-gray-400">或点击快捷日期：</span>
+        <span class="expiry-shortcuts flex gap-1">
+          <button type="button" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="7">7天</button>
+          <button type="button" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="30">30天</button>
+          <button type="button" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="90">90天</button>
+          <button type="button" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="180">180天</button>
+          <button type="button" class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded hover:bg-gray-200 dark:hover:bg-gray-600" data-days="365">1年</button>
+        </span>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+        <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">添加</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 编辑弹窗 ────────────────────────────────────── #}
+{% macro render_edit_modal() %}
+<div id="edit-modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 backdrop-blur-sm modal-overlay z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
+    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+      <i data-lucide="pencil" class="w-4 h-4"></i>
+      编辑证书
+    </h3>
+    <form id="edit-cert-form" method="POST" action="/api/edit" class="space-y-3">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="cert_id" id="edit-cert-id">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">客户名称</label>
+          <input type="text" name="customer" id="edit-customer" required
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">证书类型</label>
+          <input type="text" name="cert_type" id="edit-cert-type" list="cert-type-list"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">域名</label>
+        <input type="text" name="domain" id="edit-domain" required
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">到期日期</label>
+          <input type="date" name="expire_date" id="edit-expire-date" required
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">到期时间</label>
+          <input type="time" name="expire_time" id="edit-expire-time" value="00:00"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">备注</label>
+        <textarea name="note" id="edit-note" rows="2"
+          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"></textarea>
+      </div>
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" name="remind_enabled" id="edit-remind-enabled" class="rounded border-gray-300 text-blue-600">
+          启用到期提醒
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 cursor-pointer">
+          <input type="checkbox" name="handled" id="edit-handled" class="rounded border-gray-300">
+          标记为已处理
+        </label>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+        <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 确认弹窗 ────────────────────────────────────── #}
+{% macro render_confirm_modal() %}
+<div id="confirm-modal" class="fixed inset-0 hidden items-center justify-center bg-black/40 backdrop-blur-sm z-50">
+  <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+    <h3 id="confirm-title" class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-2"></h3>
+    <p id="confirm-msg" class="text-sm text-gray-600 dark:text-gray-300 mb-6"></p>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+      <button id="confirm-ok" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">确认</button>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{# ── 批量操作栏 ────────────────────────────────────── #}
+{% macro render_batch_toolbar(show_checkbox) %}
+{% if show_checkbox %}
+<div id="batch-toolbar" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-gray-900/90 dark:bg-gray-800/90 backdrop-blur-sm text-white px-4 py-2.5 rounded-full shadow-lg flex items-center gap-3 text-sm">
+  <span id="selected-count" class="font-medium">已选 0</span>
+  <div class="flex items-center gap-1">
+    <button data-batch-action="handle" data-batch-value="true" class="px-3 py-1.5 text-xs bg-green-600 rounded-lg hover:bg-green-700 transition-colors">✔ 标记处理</button>
+    <button data-batch-action="handle" data-batch-value="false" class="px-3 py-1.5 text-xs bg-yellow-600 rounded-lg hover:bg-yellow-700 transition-colors">○ 取消处理</button>
+    <button data-batch-action="remind" data-batch-value="true" class="px-3 py-1.5 text-xs bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">🔔 启用提醒</button>
+    <button data-batch-action="remind" data-batch-value="false" class="px-3 py-1.5 text-xs bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors">🔕 禁用提醒</button>
+    <button data-batch-action="delete" class="px-3 py-1.5 text-xs bg-red-600 rounded-lg hover:bg-red-700 transition-colors">🗑 删除</button>
+  </div>
+  <button onclick="toggleBatchDropdown()" class="p-1 hover:bg-gray-700 rounded" title="更多">
+    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+  </button>
+  <div id="batch-dropdown" class="hidden absolute bottom-full mb-2 left-0 bg-gray-800 border border-gray-600 rounded-lg shadow-lg py-1 min-w-[140px]">
+    <button data-batch-action="handle" data-batch-value="true" class="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2">
+      <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> 标记已处理
+    </button>
+    <button data-batch-action="remind" data-batch-value="true" class="w-full px-4 py-2 text-sm text-left text-gray-200 hover:bg-gray-700 flex items-center gap-2">
+      <i data-lucide="bell" class="w-3.5 h-3.5"></i> 启用提醒
+    </button>
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{# ── 底部信息 ────────────────────────────────────── #}
+{% macro render_footer() %}
+<div class="mt-4 text-center text-xs text-gray-400">
+  <span>更新于 <span id="last-update-time"></span></span>
+</div>
+{% endmacro %}

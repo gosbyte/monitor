@@ -1,0 +1,198 @@
+/* ============================================
+   Cert-Monitor — Common Styles
+   Shared across all templates
+   ============================================ */
+
+/* ── Touch & Selection ─────────────────────── */
+* {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Allow text selection everywhere EXCEPT buttons/interactive elements */
+body {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+input, textarea, [contenteditable], .selectable {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* ── Safe Area Insets (iPhone notch/home bar) ── */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+  #main-content {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  #toast-container {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    right: max(1rem, env(safe-area-inset-right));
+  }
+  .mobile-header {
+    padding-top: max(0.35rem, env(safe-area-inset-top));
+  }
+}
+
+/* ── Fix right white bar on mobile ── */
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+html, body {
+  width: 100%;
+  max-width: 100vw;
+}
+#main-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* ── 100dvh support ────────────────────────── */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+  #sidebar { height: 100dvh; }
+  .modal-overlay, [class*="fixed"] { min-height: 100dvh; }
+}
+
+/* ── Mobile Touch Targets ──────────────────── */
+@media (max-width: 767px) {
+  button, .action-btn, [role="button"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  select,
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="file"] {
+    font-size: 16px !important;
+    min-height: 44px !important;
+  }
+  input[type="file"]::-webkit-file-upload-button {
+    font-size: 16px !important;
+    padding: 0.5rem 1rem !important;
+    min-height: 44px !important;
+  }
+  
+  /* ── Increase font sizes on mobile ── */
+  body {
+    font-size: 15px !important;
+  }
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  h1 { font-size: 1.25rem !important; }
+  h2 { font-size: 1.125rem !important; }
+  h3 { font-size: 1rem !important; }
+  p, span, div, td, th, label {
+    font-size: 0.9rem !important;
+  }
+  .text-sm { font-size: 0.875rem !important; }
+  .text-xs { font-size: 0.75rem !important; }
+}
+
+/* ── Landscape Mode Optimization ───────────── */
+@media (max-width: 1023px) and (orientation: landscape) {
+  table { display: table !important; }
+  table thead, table tbody { display: table-header-group !important; display: table-row-group !important; }
+  table tr { display: table-row !important; }
+  table td, table th { display: table-cell !important; }
+}
+
+/* ── Reduced Motion ────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Print Styles ──────────────────────────── */
+@media print {
+  #sidebar, .mobile-header, #sidebar-overlay, #toast-container,
+  .batch-toolbar, #global-loading, #confirm-modal {
+    display: none !important;
+  }
+  body { background: white !important; color: black !important; }
+  body.dark-mode, body.dark-mode * { background: white !important; color: black !important; }
+  main { margin: 0 !important; padding: 1cm !important; }
+  table { width: 100% !important; page-break-inside: auto !important; }
+  tr { page-break-inside: avoid !important; page-break-after: auto !important; }
+  thead { display: table-header-group !important; }
+  a { text-decoration: underline !important; color: black !important; }
+  a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.7em; }
+}
+
+/* ── Inline Style Replacements ───────────────────── */
+.fs-14 { font-size: 14px; }
+.fs-28 { font-size: 28px; }
+.text-muted { opacity: 0.6; }
+.text-hover:hover { opacity: 1; }
+.inline-block { display: inline-block; }
+.inline-flex { display: inline-flex; }
+
+
+/* ── Mobile Optimizations ──────────────────── */
+/* Fix iOS 100vh issue with address bar */
+@supports (height: 100dvh) {
+  body { min-height: 100dvh; }
+}
+
+/* Improve select dropdown appearance on mobile */
+select {
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  padding-right: 2.5rem !important;
+}
+
+/* Ensure smooth sidebar transitions on mobile */
+#sidebar {
+  will-change: transform;
+}
+
+/* Prevent tap highlight on non-clickable elements */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Improve touch targets for small buttons */
+@media (max-width: 640px) {
+  .page-btn, .btn-sm, .pagination button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* Make table more mobile-friendly */
+  table th, table td {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.8rem !important;
+  }
+  
+  /* Prevent overflow issues */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Toast notification positioning for mobile keyboards */
+@media (max-height: 500px) {
+  #toast-container {
+    bottom: 2rem !important;
+  }
+}

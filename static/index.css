@@ -1,0 +1,172 @@
+/* ============================================
+   Cert-Monitor — Index Page Specific Styles
+   Only loaded on the dashboard page
+   ============================================ */
+
+/* ── Font Family ───────────────────────────── */
+* {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif;
+}
+
+/* ── Modal Overlay ─────────────────────────── */
+.modal-overlay { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+
+/* ── Table Row Animations ──────────────────── */
+#cert-tbody tr { transition: opacity 0.2s ease, transform 0.2s ease; }
+
+/* ── Toast Animations ──────────────────────── */
+@keyframes toast-slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toast-slide-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+.toast-enter { animation: toast-slide-in 0.3s ease-out forwards; }
+.toast-exit { animation: toast-slide-out 0.3s ease-in forwards; }
+.toast-progress { height: 3px; border-radius: 0 0 4px 4px; animation: toast-progress 3s linear forwards; }
+@keyframes toast-progress { from { width: 100%; } to { width: 0%; } }
+
+/* ── Body Scroll Lock ──────────────────────── */
+body.modal-open { overflow: hidden; }
+
+/* ── Table Row Hover Enhancement ───────────── */
+#cert-tbody tr:hover { background: #eff6ff !important; }
+#cert-tbody tr.expired-row:hover { background: #fef2f2 !important; }
+#cert-tbody tr:hover td:first-child { position: relative; }
+#cert-tbody tr:hover td:first-child::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: #3b82f6; border-radius: 0 2px 2px 0;
+}
+
+/* ── Batch Toolbar ─────────────────────────── */
+.batch-btn { white-space: nowrap; }
+
+/* ── Pagination Overflow ───────────────────── */
+#page-buttons { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+#page-buttons::-webkit-scrollbar { height: 2px; }
+#page-buttons::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+/* ── Stat Card Hover ───────────────────────── */
+.stat-card { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.stat-card:hover { border-color: #93c5fd; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+/* ── Action Button Micro-interactions ──────── */
+.action-btn { transition: background-color 0.15s ease, border-color 0.15s ease; }
+.action-btn:hover { background-color: #f3f4f6; border-color: #d1d5db; }
+.action-btn:active { background-color: #e5e7eb; }
+
+/* ── Fade-in Animation ─────────────────────── */
+.fade-in { animation: fadeIn 0.3s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Row Slide Animation ───────────────────── */
+.row-animate { animation: rowFadeIn 0.3s ease-out; }
+@keyframes rowFadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ── Date/Time Picker Mobile Optimization ──── */
+@media (max-width: 767px) {
+  input[type="date"], input[type="time"] {
+    font-size: 16px !important;
+    padding: 0.75rem !important;
+    min-height: 44px;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    font-size: 20px;
+    padding: 4px;
+    cursor: pointer;
+  }
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    font-size: 20px;
+    padding: 4px;
+    cursor: pointer;
+  }
+}
+
+/* ── Mobile Dashboard Optimizations ────────── */
+@media (max-width: 767px) {
+  /* Stat cards: compact spacing */
+  .stat-card { padding: 1rem !important; }
+  .stat-card .w-10 { width: 2.5rem !important; height: 2.5rem !important; }
+  .stat-card .text-2xl { font-size: 1.25rem !important; }
+  .stat-card .text-sm { font-size: 0.75rem !important; }
+  .stat-card .flex { gap: 0.5rem !important; }
+
+  /* Main content: tighter padding */
+  main { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+
+  /* Table: compact rows, hide note column */
+  #cert-tbody td { padding: 0.75rem 0.5rem !important; font-size: 0.8rem !important; }
+  #cert-thead th { padding: 0.5rem 0.5rem !important; font-size: 0.75rem !important; }
+  .rounded-xl { border-radius: 0.5rem !important; }
+
+  /* Action buttons: larger touch targets */
+  .action-btn { padding: 0.5rem !important; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+
+  /* Filter bar horizontal scroll */
+  #filter-bar-mobile { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  #filter-bar-mobile::-webkit-scrollbar { display: none; }
+
+  /* Chart area: single column */
+  #chart-content { grid-template-columns: 1fr !important; }
+
+  /* Batch toolbar stacked */
+  #batch-toolbar { flex-direction: column; }
+  #batch-toolbar .flex-wrap { width: 100%; }
+
+  /* Pagination: start-aligned */
+  #page-buttons { justify-content: flex-start; }
+
+  /* Modal: full width */
+  .modal-overlay { padding: 0.5rem !important; }
+  .modal-overlay > div { width: 100% !important; max-width: none !important; }
+
+  /* Search suggestions: full width */
+  #search-suggestions { left: 0 !important; right: 0 !important; }
+
+  /* ── Mobile Table → Card Layout ──────────── */
+  #cert-tbody tr {
+    display: block; margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.75rem;
+  }
+  #cert-tbody tr td {
+    display: block; text-align: left; padding: 0.5rem 0.75rem !important; border: none !important;
+  }
+  #cert-tbody tr td:first-child { font-weight: 600; padding-top: 0.75rem !important; }
+  #cert-tbody tr td:nth-child(2) { color: #6b7280; }
+  #cert-tbody tr td:nth-child(3) { color: #9ca3af; }
+  #cert-tbody tr td:last-child { padding-bottom: 0.75rem !important; border-top: 1px solid #f3f4f6; margin-top: 0.25rem; }
+  #cert-tbody td.hidden-mobile { display: none !important; }
+
+  /* ── Mobile Modal Bottom Sheet ───────────── */
+  .modal-overlay { align-items: flex-end !important; }
+  .modal-overlay > div {
+    border-radius: 1rem 1rem 0 0 !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalSlideUp 0.3s ease-out;
+  }
+  @keyframes modalSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+}
+
+/* ── Tablet Adaptation ─────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .stat-card .flex { gap: 0.75rem !important; }
+  #chart-content { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ── Mobile Pagination ─────────────────────── */
+@media (max-width: 767px) {
+  #page-buttons { justify-content: flex-start; padding-bottom: 0.25rem; }
+  #page-buttons button { min-width: 44px; min-height: 44px; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  #per-page-select { font-size: 16px !important; min-height: 44px; }
+}
+
+/* ── Mobile Search ─────────────────────────── */
+@media (max-width: 767px) {
+  #search-suggestions { max-height: 60vh !important; }
+  #search-input { font-size: 16px !important; min-height: 44px; }
+}
+
+/* ── Landscape Mode Optimizations ──────────── */
+@media (max-width: 1023px) and (orientation: landscape) {
+  .stat-card { flex: 1 1 calc(50% - 0.5rem) !important; min-width: 140px; }
+  #chart-content { grid-template-columns: 1fr 1fr !important; }
+  #cert-tbody tr { display: table-row !important; }
+  #cert-tbody tr td { display: table-cell !important; }
+  #cert-thead { display: table-header-group !important; }
+}

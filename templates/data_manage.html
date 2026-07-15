@@ -1,0 +1,480 @@
+{% extends 'base.html' %}
+
+{% block title %}数据管理{% endblock %}
+
+{% block head %}<style nonce="{{ csp_nonce }}"> * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; } </style>
+  <link rel="stylesheet" href="/static/dark.css">
+{% endblock %}
+
+{% block content %}
+<div class="md:ml-64 p-4 md:p-6 lg:p-8">
+
+<main class="max-w-6xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- Tab 切换 -->
+  <div class="flex border-b border-gray-200">
+    <button onclick="switchDataTab('import')" id="tab-import" class="px-6 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px">
+      <i data-lucide="upload" class="w-4 h-4 inline-block mr-2"></i>批量导入
+    </button>
+    <button onclick="switchDataTab('export')" id="tab-export" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+      <i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block mr-2"></i>导出
+    </button>
+    <button onclick="switchDataTab('quality')" id="tab-quality" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+      <i data-lucide="activity" class="w-4 h-4 inline-block mr-2"></i>数据质量
+    </button>
+  </div>
+
+  <!-- ── 导入面板 ── -->
+  <div id="panel-import" class="space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <span style="font-size:14px"><i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block"></i></span> Excel 导入
+      </h2>
+
+      <!-- 结果提示 -->
+      <div id="result-area" class="hidden p-3 rounded-lg text-sm mb-4"></div>
+
+      <!-- 上传区域 -->
+      <div id="upload-area">
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer" onclick="document.getElementById('excel-file').click()">
+          <i data-lucide="upload-cloud" class="w-10 h-10 inline-block text-gray-400 mb-3"></i>
+          <p class="text-gray-600 text-sm mb-1">点击或拖拽上传 Excel 文件（.xlsx）</p>
+          <p class="text-gray-400 text-xs">支持 .xlsx 格式，必填字段：客户名称、到期日期</p>
+          <input type="file" id="excel-file" accept=".xlsx" class="hidden" onchange="onFileSelected(event)">
+        </div>
+        <div class="flex gap-3 mt-4">
+          <a href="/import/template" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            <i data-lucide="download" class="w-4 h-4 inline-block"></i> 下载模板
+          </a>
+        </div>
+      </div>
+
+      <!-- 预览区域 -->
+      <div id="preview-area" class="hidden mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-medium text-gray-700">数据预览（前5条）</h3>
+          <span id="preview-info" class="text-xs text-gray-400"></span>
+        </div>
+        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+          <table class="w-full text-sm" id="preview-table">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">客户名称</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">提醒类型</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">到期日期</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">提醒启用</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">已处理</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">负责人</th>
+                <th class="px-3 py-2 text-left font-medium text-gray-600">备注</th>
+              </tr>
+            </thead>
+            <tbody id="preview-tbody" class="divide-y divide-gray-100"></tbody>
+          </table>
+        </div>
+        <div class="flex gap-3 mt-4">
+          <button onclick="doImport()" id="import-btn" class="inline-flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+            <i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入
+          </button>
+          <button onclick="cancelImport()" class="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm">
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 导出面板 ── -->
+  <div id="panel-export" class="hidden space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <i data-lucide="file-spreadsheet" class="w-16 h-16 inline-block text-green-500 mb-4"></i>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">导出 Excel</h2>
+        <p class="text-gray-500 text-sm mb-6">将所有记录导出为 .xlsx 格式的 Excel 表格。</p>
+        <a href="/export/excel" class="inline-flex items-center gap-2 px-8 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors text-sm font-semibold shadow-md">
+          <i data-lucide="download" class="w-5 h-5"></i> 下载 Excel
+        </a>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <i data-lucide="file-json" class="w-16 h-16 inline-block text-amber-500 mb-4"></i>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">导出 JSON</h2>
+        <p class="text-gray-500 text-sm mb-6">将所有记录导出为 .json 格式文件，适合备份和迁移。</p>
+        <a href="/export/json" class="inline-flex items-center gap-2 px-8 py-3 bg-amber-500 text-white rounded-xl hover:bg-amber-600 transition-colors text-sm font-semibold shadow-md">
+          <i data-lucide="download" class="w-5 h-5"></i> 下载 JSON
+        </a>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <i data-lucide="file-text" class="w-16 h-16 inline-block text-purple-500 mb-4"></i>
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">导出 CSV</h2>
+        <p class="text-gray-500 text-sm mb-6">将所有记录导出为 .csv 格式文件（UTF-8 BOM）。</p>
+        <a href="/export/csv" class="inline-flex items-center gap-2 px-8 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors text-sm font-semibold shadow-md">
+          <i data-lucide="download" class="w-5 h-5"></i> 下载 CSV
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 数据质量面板 ── -->
+  <div id="panel-quality" class="hidden space-y-6">
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold text-gray-900 flex items-center gap-2">
+          <i data-lucide="activity" class="w-5 h-5 inline-block text-blue-600"></i> 数据质量报告
+        </h2>
+        <button onclick="loadQualityReport()" id="refresh-quality-btn"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+          <i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告
+        </button>
+      </div>
+      <p class="text-sm text-gray-500 mb-4">扫描所有证书记录，检测重复、缺失字段、过期记录和长期未更新的数据。</p>
+
+      <!-- 加载状态 -->
+      <div id="quality-loading" class="hidden text-center py-12">
+        <svg class="animate-spin w-8 h-8 mx-auto text-blue-600 mb-3" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg>
+        <p class="text-gray-500 text-sm">正在分析数据质量...</p>
+      </div>
+
+      <!-- 统计概览 -->
+      <div id="quality-overview" class="hidden">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="quality-stats-grid"></div>
+      </div>
+
+      <!-- 问题详情 -->
+      <div id="quality-details" class="hidden space-y-4">
+        <!-- 重复域名 -->
+        <div id="section-duplicates" class="hidden">
+          <h3 class="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
+            <i data-lucide="copy" class="w-4 h-4"></i> 重复域名
+          </h3>
+          <div class="overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="w-full text-sm">
+              <thead class="bg-amber-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-amber-800">域名</th>
+                  <th class="px-3 py-2 text-left font-medium text-amber-800">重复记录数</th>
+                  <th class="px-3 py-2 text-left font-medium text-amber-800">记录 ID</th>
+                </tr>
+              </thead>
+              <tbody id="duplicate-tbody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 缺失字段 -->
+        <div id="section-missing" class="hidden">
+          <h3 class="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
+            <i data-lucide="circle-alert" class="w-4 h-4"></i> 缺失字段
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="missing-fields-grid"></div>
+        </div>
+
+        <!-- 过期未处理 -->
+        <div id="section-expired" class="hidden">
+          <h3 class="text-sm font-semibold text-red-700 mb-2 flex items-center gap-2">
+            <i data-lucide="triangle-alert" class="w-4 h-4"></i> 过期未处理
+          </h3>
+          <div class="overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="w-full text-sm">
+              <thead class="bg-red-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-red-800">ID</th>
+                  <th class="px-3 py-2 text-left font-medium text-red-800">客户名称</th>
+                  <th class="px-3 py-2 text-left font-medium text-red-800">域名</th>
+                  <th class="px-3 py-2 text-left font-medium text-red-800">到期日期</th>
+                  <th class="px-3 py-2 text-left font-medium text-red-800">已过期天数</th>
+                </tr>
+              </thead>
+              <tbody id="expired-tbody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 长期未更新 -->
+        <div id="section-unupdated" class="hidden">
+          <h3 class="text-sm font-semibold text-orange-700 mb-2 flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4"></i> 长期未更新
+          </h3>
+          <div class="overflow-x-auto border border-gray-200 rounded-lg">
+            <table class="w-full text-sm">
+              <thead class="bg-orange-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium text-orange-800">ID</th>
+                  <th class="px-3 py-2 text-left font-medium text-orange-800">客户名称</th>
+                  <th class="px-3 py-2 text-left font-medium text-orange-800">原因</th>
+                  <th class="px-3 py-2 text-left font-medium text-orange-800">最后更新时间</th>
+                </tr>
+              </thead>
+              <tbody id="unupdated-tbody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 无问题提示 -->
+      <div id="quality-ok" class="hidden text-center py-8">
+        <i data-lucide="check-circle-2" class="w-16 h-16 inline-block text-green-500 mb-3"></i>
+        <p class="text-green-700 font-medium">数据质量良好，未发现明显问题！</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let _csrfToken = "{{ csrf_token }}";
+let previewData = null;
+
+function switchDataTab(tab) {
+  document.getElementById('panel-import').classList.add('hidden');
+  document.getElementById('panel-export').classList.add('hidden');
+  document.getElementById('panel-quality').classList.add('hidden');
+  ['import','export','quality'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    el.classList.remove('border-blue-600','text-blue-600');
+    el.classList.add('border-transparent','text-gray-500');
+  });
+  document.getElementById('panel-'+tab).classList.remove('hidden');
+  const activeTab = document.getElementById('tab-'+tab);
+  activeTab.classList.remove('border-transparent','text-gray-500');
+  activeTab.classList.add('border-blue-600','text-blue-600');
+  if (tab === 'quality') loadQualityReport();
+}
+
+function showDataManageResult(ok, msg) {
+  const area = document.getElementById('result-area');
+  area.classList.remove('hidden','bg-green-50','text-green-700','border-green-200','bg-red-50','text-red-700','border-red-200');
+  if (ok) {
+    area.classList.add('bg-green-50','text-green-700','border','border-green-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="check-circle-2" class="w-4 h-4 inline-block text-green-600 mr-1"></i></span> ' + msg;
+  } else {
+    area.classList.add('bg-red-50','text-red-700','border','border-red-200');
+    area.innerHTML = '<span style="font-size:14px"><i data-lucide="x-circle" class="w-4 h-4 inline-block text-red-600 mr-1"></i></span> ' + msg;
+  }
+  lucide.createIcons();
+}
+
+function onFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.name.endsWith('.xlsx')) {
+    showDataManageResult(false, '请选择 .xlsx 格式的文件');
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('_csrf_token', _csrfToken);
+  showDataManageResult(true, '正在解析文件...');
+  fetch('/api/preview_import', {
+    method: 'POST',
+    headers: {'X-CSRF-Token': _csrfToken},
+    body: formData
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.csrf_token) _csrfToken = data.csrf_token;
+    if (!data.ok) { showDataManageResult(false, data.message || '文件解析失败'); return; }
+    previewData = data.data;
+    document.getElementById('upload-area').classList.add('hidden');
+    document.getElementById('result-area').classList.add('hidden');
+    document.getElementById('preview-area').classList.remove('hidden');
+    document.getElementById('preview-info').textContent = `共 ${data.total} 条记录`;
+    const tbody = document.getElementById('preview-tbody');
+    tbody.innerHTML = '';
+    data.data.slice(0, 5).forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td class="px-3 py-2">${row.customer || '-'}</td><td class="px-3 py-2">${row.cert_type || '-'}</td><td class="px-3 py-2">${row.expiry_date || row.expire_date || '-'}</td><td class="px-3 py-2">${row.remind_enabled !== false ? '是' : '否'}</td><td class="px-3 py-2">${row.handled ? '是' : '否'}</td><td class="px-3 py-2">${row.responsible_users || '-'}</td><td class="px-3 py-2">${row.note || '-'}</td>`;
+      tbody.appendChild(tr);
+    });
+  })
+  .catch(err => showDataManageResult(false, '网络错误：' + err.message));
+}
+
+function doImport() {
+  if (!previewData) return;
+  const btn = document.getElementById('import-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 导入中...';
+  fetch('/api/import_excel', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken},
+    body: JSON.stringify({data: previewData, _csrf_token: _csrfToken})
+  })
+  .then(r => r.json())
+  .then(result => {
+    if (result.csrf_token) _csrfToken = result.csrf_token;
+    showResult(result.ok, result.message || (result.ok ? '导入成功！' : '导入失败'));
+    if (result.ok) {
+      setTimeout(() => { window.location.href = '/'; }, 1500);
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+      lucide.createIcons();
+    }
+  })
+  .catch(err => {
+    showDataManageResult(false, '网络错误：' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
+    lucide.createIcons();
+  });
+}
+
+function cancelImport() {
+  previewData = null;
+  document.getElementById('preview-area').classList.add('hidden');
+  document.getElementById('upload-area').classList.remove('hidden');
+  document.getElementById('result-area').classList.add('hidden');
+  document.getElementById('excel-file').value = '';
+}
+
+// ═══════════════════════════════════════════════════════════
+// 数据质量报告
+// ═══════════════════════════════════════════════════════════
+function loadQualityReport() {
+  const loadingEl = document.getElementById('quality-loading');
+  const overviewEl = document.getElementById('quality-overview');
+  const detailsEl = document.getElementById('quality-details');
+  const okEl = document.getElementById('quality-ok');
+  const btn = document.getElementById('refresh-quality-btn');
+
+  // 显示加载状态
+  loadingEl.classList.remove('hidden');
+  overviewEl.classList.add('hidden');
+  detailsEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 加载中...';
+
+  fetch('/api/data-quality')
+    .then(r => r.json())
+    .then(data => {
+      loadingEl.classList.add('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
+
+      if (!data.ok) {
+        alert('加载失败: ' + (data.message || '未知错误'));
+        return;
+      }
+
+      const report = data.report;
+      const stats = report.statistics;
+      const hasIssues = stats.duplicate_domain_groups > 0 ||
+                        stats.missing_customer > 0 || stats.missing_domain > 0 ||
+                        stats.missing_expire_date > 0 || stats.disabled_remind > 0 ||
+                        stats.expired_unhandled > 0 || stats.long_unupdated > 0;
+
+      if (!hasIssues) {
+        okEl.classList.remove('hidden');
+        return;
+      }
+
+      // 统计概览卡片
+      overviewEl.classList.remove('hidden');
+      detailsEl.classList.remove('hidden');
+      const grid = document.getElementById('quality-stats-grid');
+      grid.innerHTML = `
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold text-blue-700">${stats.total_records}</div>
+          <div class="text-xs text-blue-600 mt-1">总记录数</div>
+        </div>
+        <div class="${stats.duplicate_domain_groups > 0 ? 'bg-amber-50' : 'bg-green-50'} rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold ${stats.duplicate_domain_groups > 0 ? 'text-amber-700' : 'text-green-700'}">${stats.duplicate_domain_groups}</div>
+          <div class="text-xs ${stats.duplicate_domain_groups > 0 ? 'text-amber-600' : 'text-green-600'} mt-1">重复域名组</div>
+        </div>
+        <div class="${stats.expired_unhandled > 0 ? 'bg-red-50' : 'bg-green-50'} rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold ${stats.expired_unhandled > 0 ? 'text-red-700' : 'text-green-700'}">${stats.expired_unhandled}</div>
+          <div class="text-xs ${stats.expired_unhandled > 0 ? 'text-red-600' : 'text-green-600'} mt-1">过期未处理</div>
+        </div>
+        <div class="${stats.long_unupdated > 0 ? 'bg-orange-50' : 'bg-green-50'} rounded-lg p-4 text-center">
+          <div class="text-2xl font-bold ${stats.long_unupdated > 0 ? 'text-orange-700' : 'text-green-700'}">${stats.long_unupdated}</div>
+          <div class="text-xs ${stats.long_unupdated > 0 ? 'text-orange-600' : 'text-green-600'} mt-1">长期未更新</div>
+        </div>
+      `;
+
+      // 重复域名
+      const dupSection = document.getElementById('section-duplicates');
+      if (stats.duplicate_domain_groups > 0) {
+        dupSection.classList.remove('hidden');
+        const tbody = document.getElementById('duplicate-tbody');
+        tbody.innerHTML = '';
+        report.duplicate_domains.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="px-3 py-2">${d.domain}</td><td class="px-3 py-2 text-amber-600">${d.count} 条</td><td class="px-3 py-2 text-xs">${d.ids.join(', ')}</td>`;
+          tbody.appendChild(tr);
+        });
+      } else {
+        dupSection.classList.add('hidden');
+      }
+
+      // 缺失字段
+      const missingSection = document.getElementById('section-missing');
+      const missingCount = stats.missing_customer + stats.missing_domain + stats.missing_expire_date + stats.disabled_remind;
+      if (missingCount > 0) {
+        missingSection.classList.remove('hidden');
+        const grid = document.getElementById('missing-fields-grid');
+        grid.innerHTML = `
+          ${stats.missing_customer > 0 ? `<div class="bg-red-50 rounded-lg p-4"><h4 class="text-sm font-medium text-red-800 mb-1">缺少客户名称 (${stats.missing_customer})</h4><p class="text-xs text-red-600">记录ID: ${report.missing_fields.no_customer.join(', ')}</p></div>` : ''}
+          ${stats.missing_domain > 0 ? `<div class="bg-red-50 rounded-lg p-4"><h4 class="text-sm font-medium text-red-800 mb-1">缺少域名 (${stats.missing_domain})</h4><p class="text-xs text-red-600">记录ID: ${report.missing_fields.no_domain.join(', ')}</p></div>` : ''}
+          ${stats.missing_expire_date > 0 ? `<div class="bg-red-50 rounded-lg p-4"><h4 class="text-sm font-medium text-red-800 mb-1">缺少到期日期 (${stats.missing_expire_date})</h4><p class="text-xs text-red-600">记录ID: ${report.missing_fields.no_expire_date.join(', ')}</p></div>` : ''}
+          ${stats.disabled_remind > 0 ? `<div class="bg-orange-50 rounded-lg p-4"><h4 class="text-sm font-medium text-orange-800 mb-1">提醒已禁用 (${stats.disabled_remind})</h4><p class="text-xs text-orange-600">记录ID: ${report.missing_fields.no_remind_enabled.join(', ')}</p></div>` : ''}
+        `.trim();
+      } else {
+        missingSection.classList.add('hidden');
+      }
+
+      // 过期未处理
+      const expiredSection = document.getElementById('section-expired');
+      if (stats.expired_unhandled > 0) {
+        expiredSection.classList.remove('hidden');
+        const tbody = document.getElementById('expired-tbody');
+        tbody.innerHTML = '';
+        report.expired_records.slice(0, 20).forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="px-3 py-2">${r.id}</td><td class="px-3 py-2">${r.customer}</td><td class="px-3 py-2">${r.domain||'-'}</td><td class="px-3 py-2">${r.expire_date}</td><td class="px-3 py-2 text-red-600 font-medium">${r.days_expired} 天</td>`;
+          tbody.appendChild(tr);
+        });
+        if (report.expired_records.length > 20) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="5" class="px-3 py-2 text-center text-gray-500 text-xs">还有 ${report.expired_records.length - 20} 条记录...</td>`;
+          tbody.appendChild(tr);
+        }
+      } else {
+        expiredSection.classList.add('hidden');
+      }
+
+      // 长期未更新
+      const unupdatedSection = document.getElementById('section-unupdated');
+      if (stats.long_unupdated > 0) {
+        unupdatedSection.classList.remove('hidden');
+        const tbody = document.getElementById('unupdated-tbody');
+        tbody.innerHTML = '';
+        report.long_unupdated.slice(0, 20).forEach(r => {
+          const tr = document.createElement('tr');
+          const reason = r.reason || (r.days_since_update != null ? `已 ${r.days_since_update} 天未更新` : '从未更新');
+          const updatedAt = r.updated_at || '-';
+          tr.innerHTML = `<td class="px-3 py-2">${r.id}</td><td class="px-3 py-2">${r.customer}</td><td class="px-3 py-2 text-orange-600">${reason}</td><td class="px-3 py-2 text-xs">${updatedAt}</td>`;
+          tbody.appendChild(tr);
+        });
+        if (report.long_unupdated.length > 20) {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="4" class="px-3 py-2 text-center text-gray-500 text-xs">还有 ${report.long_unupdated.length - 20} 条记录...</td>`;
+          tbody.appendChild(tr);
+        }
+      } else {
+        unupdatedSection.classList.add('hidden');
+      }
+
+      lucide.createIcons();
+    })
+    .catch(err => {
+      loadingEl.classList.add('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="refresh-cw" class="w-4 h-4 inline-block"></i> 刷新报告';
+      alert('网络错误：' + err.message);
+    });
+}
+document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
+{% endblock %}

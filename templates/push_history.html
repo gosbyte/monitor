@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}推送历史{% endblock %}
+
+{% block head %}
+>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>推送记录</title>
+  <style nonce="{{ csp_nonce }}">
+    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
+  </style>
+  <link rel="stylesheet" href="/static/dark.css">
+{% endblock %}
+
+{% block content %}
+<div class="md:ml-64 p-4 md:p-6 lg:p-8">
+
+<!-- 顶部导航 -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-10">
+  <div class="max-w-7xl mx-auto px-4 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <a href="/" class="flex items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors text-sm">
+          <span style="font-size:14px"><i data-lucide="arrow-left" class="w-4 h-4 inline-block"></i></span> 返回
+        </a>
+        <span class="text-gray-300">|</span>
+        <h1 class="text-lg font-semibold text-gray-900">推送记录</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleDarkMode()" class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
+          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
+          <span id="dark-label">暗色模式</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6">
+
+  {% if not history %}
+  <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+    <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="inbox" class="w-5 h-5 inline-block text-gray-400"></i>
+    </div>
+    <p class="text-gray-500 text-sm">暂无推送记录</p>
+    <p class="text-gray-400 text-xs mt-1">到期时自动推送，或手动点击「推送」按钮</p>
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[600px] text-sm">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 w-16">#</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">时间</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">渠道</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">关联事项</th>
+            <th class="px-4 py-3 text-left font-semibold text-gray-600 whitespace-nowrap">接收人</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">状态</th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600 whitespace-nowrap">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for record in history %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 text-gray-400">{{ loop.index }}</td>
+            <td class="px-4 py-3 text-gray-700 font-mono text-xs whitespace-nowrap">{{ record.time }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              {% if record.channel == '钉钉' %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium whitespace-nowrap">
+                <i data-lucide="bot" class="w-3 h-3 inline-block"></i> 钉钉
+              </span>
+              {% elif record.channel == '企业微信' %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
+                <i data-lucide="message-circle" class="w-3 h-3 inline-block"></i> 企业微信
+              </span>
+              {% elif record.channel == '邮件' %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium whitespace-nowrap">
+                <i data-lucide="mail" class="w-3 h-3 inline-block"></i> 邮件
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium whitespace-nowrap">
+                {{ record.channel }}
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-700">
+              <div class="flex flex-wrap gap-1">
+                {% for cert_name in record.certs %}
+                <span class="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs whitespace-nowrap">{{ cert_name }}</span>
+                {% endfor %}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-gray-500 text-xs max-w-[200px] truncate" title="{{ record.recipients }}">{{ record.recipients }}</td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">
+              {% if record.success %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium whitespace-nowrap">
+                <i data-lucide="check-circle" class="w-3 h-3 inline-block"></i> 成功
+              </span>
+              {% else %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium whitespace-nowrap" title="{{ record.detail or '' }}">
+                <i data-lucide="x-circle" class="w-3 h-3 inline-block"></i> 失败
+              </span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-center whitespace-nowrap">
+              {% if record.certs and is_admin %}
+              <a href="/?search={{ record.certs[0] | urlencode }}" class="text-blue-600 hover:text-blue-800 text-xs" title="在列表中定位">
+                <i data-lucide="external-link" class="w-3 h-3 inline-block"></i> 定位
+              </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="text-xs text-gray-400 mt-3 text-center">共 {{ history|length }} 条记录</p>
+  {% endif %}
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
+{% endblock %}

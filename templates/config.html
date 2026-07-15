@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+
+{% block title %}系统配置{% endblock %}
+
+{% block head %}
+  <style nonce="{{ csp_nonce }}">
+    * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
+  </style>
+  <link rel="stylesheet" href="/static/dark.css">
+{% endblock %}
+
+{% block content %}
+<main class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- 钉钉机器人卡片 -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+      <span style="font-size:14px"><i data-lucide="bot" class="w-4 h-4 inline-block text-blue-600"></i></span> 钉钉机器人设置
+    </h2>
+    <form id="dingtalk-form" class="space-y-5">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
+        <input name="webhook_url" id="dingtalk-webhook" aria-label="钉钉 Webhook 地址" value="{{ cfg.get('webhook_url', '') }}"
+          placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
+        <p class="mt-1.5 text-xs text-gray-500 leading-relaxed">
+          在钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义机器人，复制 Webhook 地址
+        </p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">加签密钥（Secret）</label>
+        <input name="secret" id="dingtalk-secret" aria-label="加签密钥 Secret" value="{{ cfg.get('secret', '') }}"
+          placeholder="安全设置 → 加签 → 复制密钥"
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
+        <p class="mt-1.5 text-xs text-gray-500">如已开启加签，请填写机器人安全设置的密钥；无加签可留空</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">提前提醒天数（可多选）</label>
+        <div class="flex flex-wrap gap-2">
+          {% for d in [1, 3, 7, 14, 30] %}
+          <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors text-sm">
+            <input type="checkbox" name="remind_days" value="{{ d }}" {% if d in cfg.remind_days %}checked{% endif %}
+              class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            {{ d }}天
+          </label>
+          {% endfor %}
+        </div>
+        <p class="mt-1.5 text-xs text-gray-500">到期当天也会自动发送提醒</p>
+      </div>
+      <!-- 钉钉按钮 -->
+      <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
+        <button type="button" onclick="saveDingtalkConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+        </button>
+        <button type="button" onclick="testDingtalk()" id="dingtalk-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息
+        </button>
+      </div>
+      <div id="dingtalk-result" class="hidden p-3 rounded-lg text-sm"></div>
+    </form>
+  </div>
+
+  <!-- 邮件提醒卡片 -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+      <span style="font-size:14px"><i data-lucide="mail" class="w-4 h-4 inline-block text-green-600"></i></span> 邮件提醒设置
+    </h2>
+    <form id="email-form" class="space-y-4">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">SMTP 服务器</label>
+        <input name="smtp_host" id="smtp-host" aria-label="SMTP 服务器地址" value="{{ cfg.get('smtp_host', '') }}" placeholder="smtp.qq.com"
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">端口</label>
+          <input name="smtp_port" id="smtp-port" aria-label="SMTP 端口" value="{{ cfg.get('smtp_port', '465') }}" placeholder="465"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱账号</label>
+          <input name="smtp_user" id="smtp-user" aria-label="邮箱账号" value="{{ cfg.get('smtp_user', '') }}" placeholder="your@email.com"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">发件人显示名称</label>
+        <input name="smtp_from_name" id="smtp-from-name" aria-label="发件人显示名称" value="{{ cfg.get('smtp_from_name', '到期提醒系统') }}" placeholder="到期提醒系统"
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+        <p class="mt-1 text-xs text-gray-500">收件人看到的发件人名称，留空默认显示邮箱账号</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">邮箱密码/授权码</label>
+          <input name="smtp_pass" id="smtp-pass" aria-label="邮箱密码或授权码" type="password" value="" placeholder="邮箱密码或授权码（留空表示不修改）"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            data-original-value="{{ cfg.get('smtp_pass', '') }}">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">收件人地址</label>
+          <input name="smtp_to" id="smtp-to" aria-label="收件人地址" value="{{ cfg.get('smtp_to', '') }}" placeholder="多个用逗号分隔"
+            class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="email_enabled" id="email-enabled" {% if cfg.get('email_enabled') %}checked{% endif %}
+            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          启用邮件提醒
+        </label>
+      </div>
+      <!-- 邮件按钮 -->
+      <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
+        <button type="button" onclick="saveEmailConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+        </button>
+        <button type="button" onclick="testEmail()" id="email-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件
+        </button>
+      </div>
+      <div id="email-result" class="hidden p-3 rounded-lg text-sm"></div>
+    </form>
+  </div>
+
+  <!-- 企业微信机器人卡片 -->
+  <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
+    <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+      <span style="font-size:14px"><i data-lucide="message-circle" class="w-4 h-4 inline-block text-green-600"></i></span> 企业微信机器人
+    </h2>
+    <form id="wecom-form" class="space-y-4">
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div>
+          <div class="text-sm font-medium text-gray-800">启用企业微信推送</div>
+          <div class="text-xs text-gray-500">开启后，到期提醒将同时推送到企业微信</div>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="wecom-enabled" value="1"
+            {% if cfg.get('wecom_enabled') %}checked{% endif %}
+            class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:border-gray-200 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
+        <input type="text" id="wecom-webhook" aria-label="企业微信 Webhook 地址" value="{{ cfg.get('wecom_webhook', '') }}" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+        <p class="mt-1 text-xs text-gray-400">在企业微信机器人设置中获取 Webhook 地址</p>
+      </div>
+      <!-- 企业微信按钮 -->
+      <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
+        <button type="button" onclick="saveWecomConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+        </button>
+        <button type="button" onclick="testWecom()" id="wecom-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送
+        </button>
+      </div>
+      <div id="wecom-result" class="hidden p-3 rounded-lg text-sm"></div>
+    </form>
+  </div>
+
+  <!-- 使用说明 -->
+  <div class="bg-blue-50 rounded-xl p-5 border border-blue-200">
+    <h3 class="font-medium text-blue-900 mb-3 flex items-center gap-2"><span style="font-size:14px"><i data-lucide="book-open" class="w-4 h-4 inline-block"></i></span> 如何获取钉钉 Webhook</h3>
+    <ol class="text-sm text-blue-800 space-y-2 list-decimal pl-5">
+      <li>打开钉钉电脑客户端，进入目标群聊</li>
+      <li>点击右上角「群设置」→「智能群助手」</li>
+      <li>点击「添加机器人」→「自定义机器人」</li>
+      <li>填写机器人名称，安全设置选「自定义关键词」</li>
+      <li>关键词填 <code class="px-1.5 py-0.5 bg-blue-100 rounded text-xs">到期提醒</code></li>
+      <li>复制生成的 Webhook URL 粘贴到上方配置框</li>
+    </ol>
+  </div>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='config.js') }}" nonce="{{ csp_nonce }}"></script>
+{% endblock %}
