@@ -23,7 +23,11 @@
     var toast = document.createElement('div');
     toast.className = 'bg-white border rounded-lg shadow-sm p-3 flex items-start gap-2 toast-enter max-w-xs';
     toast.style.borderColor = type === 'success' ? '#86efac' : type === 'error' ? '#fca5a5' : type === 'warning' ? '#fde047' : '#93c5fd';
-    toast.innerHTML = icon + '<span class="text-sm flex-1">' + message + '</span><button class="flex-shrink-0 text-gray-400 hover:text-gray-600" onclick="this.parentElement.classList.replace(\'toast-enter\',\'toast-exit\');setTimeout(function(){this.parentElement.remove()}.bind(this),300)">×';
+    // Progress bar color
+    var progColor = type === 'error' ? '#dc2626' : type === 'success' ? '#16a34a' : type === 'warning' ? '#ca8a04' : '#3b82f6';
+    toast.innerHTML = icon + '<span class="text-sm flex-1">' + message + '</span><button class="flex-shrink-0 text-gray-400 hover:text-gray-600" onclick="this.parentElement.classList.replace(\'toast-enter\',\'toast-exit\');setTimeout(function(){this.parentElement.remove()}.bind(this),300)">×</button>' +
+      '<div class="toast-progress rounded absolute bottom-0 left-0 right-0 h-[3px]" style="background:' + progColor + ';animation:toast-progress 3s linear forwards;"></div>';
+    toast.style.position = 'relative';
     container.appendChild(toast);
     if (typeof lucide !== 'undefined') lucide.createIcons();
     setTimeout(function () {
@@ -914,6 +918,33 @@
     if (modal) {
       modal.addEventListener('click', function (e) {
         if (e.target === modal) closeSelfPwdModal();
+      });
+    }
+  });
+
+
+  // ── 侧边栏切换 (P3: sidebar on index.html) ─────────────
+  window.toggleSidebar = function () {
+    var sb = document.getElementById('sidebar');
+    var ov = document.getElementById('sidebar-overlay');
+    if (sb) sb.classList.toggle('sidebar-open');
+    if (ov) ov.classList.toggle('sidebar-active');
+  };
+
+  // ── 桌面端侧边栏折叠 ───────────────────────────────────
+  window.toggleDesktopSidebar = function () {
+    var sb = document.getElementById('sidebar');
+    if (sb) sb.classList.toggle('sidebar-collapsed');
+  };
+
+  // 点击 overlay 关闭侧边栏
+  document.addEventListener('DOMContentLoaded', function () {
+    var overlay = document.getElementById('sidebar-overlay');
+    if (overlay) {
+      overlay.addEventListener('click', function () {
+        var sb = document.getElementById('sidebar');
+        if (sb) sb.classList.remove('sidebar-open');
+        overlay.classList.remove('sidebar-active');
       });
     }
   });
