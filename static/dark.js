@@ -1,7 +1,15 @@
 // 暗色模式 — 所有页面通用
 (function(){
   var d = localStorage.getItem('dark-mode') === 'true';
-  if (d) document.body.classList.add('dark-mode');
+  
+  function applyTheme(isDark) {
+    // Add 'dark' class to <html> for Tailwind dark mode support
+    document.documentElement.classList.toggle('dark', isDark);
+    // Add 'dark-mode' class to <body> for custom dark.css support
+    document.body.classList.toggle('dark-mode', isDark);
+  }
+
+  applyTheme(d);
 
   function _applyDarkIcons(isDark) {
     // ID-based icons (header style)
@@ -34,30 +42,28 @@
   _applyDarkIcons(d);
   window.toggleDarkMode = function() {
     var isDark = !document.body.classList.contains('dark-mode');
-    document.body.classList.toggle('dark-mode', isDark);
+    applyTheme(isDark);
     localStorage.setItem('dark-mode', isDark);
     _applyDarkIcons(isDark);
     if (typeof lucide !== 'undefined') lucide.createIcons();
   };
 
-  // Respect system preference on first visit
+  // Respect system preference on first visit (only if localStorage is empty)
   if (localStorage.getItem('dark-mode') === null) {
     var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (prefersDark) {
-      document.body.classList.add('dark-mode');
+      applyTheme(true);
       localStorage.setItem('dark-mode', 'true');
       _applyDarkIcons(true);
+    } else {
+      localStorage.setItem('dark-mode', 'false');
     }
   }
 
-  // Listen for system theme changes
+  // Listen for system theme changes (only when user hasn't manually set a preference)
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
     if (localStorage.getItem('dark-mode') === null) {
-      if (e.matches) {
-        document.body.classList.add('dark-mode');
-      } else {
-        document.body.classList.remove('dark-mode');
-      }
+      applyTheme(e.matches);
     }
   });
 })();

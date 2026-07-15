@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}证书到期提醒系统{% endblock %}</title>
   <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
-  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.production.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dark.css') }}">
   {% block head %}{% endblock %}
   <style>
@@ -29,6 +29,23 @@
     }
     .skip-link:focus {
       top: 0;
+    }
+    /* Critical responsive CSS — sidebar + mobile layout */
+    @media (min-width: 768px) {
+      /* Hide mobile header on desktop */
+      .mobile-header { display: none !important; }
+      /* Show sidebar on desktop */
+      #sidebar { transform: translateX(0) !important; }
+      /* Remove mobile top padding on desktop */
+      .pt-14 { padding-top: 0 !important; }
+      /* Hide sidebar overlay on desktop */
+      #sidebar-overlay { display: none !important; }
+    }
+    /* On mobile, sidebar hidden by default */
+    @media (max-width: 767px) {
+      #sidebar { transform: translateX(-100%) !important; }
+      #sidebar.sidebar-open { transform: translateX(0) !important; }
+      #sidebar-overlay.sidebar-active { display: block !important; }
     }
   </style>
 </head>
@@ -72,7 +89,7 @@
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span>首页概览</span>
         </a>
-        <a href="/certs" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'certs' else 'text-gray-700 dark:text-gray-300' }}">
+        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'certs' else 'text-gray-700 dark:text-gray-300' }}">
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           <span>证书管理</span>
         </a>
@@ -88,7 +105,7 @@
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           <span>日志管理</span>
         </a>
-        <a href="/data-manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}">
+        <a href="/data_manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}">
           <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
           <span>数据管理</span>
         </a>
@@ -131,9 +148,10 @@
   <!-- Toast Container -->
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite"></div>
 
-  <script src="{{ url_for('static', filename='dark.js') }}"></script>
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
-  <script>lucide.createIcons();</script>
+  <script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='dark.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script nonce="{{ csp_nonce }}">lucide.createIcons();</script>
 
   {% block scripts %}{% endblock %}
 

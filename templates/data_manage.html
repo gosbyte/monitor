@@ -3,7 +3,6 @@
 {% block title %}数据管理{% endblock %}
 
 {% block head %}
->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>数据管理</title>
@@ -39,13 +38,13 @@
 
   <!-- Tab 切换 -->
   <div class="flex border-b border-gray-200">
-    <button onclick="switchTab('import')" id="tab-import" class="px-6 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px">
+    <button onclick="switchDataTab('import')" id="tab-import" class="px-6 py-3 text-sm font-medium border-b-2 border-blue-600 text-blue-600 -mb-px">
       <i data-lucide="upload" class="w-4 h-4 inline-block mr-2"></i>批量导入
     </button>
-    <button onclick="switchTab('export')" id="tab-export" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+    <button onclick="switchDataTab('export')" id="tab-export" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
       <i data-lucide="file-spreadsheet" class="w-4 h-4 inline-block mr-2"></i>导出
     </button>
-    <button onclick="switchTab('quality')" id="tab-quality" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
+    <button onclick="switchDataTab('quality')" id="tab-quality" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 -mb-px">
       <i data-lucide="activity" class="w-4 h-4 inline-block mr-2"></i>数据质量
     </button>
   </div>
@@ -247,10 +246,11 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
 let _csrfToken = "{{ csrf_token }}";
 let previewData = null;
 
-function switchTab(tab) {
+function switchDataTab(tab) {
   document.getElementById('panel-import').classList.add('hidden');
   document.getElementById('panel-export').classList.add('hidden');
   document.getElementById('panel-quality').classList.add('hidden');
@@ -266,7 +266,7 @@ function switchTab(tab) {
   if (tab === 'quality') loadQualityReport();
 }
 
-function showResult(ok, msg) {
+function showDataManageResult(ok, msg) {
   const area = document.getElementById('result-area');
   area.classList.remove('hidden','bg-green-50','text-green-700','border-green-200','bg-red-50','text-red-700','border-red-200');
   if (ok) {
@@ -283,13 +283,13 @@ function onFileSelected(event) {
   const file = event.target.files[0];
   if (!file) return;
   if (!file.name.endsWith('.xlsx')) {
-    showResult(false, '请选择 .xlsx 格式的文件');
+    showDataManageResult(false, '请选择 .xlsx 格式的文件');
     return;
   }
   const formData = new FormData();
   formData.append('file', file);
   formData.append('_csrf_token', _csrfToken);
-  showResult(true, '正在解析文件...');
+  showDataManageResult(true, '正在解析文件...');
   fetch('/api/preview_import', {
     method: 'POST',
     headers: {'X-CSRF-Token': _csrfToken},
@@ -298,7 +298,7 @@ function onFileSelected(event) {
   .then(r => r.json())
   .then(data => {
     if (data.csrf_token) _csrfToken = data.csrf_token;
-    if (!data.ok) { showResult(false, data.message || '文件解析失败'); return; }
+    if (!data.ok) { showDataManageResult(false, data.message || '文件解析失败'); return; }
     previewData = data.data;
     document.getElementById('upload-area').classList.add('hidden');
     document.getElementById('result-area').classList.add('hidden');
@@ -312,7 +312,7 @@ function onFileSelected(event) {
       tbody.appendChild(tr);
     });
   })
-  .catch(err => showResult(false, '网络错误：' + err.message));
+  .catch(err => showDataManageResult(false, '网络错误：' + err.message));
 }
 
 function doImport() {
@@ -338,7 +338,7 @@ function doImport() {
     }
   })
   .catch(err => {
-    showResult(false, '网络错误：' + err.message);
+    showDataManageResult(false, '网络错误：' + err.message);
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 inline-block"></i> 确认导入';
     lucide.createIcons();
@@ -501,4 +501,5 @@ function loadQualityReport() {
     });
 }
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
 {% endblock %}

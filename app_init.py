@@ -282,7 +282,43 @@ def inject_csp_nonce() -> dict[str, str]:
 # [FIX] Inject CSRF token and badge count into all templates
 @app.context_processor
 def inject_template_globals() -> dict[str, Any]:
-    return inject_globals()
+    result = inject_globals()
+    # Derive active_page from request path for sidebar highlighting
+    path = request.path.lstrip('/') if request.path else ''
+    active_pages = {
+        '': 'index',
+        'index': 'index',
+        'login': 'login',
+        'logout': 'logout',
+        'change_password': 'change_password',
+        'users': 'users',
+        'config': 'config',
+        'logs': 'logs',
+        'push_history': 'push_history',
+        'data_manage': 'data_manage',
+        'add_batch': 'add_batch',
+        'restore': 'restore',
+        'edit': 'index',
+    }
+    # Match prefix-based
+    active_page = active_pages.get(path, 'index')
+    # Handle paths like edit/<id>, delete/<id>, etc.
+    if path.startswith('edit/') or path.startswith('delete/') or path.startswith('backup'):
+        active_page = 'index'
+    elif path.startswith('users/'):
+        active_page = 'users'
+    elif path.startswith('logs/') or path.startswith('push_history'):
+        active_page = 'logs' if path.startswith('logs') else 'push_history'
+    elif path.startswith('config'):
+        active_page = 'config'
+    elif path.startswith('data_manage'):
+        active_page = 'data_manage'
+    elif path.startswith('add_batch'):
+        active_page = 'add_batch'
+    elif path.startswith('restore'):
+        active_page = 'restore'
+    result['active_page'] = active_page
+    return result
 
 
 # [FIX] P0-2: 重新启用 CSP

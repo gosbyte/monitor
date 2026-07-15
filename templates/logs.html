@@ -212,6 +212,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
 document.addEventListener('DOMContentLoaded', function() {
   var skeleton = document.getElementById('skeleton-loading');
   if (skeleton) skeleton.classList.add('hidden');
@@ -258,4 +259,5 @@ function exportLogs() {
   a.href = url; a.download = 'logs_' + new Date().toISOString().slice(0,10) + '.json';
   a.click(); URL.revokeObjectURL(url);
 }
+</script>
 {% endblock %}

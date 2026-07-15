@@ -297,6 +297,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
 let _csrfToken = "{{ csrf_token }}";
 let selectedFile = null;
 let previewData = null;
@@ -677,4 +678,5 @@ function cancelJsonPreview() {
   lucide.createIcons();
 }
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
 {% endblock %}

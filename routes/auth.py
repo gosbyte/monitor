@@ -60,12 +60,14 @@ def register_auth_routes(app: Flask) -> None:
     @app.route("/captcha")
     def captcha() -> Response:
         code = generate_captcha()
-        session["captcha"] = code.lower()
+        session["captcha"] = code
         img = create_captcha_image(code)
         buf = io.BytesIO()
         img.save(buf, 'PNG')
         buf.seek(0)
-        return Response(buf.read(), mimetype='image/png')
+        resp = Response(buf.read(), mimetype='image/png')
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        return resp
 
     @app.route("/login")
     def login_page() -> _FlaskResponse:
@@ -77,7 +79,7 @@ def register_auth_routes(app: Flask) -> None:
     def login() -> _FlaskResponse:
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
-        captcha_code = request.form.get("captcha", "").strip().lower()
+        captcha_code = request.form.get("captcha", "").strip()
         client_ip = request.remote_addr or "unknown"
 
         now = time.time()
@@ -88,7 +90,7 @@ def register_auth_routes(app: Flask) -> None:
             logger.warning(f"IP {client_ip} 登录频率超限")
             return render_template("login.html", error="请求过于频繁，请稍后再试")
 
-        if captcha_code != session.get("captcha", ""):
+        if captcha_code.strip().lower() != session.get("captcha", "").lower():
             _LOGIN_ATTEMPTS.setdefault(client_ip, []).append((now, False))
             return render_template("login.html", error="验证码错误")
 

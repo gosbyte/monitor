@@ -221,6 +221,13 @@
     if (editForm) {
       editForm.addEventListener('submit', function (e) {
         e.preventDefault();
+        // 表单验证
+        var customer = document.getElementById('edit-customer');
+        if (customer && !customer.value.trim()) {
+          showToast('客户名称不能为空', 'error');
+          customer.focus();
+          return;
+        }
         var certId = document.getElementById('edit-cert-id').value;
         var payload = {};
         payload['remind_enabled'] = document.getElementById('edit-remind-enabled').checked;
@@ -497,6 +504,48 @@
   var _searchCache = [];
   var _searchCacheDirty = true;
 
+  // ── 搜索防抖 ────────────────────────────────────────────
+  var _searchDebounceTimer = null;
+  var _lastSearchQuery = '';
+
+  window.debounceFilter = function (query) {
+    if (_lastSearchQuery === query) return;
+    _lastSearchQuery = query;
+    clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(function () {
+      filterTable();
+      showSearchSuggestions(query);
+    }, 300);
+  };
+
+  window.clearSearch = function () {
+    var input = document.getElementById('search-input');
+    if (input) input.value = '';
+    var clearBtn = document.getElementById('clear-search-btn');
+    if (clearBtn) clearBtn.classList.add('hidden');
+    _lastSearchQuery = '';
+    filterTable();
+  };
+
+  function updateClearSearchBtn() {
+    var btn = document.getElementById('clear-search-btn');
+    var input = document.getElementById('search-input');
+    if (btn && input) {
+      btn.classList.toggle('hidden', !input.value.trim());
+    }
+  }
+
+  // ── 搜索历史 ────────────────────────────────────────────
+  var _searchHistory = JSON.parse(localStorage.getItem('cert_search_history') || '[]');
+
+  function addToSearchHistory(term) {
+    if (!term || term.length < 1) return;
+    _searchHistory = _searchHistory.filter(function (h) { return h !== term; });
+    _searchHistory.unshift(term);
+    if (_searchHistory.length > 5) _searchHistory = _searchHistory.slice(0, 5);
+    localStorage.setItem('cert_search_history', JSON.stringify(_searchHistory));
+  }
+
   function _buildSearchCache() {
     if (!_searchCacheDirty) return;
     _searchCache = [];
@@ -647,12 +696,187 @@
     if (status !== 'all') {
       var map = { normal: 'green', expiring: 'orange', expired: 'red' };
       var color = map[status];
-      var selector = '[onclick="quickFilter(\'' + status + '\')"]';
+      var activeCard = document.querySelector('[data-filter-status="' + status + '"]');
       var activeCard = document.querySelector(selector);
       if (activeCard) activeCard.classList.add('ring-2', 'ring-offset-2', 'ring-' + color + '-500');
     }
     var tbody = document.getElementById('cert-tbody');
     if (tbody) tbody.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // ── 导出筛选数据为 CSV ────────────────────────────────
+  window.exportFiltered = function () {
+    var rows = document.querySelectorAll('#cert-tbody tr:not([style*="display: none"])');
+    var csv = '\uFEFF客户名称,提醒类型,到期时间,剩余天数,状态,备注,是否已处理,负责人\n';
+    rows.forEach(function (row) {
+      var cells = row.querySelectorAll('td');
+      var customer = cells[1] ? cells[1].textContent.trim() : '';
+      var certType = cells[2] ? cells[2].textContent.trim() : '';
+      var expireDate = cells[3] ? cells[3].textContent.trim() : '';
+      var daysLeft = row.dataset.days || '';
+      var status = cells[4] ? cells[4].textContent.trim() : '';
+      var note = cells[5] ? cells[5].textContent.trim() : '';
+      var handled = row.dataset.handled === 'true' ? '是' : '否';
+      var creator = row.dataset.createdby || '';
+      csv += '"' + customer + '","' + certType + '","' + expireDate + '",' + daysLeft + ',"' + status + '","' + note + '","' + handled + '","' + creator + '"\n';
+    });
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = '证书到期提醒_' + new Date().toLocaleDateString('zh-CN').replace(/\//g, '-') + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    showToast('导出成功：' + rows.length + ' 条记录', 'success');
+  };
+
+  // ── 自动刷新 ──────────────────────────────────────────
+  var _autoRefreshEnabled = localStorage.getItem('cert-auto-refresh') === 'true';
+  var _autoRefreshInterval = null;
+
+  window.toggleAutoRefresh = function () {
+    _autoRefreshEnabled = !_autoRefreshEnabled;
+    localStorage.setItem('cert-auto-refresh', _autoRefreshEnabled ? 'true' : 'false');
+    if (_autoRefreshEnabled) {
+      _autoRefreshInterval = setInterval(function () { location.reload(); }, 60000);
+      showToast('已开启自动刷新（每60秒）', 'success');
+    } else {
+      clearInterval(_autoRefreshInterval);
+      _autoRefreshInterval = null;
+      showToast('已关闭自动刷新', 'info');
+    }
+  };
+
+  if (_autoRefreshEnabled) {
+    _autoRefreshInterval = setInterval(function () { location.reload(); }, 60000);
+  }
+
+  // ── 网络状态指示器 ────────────────────────────────────
+  (function () {
+    var dot = document.createElement('div');
+    dot.id = 'network-status-dot';
+    dot.style.cssText = 'position:fixed;bottom:16px;left:16px;width:10px;height:10px;border-radius:50%;z-index:9999;transition:background .3s;';
+    dot.style.background = navigator.onLine ? '#22c55e' : '#ef4444';
+    document.body.appendChild(dot);
+    window.addEventListener('offline', function () {
+      dot.style.background = '#ef4444';
+      showToast('网络已断开', 'error');
+    });
+    window.addEventListener('online', function () {
+      dot.style.background = '#22c55e';
+      showToast('网络已恢复', 'success');
+    });
+  })();
+
+  // ── 滚动到顶部按钮 ────────────────────────────────────
+  (function () {
+    var btn = document.createElement('button');
+    btn.id = 'scroll-top-btn';
+    btn.style.cssText = 'position:fixed;bottom:16px;right:16px;width:40px;height:40px;border-radius:50%;background:#3b82f6;color:white;display:flex;align-items:center;justify-content:center;z-index:9999;opacity:0;visibility:hidden;transition:all .3s;box-shadow:0 2px 8px rgba(0,0,0,.15);';
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>';
+    btn.onclick = function () { window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    document.body.appendChild(btn);
+    window.addEventListener('scroll', function () {
+      btn.style.opacity = window.scrollY > 300 ? '1' : '0';
+      btn.style.visibility = window.scrollY > 300 ? 'visible' : 'hidden';
+    });
+  })();
+
+  // ── 活动日志 ──────────────────────────────────────────
+  var _activityLog = JSON.parse(localStorage.getItem('cert_activity_log') || '[]');
+
+  window.addActivity = function (type, message, icon) {
+    _activityLog.unshift({ type: type, message: message, icon: icon || 'info', time: new Date().toISOString() });
+    if (_activityLog.length > 20) _activityLog = _activityLog.slice(0, 20);
+    localStorage.setItem('cert_activity_log', JSON.stringify(_activityLog));
+  };
+
+  window.renderActivity = function () {
+    var list = document.getElementById('activity-list');
+    var count = document.getElementById('activity-count');
+    if (!list) return;
+    list.innerHTML = '';
+    var recent = _activityLog.slice(0, 5);
+    recent.forEach(function (entry) {
+      var div = document.createElement('div');
+      div.className = 'flex items-start gap-2 py-1 text-xs';
+      var time = new Date(entry.time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      div.innerHTML = '<span class="text-gray-400 w-12 flex-shrink-0">' + time + '</span><span class="text-gray-600">' + entry.message + '</span>';
+      list.appendChild(div);
+    });
+    if (count) count.textContent = _activityLog.length;
+  };
+
+  window.clearActivity = function (event) {
+    event.stopPropagation();
+    _activityLog = [];
+    localStorage.removeItem('cert_activity_log');
+    renderActivity();
+    showToast('活动日志已清空', 'success');
+  };
+
+  // ── 键盘快捷键 ────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    // Skip if typing in input/textarea
+    var tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+      if (e.key === 'Escape') { e.target.blur(); }
+      return;
+    }
+    if (e.ctrlKey && e.key === 'n') { e.preventDefault(); window.openAddModal(); }
+    if (e.ctrlKey && (e.key === 'k' || e.key === 'f')) { e.preventDefault(); var si = document.getElementById('search-input'); if (si) si.focus(); }
+    if (e.key === 'Escape') { window.closeAddModal(); window.closeEditModal(); }
+    if (e.key === 'j' || e.key === 'ArrowDown') {
+      var rows = document.querySelectorAll('#cert-tbody tr:not([style*="display: none"])');
+      if (rows.length > 0) {
+        rows[rows.length - 1].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+    if (e.key === 'k' || e.key === 'ArrowUp') {
+      var rows2 = document.querySelectorAll('#cert-tbody tr:not([style*="display: none"])');
+      if (rows2.length > 0) {
+        rows2[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+  });
+
+  // ── 表单验证 ──────────────────────────────────────────
+  window.validateAddForm = function () {
+    var customer = document.querySelector('input[name="customer"]');
+    if (customer && !customer.value.trim()) {
+      showToast('请输入客户名称', 'error');
+      customer.focus();
+      return false;
+    }
+    return true;
+  };
+
+  window.validateEditForm = function () {
+    var customer = document.getElementById('edit-customer');
+    if (customer && !customer.value.trim()) {
+      showToast('客户名称不能为空', 'error');
+      customer.focus();
+      return false;
+    }
+    return true;
+  };
+
+  // ── 快捷键帮助对话框 ──────────────────────────────────
+  window.showShortcutsHelp = function () {
+    var html = '<div class="space-y-2 text-sm">';
+    html += '<div class="flex items-center justify-between py-2 border-b"><span>添加记录</span><kbd class="px-2 py-0.5 bg-gray-100 rounded text-xs">Ctrl+N</kbd></div>';
+    html += '<div class="flex items-center justify-between py-2 border-b"><span>聚焦搜索</span><kbd class="px-2 py-0.5 bg-gray-100 rounded text-xs">Ctrl+K</kbd></div>';
+    html += '<div class="flex items-center justify-between py-2 border-b"><span>关闭弹窗</span><kbd class="px-2 py-0.5 bg-gray-100 rounded text-xs">Esc</kbd></div>';
+    html += '<div class="flex items-center justify-between py-2 border-b"><span>向下滚动</span><kbd class="px-2 py-0.5 bg-gray-100 rounded text-xs">J</kbd></div>';
+    html += '<div class="flex items-center justify-between py-2 border-b"><span>向上滚动</span><kbd class="px-2 py-0.5 bg-gray-100 rounded text-xs">K</kbd></div>';
+    html += '</div>';
+    showConfirmModal('⌨️ 快捷键', html, '知道了', function () {});
+  };
+
+  // ── 刷新数据 ──────────────────────────────────────────
+  window.refreshData = function () {
+    location.reload();
   };
 
 })();

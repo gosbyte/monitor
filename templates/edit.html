@@ -125,6 +125,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
 function toggleRespLabel(username, checked) {
   var label = document.getElementById('resp-label-' + username);
   if (!label) return;
@@ -135,4 +136,5 @@ function toggleRespLabel(username, checked) {
   }
 }
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
 {% endblock %}

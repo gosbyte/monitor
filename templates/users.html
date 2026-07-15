@@ -356,6 +356,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
 lucide.createIcons();
 
 function openEditModal(username, name, role, dingtalkId, email, wecomId) {
@@ -384,4 +385,5 @@ document.getElementById('editModal').addEventListener('click', function(e) {
   if (e.target === this) closeEditModal();
 });
 document.addEventListener("DOMContentLoaded", function() { lucide.createIcons(); });
+</script>
 {% endblock %}
