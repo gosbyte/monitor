@@ -263,8 +263,8 @@ app.config["SESSION_COOKIE_HTTPONLY"] = True
 # [SECURITY] SESSION_COOKIE_SAMESITE 改为 Strict
 app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
 
-# [SECURITY] SESSION_COOKIE_SECURE 根据 DEBUG 动态设置
-app.config["SESSION_COOKIE_SECURE"] = not app.debug
+# [SECURITY] SESSION_COOKIE_SECURE 强制 False (HTTP 环境)
+app.config["SESSION_COOKIE_SECURE"] = False
 
 # [FIX] P0-1: 使用 g 对象确保每请求独立 nonce
 @app.before_request
