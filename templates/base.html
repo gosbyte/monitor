@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}证书到期提醒系统{% endblock %}</title>
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <meta name="current-user" content="{{ current_username }}">
+  <script nonce="{{ csp_nonce }}">
+    window._csrfToken = '{{ csrf_token }}';
+    window._currentUser = '{{ current_username }}';
+  </script>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
   <link rel="stylesheet" href="{{ url_for('static', filename='tailwind.production.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dark.css') }}">
   {% block head %}{% endblock %}
   <style>
-    /* ── Critical CSS: only non-loadable layout rules ── */
     /* Focus visible for keyboard navigation */
     *:focus-visible {
       outline: 2px solid #3b82f6;
@@ -31,30 +32,25 @@
       z-index: 100;
       transition: top 0.2s;
     }
-    .skip-link:focus { top: 0; }
-    body.dark-mode .skip-link { background: #60a5fa; color: #111827; }
-    body.dark-mode *:focus-visible { outline-color: #60a5fa; }
-
-    /* ── Sidebar + Mobile Layout (critical render) ── */
+    .skip-link:focus {
+      top: 0;
+    }
+    /* Critical responsive CSS — sidebar + mobile layout */
     @media (min-width: 768px) {
+      /* Hide mobile header on desktop */
       .mobile-header { display: none !important; }
-      #sidebar { translate: 0 0 !important; transform: translateX(0) !important; }
+      /* Show sidebar on desktop */
+      #sidebar { transform: translateX(0) !important; }
+      /* Remove mobile top padding on desktop */
       .pt-14 { padding-top: 0 !important; }
+      /* Hide sidebar overlay on desktop */
       #sidebar-overlay { display: none !important; }
     }
-    @media (min-width: 768px) {
-      #sidebar.collapsed { translate: -100% 0 !important; transform: none !important; }
-      #main-content.sidebar-collapsed { margin-left: 0 !important; }
-    }
+    /* On mobile, sidebar hidden by default */
     @media (max-width: 767px) {
-      #sidebar { translate: -100% 0 !important; transform: translateX(-100%) !important; }
-      #sidebar.sidebar-open { translate: 0 0 !important; transform: translateX(0) !important; }
+      #sidebar { transform: translateX(-100%) !important; }
+      #sidebar.sidebar-open { transform: translateX(0) !important; }
       #sidebar-overlay.sidebar-active { display: block !important; }
-    }
-    @media (max-width: 767px) {
-      #sidebar { width: 100vw !important; max-width: 300px !important; }
-      #sidebar nav a { min-height: 44px; padding: 0.75rem 1rem !important; }
-      #sidebar nav a span { font-size: 0.875rem; }
     }
   </style>
 </head>
@@ -62,35 +58,24 @@
   <!-- Skip to main content -->
   <a href="#main-content" class="skip-link">跳转到主要内容</a>
   <!-- Mobile Header -->
-  <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden" style="padding-top: env(safe-area-inset-top, 0);">
+  <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 fixed top-0 left-0 right-0 z-40 md:hidden">
     <div class="flex items-center justify-between px-4 h-14">
-      <button id="mobile-menu-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle menu">
+      <button id="mobile-menu-btn" onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" aria-label="Toggle menu">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
-      <h1 class="text-lg font-bold truncate">{{ page_title | default('通用提醒系统') }}</h1>
+      <h1 class="text-lg font-bold truncate">{{ page_title | default('证书管理系统') }}</h1>
       <div class="w-10"></div>
     </div>
   </header>
 
   <div class="flex min-h-screen pt-14 md:pt-0">
     <!-- Sidebar Overlay (Mobile) -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden"></div>
 
     <!-- Sidebar -->
     <aside id="sidebar" class="fixed md:sticky top-0 left-0 z-50 md:z-auto h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform -translate-x-full md:translate-x-0 transition-transform duration-200 ease-in-out flex flex-col">
-      <!-- Desktop Sidebar Toggle -->
-      <div class="p-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <button onclick="toggleDesktopSidebar()"
-          class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors hidden md:flex items-center justify-center"
-          title="切换侧边栏" aria-label="切换侧边栏">
-          <svg class="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-          </svg>
-        </button>
-        <span class="text-xs text-gray-400 hidden md:inline">点击折叠</span>
-      </div>
       <!-- Logo -->
       <div class="p-4 border-b border-gray-200 dark:border-gray-700">
         <div class="flex items-center gap-3">
@@ -99,52 +84,47 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
             </svg>
           </div>
-          <span class="font-bold text-lg">通用提醒系统</span>
+          <span class="font-bold text-lg">到期提醒管理</span>
         </div>
       </div>
 
-      <!-- Navigation -->
+            <!-- Navigation -->
       <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
-        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors {{ 'bg-blue-50 text-blue-600' if active_page == 'index' else 'text-gray-700' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'index' else 'text-gray-700 dark:text-gray-300' }}">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
           <span>首页</span>
         </a>
         <a href="/config" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'config' else 'text-gray-700 dark:text-gray-300' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           <span>推送配置</span>
         </a>
-        <a href="/data-manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}" data-page="data_manage">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+        <a href="/data_manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'data_manage' else 'text-gray-700 dark:text-gray-300' }}">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
           <span>数据管理</span>
         </a>
         <a href="/users" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'users' else 'text-gray-700 dark:text-gray-300' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>
           <span>用户管理</span>
         </a>
         <a href="/logs" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'logs' else 'text-gray-700 dark:text-gray-300' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
           <span>操作日志</span>
         </a>
         <a href="/push_history" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'push_history' else 'text-gray-700 dark:text-gray-300' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           <span>推送记录</span>
         </a>
-        <a href="/data-manage" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'backup' else 'text-gray-700 dark:text-gray-300' }}" data-page="backup" onclick="setTimeout(()=>{var t=document.getElementById('tab-export');if(t)t.click()},50)">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <a href="/backup" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'backup' else 'text-gray-700 dark:text-gray-300' }}">
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
           <span>数据备份</span>
         </a>
         <a href="/restore" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors {{ 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' if active_page == 'restore' else 'text-gray-700 dark:text-gray-300' }}">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
           <span>数据恢复</span>
         </a>
       </nav>
-
-      <!-- Footer Actions -->
+<!-- Footer Actions -->
       <div class="p-3 border-t border-gray-200 dark:border-gray-700 space-y-2">
-        <a href="/change_password" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-orange-600 dark:text-orange-400">
-          <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
-          <span>更改密码</span>
-        </a>
         <button onclick="toggleDarkMode()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-700 dark:text-gray-300">
           <svg id="sun-icon" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
           <svg id="moon-icon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
@@ -158,7 +138,7 @@
     </aside>
 
     <!-- Main Content -->
-    <main id="main-content" class="flex-1 p-4 md:p-6 lg:p-8 pt-14 md:pt-0 md:ml-64 transition-all duration-200">
+    <main id="main-content" class="flex-1 p-4 md:p-6 lg:p-8">
       <!-- Flash Messages -->
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -174,34 +154,264 @@
       {% endwith %}
 
       {% block content %}{% endblock %}
+
+
+<!-- 添加记录弹窗 -->
+<div id="add-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
+  <div class="bg-white rounded-xl w-full max-w-md shadow-xl" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">添加记录</h2>
+      <button onclick="closeAddModal()" class="p-1 hover:bg-gray-100 rounded"><i data-lucide="x" class="w-4 h-4 inline-block"></i></button>
+    </div>
+    <form method="POST" action="/add" class="p-4 space-y-4" onsubmit="return validateAddForm()">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">客户名称 <span class="text-red-500">*</span></label>
+        <input name="customer" required placeholder="例如：某科技有限公司"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">提醒类型 <span class="text-red-500">*</span></label>
+        <input name="cert_type" required list="type-suggestions" placeholder="输入或选择提醒类型"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">到期时间 <span class="text-red-500">*</span></label>
+        <div class="flex gap-2">
+          <input name="expire_date" id="add-expire-date" type="date" required
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <input name="expire_time" id="add-expire-time" type="time" required
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-500">快捷</span>
+            <div class="flex gap-1 flex-wrap">
+              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+        <textarea name="note" rows="2" placeholder="其他备注信息..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-sm"></textarea>
+      </div>
+      {% if users %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">负责人</label>
+        <div class="flex flex-wrap gap-2">
+          {% for u in users %}
+          <label class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors text-sm">
+            <input type="checkbox" name="responsible_users" value="{{ u.username }}" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <span>{{ u.username }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">选中的负责人将在钉钉推送时被 @</p>
+      </div>
+      {% endif %}
+      <div class="flex items-center gap-3 pt-2">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="remind_enabled" checked class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          启用到期提醒
+        </label>
+      </div>
+      <div class="flex items-center gap-3">
+        <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer">
+          <input type="checkbox" id="continue-add" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          添加后继续添加下一条
+        </label>
+      </div>
+      <div class="flex justify-end gap-3 pt-2 border-t border-gray-200">
+        <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm">取消</button>
+        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">添加</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 编辑记录弹窗 -->
+<div id="edit-modal" class="fixed inset-0 modal-overlay hidden items-center justify-center z-[70] p-4">
+  <div class="bg-white rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between p-4 border-b border-gray-200 sticky top-0 bg-white rounded-t-xl">
+      <h2 class="text-lg font-semibold text-gray-900">编辑记录</h2>
+      <button onclick="closeEditModal()" class="p-1 hover:bg-gray-100 rounded">
+        <i data-lucide="x" class="w-4 h-4 inline-block"></i>
+      </button>
+    </div>
+    <form id="edit-cert-form" class="p-4 space-y-4">
+      <input type="hidden" name="_csrf_token" id="edit-csrf" value="{{ csrf_token }}">
+      <input type="hidden" name="cert_id" id="edit-cert-id" value="">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">客户名称 <span class="text-red-500">*</span></label>
+        <input name="customer" id="edit-customer" required placeholder="例如：某科技有限公司"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">提醒类型 <span class="text-red-500">*</span></label>
+        <input name="cert_type" id="edit-cert-type" required list="type-suggestions" placeholder="输入或选择提醒类型"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">域名/链接</label>
+        <input name="domain" id="edit-domain" placeholder="例如：example.com 或 https://..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">到期时间 <span class="text-red-500">*</span></label>
+        <div class="flex gap-2">
+          <input name="expire_date" id="edit-expire-date" type="date" required
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <input name="expire_time" id="edit-expire-time" type="time" required
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+          <div class="flex flex-col gap-1">
+            <span class="text-xs text-gray-500">快捷</span>
+            <div class="flex gap-1 flex-wrap">
+              <button type="button" onclick="setExpiryDays(7)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+7天</button>
+              <button type="button" onclick="setExpiryDays(30)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+30天</button>
+              <button type="button" onclick="setExpiryDays(90)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+90天</button>
+              <button type="button" onclick="setExpiryDays(180)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+半年</button>
+              <button type="button" onclick="setExpiryDays(365)" class="px-2 py-0.5 text-xs rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">+1年</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+        <textarea name="note" id="edit-note" rows="2" placeholder="其他备注信息..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-sm"></textarea>
+      </div>
+      {% if users %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">负责人</label>
+        <div id="edit-responsible-users" class="flex flex-wrap gap-2">
+          {% for u in users %}
+          <label id="edit-resp-label-{{ u.username }}"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-full cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors text-sm">
+            <input type="checkbox" name="responsible_users" value="{{ u.username }}"
+              class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              onchange="toggleEditRespLabel('{{ u.username }}', this.checked)">
+            <span>{{ u.username }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">选中的负责人将在钉钉推送时被 @</p>
+      </div>
+      {% endif %}
+      <div class="flex items-center gap-3 pt-2">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="remind_enabled" id="edit-remind-enabled" class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span>启用到期提醒</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="handled" id="edit-handled" class="w-4 h-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500">
+          <span>已处理</span>
+        </label>
+      </div>
+      <div class="flex justify-end gap-3 pt-3 border-t border-gray-200">
+        <button type="button" onclick="closeEditModal()" class="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg text-sm transition-colors">取消</button>
+        <button type="submit" class="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+          <i data-lucide="save" class="w-4 h-4 inline-block"></i> 保存修改
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<datalist id="type-suggestions"><option value="SSL到期"><option value="客户巡检"><option value="许可证"><option value="系统维保"><option value="域名到期"><option value="资质认证"><option value="其他"></datalist>
+<script nonce="{{ csp_nonce }}">
+// ── 弹窗控制 ──────────────────────────────────────────
+function setExpiryDays(days) {
+  var dateInput = document.getElementById('add-expire-date') || document.getElementById('edit-expire-date');
+  var timeInput = document.getElementById('add-expire-time') || document.getElementById('edit-expire-time');
+  if (!dateInput || !timeInput) return;
+  var today = new Date();
+  today.setDate(today.getDate() + days);
+  var y = today.getFullYear();
+  var m = String(today.getMonth() + 1).padStart(2, '0');
+  var d = String(today.getDate()).padStart(2, '0');
+  dateInput.value = y + '-' + m + '-' + d;
+  timeInput.value = today.toTimeString().slice(0, 5);
+}
+
+function openAddModal() {
+  document.getElementById('add-modal').classList.remove('hidden');
+  document.getElementById('add-modal').classList.add('flex');
+  document.getElementById('continue-add').checked = false;
+  document.body.classList.add('modal-open');
+}
+
+function duplicateCert(certId) {
+  var row = document.querySelector('tr[data-id="' + certId + '"]');
+  var customer = row ? (row.dataset.customer || '') : '';
+  showConfirmModal('确认复制', '确定复制「' + customer + '」的记录吗？', '确认复制', function() {
+  var form = document.getElementById('add-modal').querySelector('form');
+  form.reset();
+  // 重置负责人勾选
+  form.querySelectorAll('input[name="responsible_users"]').forEach(function(cb) { cb.checked = false; });
+  fetch('/api/cert_status/' + certId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.ok) { showToast('获取数据失败', 'error'); return; }
+      form.querySelector('input[name="customer"]').value = data.customer || '';
+      form.querySelector('input[name="cert_type"]').value = data.cert_type || '';
+      // 到期时间加30天作为建议
+      if (data.expire_date) {
+        // 统一格式：支持 T 和空格分隔
+        var dt = data.expire_date.replace('T', ' ').trim();
+        var parts = dt.split(' ');
+        var baseDate = parts[0] || '';
+        var baseTime = parts[1] || '00:00';
+        var d = new Date(baseDate.replace('-', '/', 'g').replace('/', '-', 1) + 'T' + baseTime);
+        if (isNaN(d.getTime())) {
+          // 尝试直接解析
+          d = new Date(dt.replace(' ', 'T'));
+        }
+        d.setDate(d.getDate() + 30);
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        var hh = String(d.getHours()).padStart(2, '0');
+        var mm = String(d.getMinutes()).padStart(2, '0');
+        // 拆分到 date 和 time 两个 input
+        form.querySelector('input[name="expire_date"]').value = y + '-' + m + '-' + day;
+        form.querySelector('input[name="expire_time"]').value = hh + ':' + mm;
+      }
+      form.querySelector('textarea[name="note"]').value = data.note || '';
+      form.querySelector('input[name="remind_enabled"]').checked = data.remind_enabled !== false;
+      document.getElementById('add-modal').classList.remove('hidden');
+      document.getElementById('add-modal').classList.add('flex');
+      showToast('已复制到表单，修改到期时间后提交', 'info');
+      addActivity('复制了「' + customer + '」的记录');
+    })
+    .catch(function(e) { showToast('加载失败', 'error'); });
+  });
+}
+
+function closeAddModal() {
+  document.getElementById('add-modal').classList.add('hidden');
+  document.getElementById('add-modal').classList.remove('flex');
+  document.body.classList.remove('modal-open');
+}
+</script>
+
     </main>
   </div>
 
   <!-- Toast Container -->
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2" role="status" aria-live="polite"></div>
 
-  <script src="{{ url_for('static', filename='lucide.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='lucide.min.js') }}" nonce="{{ csp_nonce }}"></script>
   <script src="{{ url_for('static', filename='dark.js') }}" nonce="{{ csp_nonce }}"></script>
-  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script src="{{ url_for('static', filename='index.js') }}" nonce="{{ csp_nonce }}"></script>
+  <script nonce="{{ csp_nonce }}">lucide.createIcons();</script>
 
   {% block scripts %}{% endblock %}
-
-
-  <!-- Prevent FOUC: apply dark mode before paint -->
-  <script nonce="{{ csp_nonce }}">
-    (function() {
-      try {
-        var s = localStorage.getItem('dark-mode');
-        if (s === 'true' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-          document.body.classList.add('dark-mode');
-        }
-      } catch(e) {}
-    })();
-  </script>
-  <script>
-    lucide.createIcons();
-  </script>
 
   <!-- Global Loading Overlay -->
   <div id="global-loading" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm" aria-live="polite">
@@ -231,19 +441,28 @@
       clearTimeout(window._loadingTimer);
       window._loadingTimer = setTimeout(hideLoading, 30000);
     };
-
   </script>
 
-  <!-- 确认弹窗 Modal -->
-  <div id="confirm-modal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true">
-    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 mx-4 w-full max-w-sm">
-      <h3 id="confirm-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2"></h3>
-      <p id="confirm-msg" class="text-sm text-gray-600 dark:text-gray-400 mb-6"></p>
-      <div class="flex gap-3 justify-end">
-        <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">取消</button>
-        <button id="confirm-ok" class="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"></button>
+  <!-- 自定义确认弹窗（通用） -->
+  <div id="confirm-modal" class="fixed inset-0 z-[80] hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <i data-lucide="alert-triangle" class="w-6 h-6 text-red-600"></i>
+          </div>
+          <div>
+            <h3 id="confirm-title" class="text-base font-semibold text-gray-900">确认操作</h3>
+            <p id="confirm-msg" class="text-sm text-gray-500 mt-1"></p>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3">
+          <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+          <button id="confirm-ok" class="px-4 py-2 text-sm text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors">确认</button>
+        </div>
       </div>
     </div>
   </div>
+
 </body>
 </html>
