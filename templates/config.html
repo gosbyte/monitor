@@ -1,18 +1,24 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
 {% block title %}系统配置{% endblock %}
 
 {% block head %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>推送配置</title>
+  <style nonce="{{ csp_nonce }}">
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft YaHei", sans-serif; }
-  {% endblock %}
+  </style>
+  <link rel="stylesheet" href="/static/dark.css">
+{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto px-4 py-6 space-y-6">
+
 
   <!-- 钉钉机器人卡片 -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
     <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-      <span class="fs-14"><i data-lucide="bot" class="w-4 h-4 inline-block text-blue-600"></i></span> 钉钉机器人设置
+      <span style="font-size:14px"><i data-lucide="bot" class="w-4 h-4 inline-block text-blue-600"></i></span> 钉钉机器人设置
     </h2>
     <form id="dingtalk-form" class="space-y-5">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
@@ -20,7 +26,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Webhook 地址</label>
         <input name="webhook_url" id="dingtalk-webhook" aria-label="钉钉 Webhook 地址" value="{{ cfg.get('webhook_url', '') }}"
           placeholder="https://oapi.dingtalk.com/robot/send?access_token=xxx"
-          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono md:text-sm text-xs">
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
         <p class="mt-1.5 text-xs text-gray-500 leading-relaxed">
           在钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义机器人，复制 Webhook 地址
         </p>
@@ -29,7 +35,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-1.5">加签密钥（Secret）</label>
         <input name="secret" id="dingtalk-secret" aria-label="加签密钥 Secret" value="{{ cfg.get('secret', '') }}"
           placeholder="安全设置 → 加签 → 复制密钥"
-          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono md:text-sm text-xs">
+          class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono">
         <p class="mt-1.5 text-xs text-gray-500">如已开启加签，请填写机器人安全设置的密钥；无加签可留空</p>
       </div>
       <div>
@@ -48,10 +54,10 @@
       <!-- 钉钉按钮 -->
       <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
         <button type="button" onclick="saveDingtalkConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
         </button>
         <button type="button" onclick="testDingtalk()" id="dingtalk-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息
         </button>
       </div>
       <div id="dingtalk-result" class="hidden p-3 rounded-lg text-sm"></div>
@@ -61,7 +67,7 @@
   <!-- 邮件提醒卡片 -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
     <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-      <span class="fs-14"><i data-lucide="mail" class="w-4 h-4 inline-block text-green-600"></i></span> 邮件提醒设置
+      <span style="font-size:14px"><i data-lucide="mail" class="w-4 h-4 inline-block text-green-600"></i></span> 邮件提醒设置
     </h2>
     <form id="email-form" class="space-y-4">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
@@ -111,10 +117,10 @@
       <!-- 邮件按钮 -->
       <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
         <button type="button" onclick="saveEmailConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
         </button>
         <button type="button" onclick="testEmail()" id="email-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件
         </button>
       </div>
       <div id="email-result" class="hidden p-3 rounded-lg text-sm"></div>
@@ -124,7 +130,7 @@
   <!-- 企业微信机器人卡片 -->
   <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 md:p-6">
     <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-      <span class="fs-14"><i data-lucide="message-circle" class="w-4 h-4 inline-block text-green-600"></i></span> 企业微信机器人
+      <span style="font-size:14px"><i data-lucide="message-circle" class="w-4 h-4 inline-block text-green-600"></i></span> 企业微信机器人
     </h2>
     <form id="wecom-form" class="space-y-4">
       <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -148,10 +154,10 @@
       <!-- 企业微信按钮 -->
       <div class="flex flex-wrap gap-3 pt-3 border-t border-gray-200">
         <button type="button" onclick="saveWecomConfig()" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
+          <span style="font-size:14px"><i data-lucide="save" class="w-4 h-4 inline-block"></i></span> 保存配置
         </button>
         <button type="button" onclick="testWecom()" id="wecom-test-btn" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm">
-          <span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送
+          <span style="font-size:14px"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送
         </button>
       </div>
       <div id="wecom-result" class="hidden p-3 rounded-lg text-sm"></div>
@@ -160,7 +166,7 @@
 
   <!-- 使用说明 -->
   <div class="bg-blue-50 rounded-xl p-5 border border-blue-200">
-    <h3 class="font-medium text-blue-900 mb-3 flex items-center gap-2"><span class="fs-14"><i data-lucide="book-open" class="w-4 h-4 inline-block"></i></span> 如何获取钉钉 Webhook</h3>
+    <h3 class="font-medium text-blue-900 mb-3 flex items-center gap-2"><span style="font-size:14px"><i data-lucide="book-open" class="w-4 h-4 inline-block"></i></span> 如何获取钉钉 Webhook</h3>
     <ol class="text-sm text-blue-800 space-y-2 list-decimal pl-5">
       <li>打开钉钉电脑客户端，进入目标群聊</li>
       <li>点击右上角「群设置」→「智能群助手」</li>
@@ -169,126 +175,8 @@
       <li>关键词填 <code class="px-1.5 py-0.5 bg-blue-100 rounded text-xs">到期提醒</code></li>
       <li>复制生成的 Webhook URL 粘贴到上方配置框</li>
     </ol>
-  </div>
-
-</div>
-{% endblock %}
+  </div>{% endblock %}
 
 {% block scripts %}
-window._csrfToken = "{{ csrf_token }}";
-
-// 使用 app.js 中的公共 _showResult 函数
-var _showResult = window._showResult;
-
-// ── 钉钉 ──
-function saveDingtalkConfig() {
-  var data = {
-    webhook_url: document.getElementById('dingtalk-webhook').value.trim(),
-    secret: document.getElementById('dingtalk-secret').value.trim(),
-    remind_days: Array.from(document.querySelectorAll('input[name="remind_days"]:checked')).map(cb => parseInt(cb.value)),
-    _csrf_token: _csrfToken
-  };
-  fetch('/api/save_config', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken}, body: JSON.stringify(data) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.csrf_token) _csrfToken = result.csrf_token;
-      _showResult('dingtalk-result', result.ok, result.message || (result.ok ? '保存成功' : '保存失败'));
-    })
-    .catch(err => _showResult('dingtalk-result', false, '网络错误：' + err.message));
-}
-
-function testDingtalk() {
-  var btn = document.getElementById('dingtalk-test-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 发送中...';
-  fetch('/api/test_push', { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken } })
-    .then(r => r.json())
-    .then(data => {
-      if (data.csrf_token) _csrfToken = data.csrf_token;
-      _showResult('dingtalk-result', data.ok, data.ok ? '测试消息发送成功！请检查钉钉群' : '发送失败：' + (data.message || '未知错误'));
-    })
-    .catch(e => _showResult('dingtalk-result', false, '网络错误：' + e.message))
-    .finally(() => {
-      btn.disabled = false;
-      btn.innerHTML = '<span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试消息';
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    });
-}
-
-// ── 邮件 ──
-function saveEmailConfig() {
-  var passField = document.getElementById('smtp-pass');
-  var data = {
-    smtp_host: document.getElementById('smtp-host').value.trim(),
-    smtp_port: document.getElementById('smtp-port').value.trim(),
-    smtp_user: document.getElementById('smtp-user').value.trim(),
-    smtp_pass: passField.value || passField.getAttribute('data-original-value') || '',
-    smtp_to: document.getElementById('smtp-to').value.trim(),
-    email_enabled: document.getElementById('email-enabled').checked,
-    _csrf_token: _csrfToken
-  };
-  fetch('/api/save_config', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken}, body: JSON.stringify(data) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.csrf_token) _csrfToken = result.csrf_token;
-      _showResult('email-result', result.ok, result.message || (result.ok ? '保存成功' : '保存失败'));
-    })
-    .catch(err => _showResult('email-result', false, '网络错误：' + err.message));
-}
-
-function testEmail() {
-  var btn = document.getElementById('email-test-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 发送中...';
-  fetch('/api/test_email', { method: 'POST', headers: { 'X-CSRF-Token': _csrfToken } })
-    .then(r => r.json())
-    .then(data => {
-      if (data.csrf_token) _csrfToken = data.csrf_token;
-      _showResult('email-result', data.ok, data.ok ? '测试邮件发送成功！请检查收件箱' : '发送失败：' + (data.message || '未知错误'));
-    })
-    .catch(e => _showResult('email-result', false, '网络错误：' + e.message))
-    .finally(() => {
-      btn.disabled = false;
-      btn.innerHTML = '<span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 发送测试邮件';
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    });
-}
-
-// ── 企业微信 ──
-function saveWecomConfig() {
-  var data = {
-    wecom_enabled: document.getElementById('wecom-enabled').checked,
-    wecom_webhook: document.getElementById('wecom-webhook').value.trim(),
-    _csrf_token: _csrfToken
-  };
-  fetch('/api/config/wecom', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken}, body: JSON.stringify(data) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.csrf_token) _csrfToken = result.csrf_token;
-      _showResult('wecom-result', result.ok, result.message || (result.ok ? '保存成功' : '保存失败'));
-    }).catch(err => _showResult('wecom-result', false, '网络错误：' + err.message));
-}
-
-function testWecom() {
-  var btn = document.getElementById('wecom-test-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" opacity=".25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" stroke-width="3" fill="none"/></svg> 发送中...';
-  var data = {
-    wecom_enabled: document.getElementById('wecom-enabled').checked,
-    wecom_webhook: document.getElementById('wecom-webhook').value.trim(),
-    _csrf_token: _csrfToken
-  };
-  fetch('/api/test_wecom', { method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken}, body: JSON.stringify(data) })
-    .then(r => r.json())
-    .then(result => {
-      if (result.csrf_token) _csrfToken = result.csrf_token;
-      _showResult('wecom-result', result.ok, result.message || (result.ok ? '测试推送成功' : '测试失败'));
-    })
-    .catch(err => _showResult('wecom-result', false, '网络错误：' + err.message))
-    .finally(() => {
-      btn.disabled = false;
-      btn.innerHTML = '<span class="fs-14"><i data-lucide="send" class="w-4 h-4 inline-block"></i></span> 测试推送';
-      if (typeof lucide !== 'undefined') lucide.createIcons();
-    });
-}
+<script src="{{ url_for('static', filename='config.js') }}" nonce="{{ csp_nonce }}"></script>
 {% endblock %}

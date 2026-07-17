@@ -9,10 +9,14 @@
     if (!sidebar) return;
     var isOpen = !sidebar.classList.contains('-translate-x-full');
     if (isOpen) {
+      // Close: add -translate-x-full, remove translate-x-0
       sidebar.classList.add('-translate-x-full');
+      sidebar.classList.remove('translate-x-0');
       if (overlay) overlay.classList.add('hidden');
     } else {
+      // Open: remove -translate-x-full, add translate-x-0
       sidebar.classList.remove('-translate-x-full');
+      sidebar.classList.add('translate-x-0');
       if (overlay) overlay.classList.remove('hidden');
     }
   };
@@ -44,6 +48,14 @@
       });
     });
 
+    // Desktop sidebar collapse (persist to localStorage)
+    (function() {
+      var saved = localStorage.getItem('collapsed_sidebar');
+      if (saved === 'true') {
+        document.body.classList.add('collapsed-sidebar');
+      }
+    })();
+
     // Auto-dismiss flash messages after 5s
     var container = document.getElementById('flash-container');
     if (container) {
@@ -57,6 +69,53 @@
       }, 5000);
     }
   });
+
+  // Desktop sidebar toggle (outside DOMContentLoaded, runs immediately)
+  window.toggleDesktopSidebar = function() {
+    var body = document.body;
+    body.classList.toggle('collapsed-sidebar');
+    var isCollapsed = body.classList.contains('collapsed-sidebar');
+    localStorage.setItem('collapsed_sidebar', isCollapsed);
+  };
+
+  // Auto-show page header and title based on current URL
+  (function() {
+    var saved = localStorage.getItem('collapsed_sidebar');
+    if (saved === 'true') {
+      document.body.classList.add('collapsed-sidebar');
+    }
+
+    var path = window.location.pathname;
+    var pageMap = {
+      '/': { id: null, title: '' },
+      '/config': { id: 'config', title: '推送配置' },
+      '/data_manage': { id: 'data_manage', title: '数据管理' },
+      '/users': { id: 'users', title: '用户管理' },
+      '/logs': { id: 'logs', title: '操作日志' },
+      '/push_history': { id: 'push_history', title: '推送记录' },
+      '/backup': { id: 'backup', title: '数据备份' },
+      '/restore': { id: 'restore', title: '数据恢复' },
+    };
+    var pageInfo = pageMap[path];
+    if (pageInfo && pageInfo.id) {
+      var header = document.getElementById('page-header');
+      var titleEl = document.getElementById('page-title');
+      if (header) header.classList.remove('hidden');
+      if (titleEl) titleEl.textContent = pageInfo.title;
+      // Highlight sidebar nav
+      var navLinks = document.querySelectorAll('#sidebar nav a');
+      navLinks.forEach(function(link) {
+        var href = link.getAttribute('href');
+        if (href === '/' && pageInfo.id === 'index') {
+          link.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+          link.classList.remove('text-gray-700', 'dark:text-gray-300');
+        } else if (href === '/' + pageInfo.id) {
+          link.classList.add('bg-blue-50', 'dark:bg-blue-900/30', 'text-blue-600', 'dark:text-blue-400');
+          link.classList.remove('text-gray-700', 'dark:text-gray-300');
+        }
+      });
+    }
+  })();
 
   // ── CSRF Token ──────────────────────────────────────────
   window._csrfToken = window._csrfToken || '{{ csrf_token }}';
