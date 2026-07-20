@@ -126,8 +126,6 @@ def create_captcha_image(code: str) -> Image.Image:
     font_paths = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",
-        "C:/Windows/Fonts/simsunb.ttf",
     ]
     font: Any = None
     for fp in font_paths:

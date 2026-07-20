@@ -45,9 +45,9 @@ LOG_CLEANUP_DIRS: list[str] = [DATA_DIR]  # 可被环境变量扩展
 
 # ── 统一缓存实例 ──────────────────────────────────────────
 # certs_cache: 缓存到期项列表（默认 TTL 30s，最大 5 条）
-certs_cache = LRUCache(maxsize=5, ttl=30.0)
-# users_cache: 缓存用户列表（默认 TTL 30s，最大 5 条）
-users_cache = LRUCache(maxsize=5, ttl=30.0)
+certs_cache = LRUCache(maxsize=5, ttl=5.0)
+# users_cache: 缓存用户列表（默认 TTL 5s，最大 5 条）
+users_cache = LRUCache(maxsize=5, ttl=5.0)
 # config_cache: 缓存配置字典（默认 TTL 60s，最大 5 条）
 config_cache = LRUCache(maxsize=5, ttl=60.0)
 
@@ -560,7 +560,7 @@ def reload_config() -> dict[str, Any]:
     return load_config()
 
 
-def calc_days_left(expire_str: str) -> int:
+def calc_days_left(expire_str: str) -> int | None:
     try:
         s = expire_str.strip()
         if "T" in s:
@@ -571,7 +571,7 @@ def calc_days_left(expire_str: str) -> int:
             exp = datetime.strptime(s, "%Y-%m-%d")
         return round((exp - datetime.now()).total_seconds() / 86400)
     except Exception:
-        return -999
+        return None
 
 
 def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
@@ -579,6 +579,8 @@ def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
         days_left = calc_days_left(cert.get("expire_date", ""))
     if not cert.get("remind_enabled", True):
         return "disabled"
+    if days_left is None:
+        return "normal"  # Unknown date → treat as normal (won't trigger alerts)
     if days_left < 0:
         return "expired"
     if days_left <= 7:

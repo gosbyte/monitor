@@ -532,7 +532,7 @@ document.addEventListener('keydown', function(e) {
         </thead>
         <tbody class="divide-y divide-gray-200" id="cert-tbody">
           {% for c in certs %}
-          <tr id="row-{{ c.id }}" class="hover:bg-gray-50 {% if c.get('handled') %}opacity-60{% endif %}{% if c.days_left >= 0 and c.days_left < 1 %}bg-red-50 border-l-4 border-red-400{% endif %}"
+          <tr id="row-{{ c.id }}" class="hover:bg-gray-50 {% if c.get('handled') %}opacity-60 border-l-4 border-l-gray-400{% else %}border-l-4 border-l-transparent{% endif %}{% if c.days_left >= 0 and c.days_left < 1 %}bg-red-50 border-l-4 border-red-400{% endif %}"
               data-customer="{{ c.customer }}" data-status="{{ c.status }}"
               data-type="{{ c.cert_type }}" data-days="{{ c.days_left }}" data-handled="{{ c.get('handled', false) }}"
               data-id="{{ c.id }}" data-note="{{ c.get("note","") }}" data-expire="{{ c.expire_date }}" data-createdby="{{ c.get("created_by", "") }}">

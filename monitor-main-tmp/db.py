@@ -445,10 +445,10 @@ def db_calc_stats() -> dict[str, int]:
     """计算统计信息"""
     with db_transaction() as conn:
         total = conn.execute("SELECT COUNT(*) FROM certs").fetchone()[0]
-        expired = conn.execute("SELECT COUNT(*) FROM certs WHERE remind_enabled=1 AND handled=0 AND expire_date < datetime('now')").fetchone()[0]
+        expired = conn.execute("SELECT COUNT(*) FROM certs WHERE remind_enabled=1 AND handled=0 AND expire_date < datetime('now', 'localtime')").fetchone()[0]
         expiring = conn.execute("""SELECT COUNT(*) FROM certs 
                                    WHERE remind_enabled=1 AND handled=0 
-                                   AND expire_date >= datetime('now')
+                                   AND expire_date >= datetime('now', 'localtime')
                                    AND expire_date <= datetime('now', '+7 days')""").fetchone()[0]
         disabled = conn.execute("SELECT COUNT(*) FROM certs WHERE remind_enabled=0").fetchone()[0]
         return {"total": total, "normal": total - expired - expiring - disabled,

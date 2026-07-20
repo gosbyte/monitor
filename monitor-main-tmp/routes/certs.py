@@ -100,8 +100,12 @@ def register_cert_routes(app: Flask) -> None:
         for c in certs:
             t = c.get("cert_type", "其他")
             type_count[t] += 1
-        total_certs = len(certs) if len(certs) > 0 else 1
-        type_distribution = [{"type": t, "count": cnt, "percent": round(cnt*100/total_certs, 1)} for t, cnt in sorted(type_count.items(), key=lambda x: -x[1])[:8]]
+        total_certs = len(certs)
+        if total_certs == 0:
+            type_distribution = []
+            status_distribution = []
+        else:
+            type_distribution = [{"type": t, "count": cnt, "percent": round(cnt*100/total_certs, 1)} for t, cnt in sorted(type_count.items(), key=lambda x: -x[1])[:8]]
 
         status_distribution = [
             {"label": "正常", "count": stats["normal"], "color": "#22c55e"},
