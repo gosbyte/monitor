@@ -920,3 +920,58 @@
 
 
 })();
+
+
+// toggleRowMenu
+function toggleRowMenu(certId, btnEl, evt) {
+  var dd = document.getElementById('row-menu-' + certId);
+  if (!dd) return;
+  var wasHidden = dd.classList.contains('hidden');
+  // 先关闭所有其他菜单
+  document.querySelectorAll('[id^="row-menu-"]').forEach(function(m) {
+    if (m.id !== 'row-menu-' + certId) m.classList.add('hidden');
+  });
+  if (wasHidden) {
+    dd.classList.remove('hidden');
+    // 计算按钮位置，用 fixed 定位菜单
+    var rect = btnEl.getBoundingClientRect();
+    dd.style.top = (rect.bottom + 4) + 'px';
+    dd.style.right = 'auto';
+    dd.style.left = rect.left + 'px';
+    // 边界检测：如果菜单超出视口底部，往上弹
+    var ddRect = dd.getBoundingClientRect();
+    if (ddRect.bottom > window.innerHeight) {
+      dd.style.top = (rect.top - ddRect.height - 4) + 'px';
+    }
+    // 如果菜单超出视口右侧，靠右对齐
+    if (ddRect.right > window.innerWidth) {
+      dd.style.left = '';
+      dd.style.right = (window.innerWidth - rect.right) + 'px';
+    }
+  }
+  // 按钮点击反馈
+  if (btnEl) {
+    btnEl.classList.add('bg-gray-100');
+    setTimeout(function() { btnEl.classList.remove('bg-gray-100'); }, 200);
+  }
+  if (evt) evt.stopPropagation();
+}
+// closeRowMenu
+function closeRowMenu(certId) {
+  var dd = document.getElementById('row-menu-' + certId);
+  if (dd) dd.classList.add('hidden');
+}
+// handlePushCert
+function handlePushCert(btn) {
+  var certId = parseInt(btn.getAttribute('data-cert-id'));
+  var customer = btn.getAttribute('data-customer') || '';
+  closeRowMenu(certId);
+  pushCert(certId, customer);
+}
+// handleConfirmDelete
+function handleConfirmDelete(btn) {
+  var certId = parseInt(btn.getAttribute('data-cert-id'));
+  var customer = btn.getAttribute('data-customer') || '';
+  closeRowMenu(certId);
+  confirmDelete(certId, customer);
+}

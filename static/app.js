@@ -7,13 +7,22 @@
     var sidebar = document.getElementById('sidebar');
     var overlay = document.getElementById('sidebar-overlay');
     if (!sidebar) return;
-    var isOpen = !sidebar.classList.contains('-translate-x-full');
+    
+    var isOpen = sidebar.classList.contains('sidebar-open');
     if (isOpen) {
-      sidebar.classList.add('-translate-x-full');
-      if (overlay) overlay.classList.add('hidden');
+      sidebar.classList.remove('sidebar-open');
+      if (overlay) {
+        overlay.classList.remove('sidebar-active');
+        overlay.classList.add('hidden');
+      }
+      document.body.classList.remove('sidebar-open');
     } else {
-      sidebar.classList.remove('-translate-x-full');
-      if (overlay) overlay.classList.remove('hidden');
+      sidebar.classList.add('sidebar-open');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('sidebar-active');
+      }
+      document.body.classList.add('sidebar-open');
     }
   };
 
@@ -23,8 +32,15 @@
     if (overlay) {
       overlay.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
+        if (sidebar) {
+          sidebar.classList.remove('sidebar-open');
+          sidebar.classList.add('-translate-x-full');
+        }
+        if (overlay) {
+          overlay.classList.remove('sidebar-active');
+          overlay.classList.add('hidden');
+        }
+        document.body.classList.remove('sidebar-open');
       });
     }
 
@@ -39,8 +55,15 @@
       link.addEventListener('click', function () {
         var sidebar = document.getElementById('sidebar');
         var ov = document.getElementById('sidebar-overlay');
-        if (sidebar) sidebar.classList.add('-translate-x-full');
-        if (ov) ov.classList.add('hidden');
+        if (sidebar) {
+          sidebar.classList.remove('sidebar-open');
+          sidebar.classList.add('-translate-x-full');
+        }
+        if (ov) {
+          ov.classList.remove('sidebar-active');
+          ov.classList.add('hidden');
+        }
+        document.body.classList.remove('sidebar-open');
       });
     });
 
