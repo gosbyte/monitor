@@ -1,6 +1,20 @@
 // index.js — 首页专用 JS（搜索/筛选、分页、批量操作、行操作、拖拽排序）
 (function () {
-  'use strict';
+  'use strict'
+  // ── Utility ────────────────────────────────────────────
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+  // ── Constants ────────────────────────────────────────────
+  const TOAST_DURATION_MS = 3000;
+  const IMPORT_REDIRECT_MS = 2500;
+  const LAST_UPDATE_INTERVAL_MS = 30000;
+  const SEARCH_DEBOUNCE_MS = 300;
+  const PAGINATION_PAGE_SIZE = 20;
+
+    div.appendChild(document.createTextNode(String(str)));
+    return div.innerHTML;
+  }
+;
 
   // ── Toast 通知 ──────────────────────────────────────────
   window.showToast = function (message, type) {
@@ -571,7 +585,7 @@
     if (matches.length === 0) { hideSearchSuggestions(); return; }
     var html = '';
     matches.forEach(function (m, i) {
-      html += '<div class="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer' + (i === 0 ? ' bg-blue-50' : '') + '" data-index="' + i + '" onclick="selectSuggestion(' + i + ')">' + m + '</div>';
+      html += '<div class="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 cursor-pointer' + (i === 0 ? ' bg-blue-50' : '') + '" data-index="' + i + '" onclick="selectSuggestion(' + i + ')">' + escapeHtml(m) + '</div>';
     });
     container.innerHTML = html;
     container.classList.remove('hidden');
@@ -896,8 +910,8 @@
   window.checkSelfPwd = function () {
     var pwd = document.getElementById('selfPwdField').value;
     var confirm = document.getElementById('selfPwdConfirm').value;
-    if (pwd.length < 8) { alert('密码至少8位'); return false; }
-    if (pwd !== confirm) { alert('两次密码不一致'); return false; }
+    if (pwd.length < 8) { showToast('密码至少8位', 'error'); return false; }
+    if (pwd !== confirm) { showToast('两次密码不一致', 'error'); return false; }
     return true;
   };
 

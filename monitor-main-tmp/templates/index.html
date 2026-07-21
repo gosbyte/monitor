@@ -448,17 +448,22 @@ document.addEventListener('keydown', function(e) {
         class="px-3 py-1.5 text-sm text-purple-600 hover:text-purple-800 hover:bg-purple-50 rounded-lg transition-colors">
         <i data-lucide="download" class="w-3.5 h-3.5 inline-block"></i> 导出选中
       </button>
+      <button onclick="exportFiltered()" class="px-3 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors">
+        <i data-lucide="download" class="w-3.5 h-3.5 inline-block"></i> 导出筛选
+      </button>
+      <div class="w-px h-6 bg-gray-300 mx-1"></div>
       <button onclick="toggleAutoRefresh()" id="btn-auto-refresh" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline-block"></i> 自动刷新
-      </button>
-      <button onclick="showShortcutsHelp()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-        <i data-lucide="keyboard" class="w-3.5 h-3.5 inline-block"></i> 快捷键
       </button>
       <button onclick="refreshData()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="refresh-ccw" class="w-3.5 h-3.5 inline-block"></i> 刷新
       </button>
       <button onclick="resetFilters()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
         <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 inline-block"></i> 重置筛选
+      </button>
+      <div class="w-px h-6 bg-gray-300 mx-1"></div>
+      <button onclick="showShortcutsHelp()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+        <i data-lucide="keyboard" class="w-3.5 h-3.5 inline-block"></i> 快捷键
       </button>
     </div>
   </div>
