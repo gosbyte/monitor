@@ -184,8 +184,9 @@ def register_cert_routes(app: Flask) -> None:
             raise DataError("无权操作此记录")
         if request.method == "POST":
             is_ajax = request.is_json or request.headers.get("Content-Type", "").startswith("application/json")
-            if is_ajax:
+            if (is_ajax):
                 data = request.get_json()
+                cert["domain"] = data.get("domain", "").strip()
                 cert["customer"] = data.get("customer", "").strip()
                 cert["cert_type"] = data.get("cert_type", "").strip()
                 cert["expire_date"] = data.get("expire_date", "").strip()

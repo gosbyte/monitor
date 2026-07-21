@@ -19,6 +19,7 @@ from data import (
     calc_days_left, get_cert_status, load_logs, save_logs, load_users,
     DATA_DIR, BASE_DIR, reload_config,
 )
+from db import db_load_push_history
 from auth import login_required, admin_required, csrf_required
 
 
@@ -188,12 +189,7 @@ def register_admin_routes(app: Flask) -> None:
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
         is_admin = current_user.get("role") == "admin" if current_user else False
-        push_history_file = os.path.join(DATA_DIR, "push_history.json") if DATA_DIR != BASE_DIR else os.path.join(BASE_DIR, "push_history.json")
-        history: list[dict[str, Any]] = []
-        if os.path.exists(push_history_file):
-            with open(push_history_file, "r", encoding="utf-8") as f:
-                history = json.load(f)
-        history.sort(key=lambda x: x.get("time", ""), reverse=True)
+        history = db_load_push_history(200)
         return render_template("push_history.html", history=history, is_admin=is_admin)
 
     # ── 数据管理 ──────────────────────────────────────────────

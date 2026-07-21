@@ -716,7 +716,6 @@
       var map = { normal: 'green', expiring: 'orange', expired: 'red' };
       var color = map[status];
       var activeCard = document.querySelector('[data-filter-status="' + status + '"]');
-      var activeCard = document.querySelector(selector);
       if (activeCard) activeCard.classList.add('ring-2', 'ring-offset-2', 'ring-' + color + '-500');
     }
     var tbody = document.getElementById('cert-tbody');
