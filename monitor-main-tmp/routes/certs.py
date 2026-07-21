@@ -117,8 +117,9 @@ def register_cert_routes(app: Flask) -> None:
             {"label": "已禁用", "count": stats.get("disabled", 0), "color": "#6b7280"}
         ]
 
-        # [FIX] P1-9: badge_count 在此处计算
+        # [FIX] P1-9: badge_count 在此处计算并更新缓存
         badge_count = sum(1 for c in certs if c.get("remind_enabled", True) and not c.get("handled", False) and 0 <= c.get("days_left", 999) <= 7)
+        _badge_count_cache["badge_count"] = badge_count
 
         chart_data: dict[str, Any] = {
             "monthly_expiry": monthly_expiry,
@@ -856,8 +857,10 @@ def register_cert_routes(app: Flask) -> None:
     # ── CSV 导出（可选列）─────────────────────────────────────
     @app.route("/export/csv")
     @login_required
-    def export_csv() -> Response:
-        certs = load_certs()
+    def export_csv(certs=None) -> Response:
+        """导出证书为CSV。可选传入certs参数用于导出选中记录。"""
+        if certs is None:
+            certs = load_certs()
         columns = request.args.getlist("columns", type=str)
         # 默认导出所有标准列
         all_columns = ["customer", "cert_type", "domain", "expire_date", "note",

@@ -166,7 +166,7 @@
         var parts = dt.split(' ');
         var baseDate = parts[0] || '';
         var baseTime = parts[1] || '00:00';
-        var d = new Date(baseDate.replace('-', '/', 'g').replace('/', '-', 1) + 'T' + baseTime);
+        var d = new Date(baseDate.replace(/-/g, '/') + 'T' + baseTime);
         if (isNaN(d.getTime())) d = new Date(dt.replace(' ', 'T'));
         d.setDate(d.getDate() + 30);
         var y = d.getFullYear();
