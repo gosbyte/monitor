@@ -14,6 +14,7 @@ from typing import Any
 from PIL import Image
 
 from flask import session, redirect, url_for, request, Response
+_badge_count_cache: dict | None = None
 
 from data import (
     load_certs, calc_days_left, load_users, save_users,
@@ -23,10 +24,16 @@ from data import (
 
 
 # ── 上下文处理器 ─────────────────────────────────────────
+_badge_count_cache: dict | None = None
+
 def inject_globals() -> dict[str, Any]:
     """向所有模板注入 csrf_token, badge_count 和 csp_nonce"""
+    global _badge_count_cache
     badge_count = 0
-    if session.get("username"):
+    # Use cached badge count if available (set by route handlers)
+    if _badge_count_cache is not None:
+        badge_count = _badge_count_cache.get("badge_count", 0)
+    elif session.get("username"):
         try:
             certs = load_certs()
             for c in certs:

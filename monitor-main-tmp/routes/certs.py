@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Union
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, g
 
 from exceptions import ValidationError, DataError, ServiceError, ImportError, ExportError
 
@@ -23,7 +23,7 @@ from data import (
     load_users, DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, LOGS_FILE,
     USERS_FILE, USE_SQLITE,
 )
-from auth import login_required, csrf_required, admin_required
+from auth import login_required, csrf_required, admin_required, _badge_count_cache
 
 
 # Flask route handlers can return str, tuple[str, int], Response, or dict
@@ -69,6 +69,9 @@ def register_cert_routes(app: Flask) -> None:
             c["status"] = get_cert_status(c, c["days_left"])
         certs.sort(key=lambda x: x["days_left"])
         stats = calc_stats(certs)
+
+        # Cache badge count for inject_globals context processor
+        _badge_count_cache = stats
         users = load_users()
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
@@ -1298,3 +1301,17 @@ def _apply_field_mapping(item: dict, mapping: dict) -> dict:
         if k not in mapping:
             mapped[k] = v
     return mapped
+
+
+    @app.route("/api/export_selected", methods=["GET"])
+    @login_required
+    def export_selected_certs():
+        """导出选中的证书为CSV"""
+        ids = request.args.getlist("id", type=int)
+        if not ids:
+            return jsonify({"ok": False, "message": "未选择任何记录"}), 400
+        certs = load_certs()
+        selected = [c for c in certs if c["id"] in ids]
+        if not selected:
+            return jsonify({"ok": False, "message": "未找到指定记录"}), 404
+        return export_csv(selected)

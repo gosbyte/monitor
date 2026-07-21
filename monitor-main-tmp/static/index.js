@@ -78,7 +78,8 @@
           var btn = form.querySelector('button[type="submit"]');
           var continueAdd = document.getElementById('continue-add') ? document.getElementById('continue-add').checked : false;
           btn.disabled = true;
-          btn.textContent = '添加中…';
+          var origHtml = btn.innerHTML;
+          btn.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 inline-block animate-spin"></i> 添加中…';
 
           var dateVal = document.getElementById('add-expire-date').value;
           var timeVal = document.getElementById('add-expire-time').value;
@@ -729,6 +730,13 @@
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
     showToast('导出成功：' + rows.length + ' 条记录', 'success');
+  };
+
+  window.exportSelected = function () {
+    var ids = getSelectedIds();
+    if (ids.length === 0) { showToast('请先选择要导出的记录', 'warning'); return; }
+    var url = '/api/export_selected?' + ids.map(function(id) { return 'id=' + id; }).join('&');
+    window.location.href = url;
   };
 
   // ── 自动刷新 ──────────────────────────────────────────
