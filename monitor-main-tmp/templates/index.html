@@ -418,6 +418,7 @@ document.addEventListener('keydown', function(e) {
       <input type="text" id="search-input" placeholder="搜索客户名称、类型…" aria-label="搜索客户名称或提醒类型" autocomplete="off"
         oninput="debounceFilter(this.value); updateClearSearchBtn();" onkeydown="if(event.key==='Enter'){addToSearchHistory(this.value.trim());filterTable();} if(event.key==='ArrowDown')selectSuggestion(1); if(event.key==='ArrowUp')selectSuggestion(-1); if(event.key==='Escape')hideSearchSuggestions();"
         class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" autocomplete="off">
+      <span id="search-result-count" class="text-xs text-gray-400 ml-2"></span>
       <button id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600" onclick="clearSearch()">
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
@@ -592,7 +593,7 @@ document.addEventListener('keydown', function(e) {
                   </button>
                   <div id="row-menu-{{ c.id }}" class="hidden fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 py-1 w-44" style="right:auto;left:auto;top:auto;">
                     {% if is_admin %}
-                    <button data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}" onclick="handlePushCert(this)" class="w-full text-left px-3 py-2 text-sm text-violet-700 hover:bg-violet-50 transition-colors flex items-center gap-2">
+                    <button data-cert-id="{{ c.id }}" data-customer="{{ c.customer }}" onclick="handlePushCert(this)" class="w-full text-left px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors flex items-center gap-2">
                       <i data-lucide="upload" class="w-3.5 h-3.5 inline-block"></i> 发送推送
                     </button>
                     {% endif %}
@@ -604,7 +605,7 @@ document.addEventListener('keydown', function(e) {
                       <i data-lucide="{% if c.get('handled') %}check-circle-2{% else %}circle{% endif %}" class="w-3.5 h-3.5 inline-block"></i>
                       {% if c.get('handled') %}取消已处理{% else %}标记已处理{% endif %}
                     </button>
-                    <button onclick="closeRowMenu({{ c.id }});duplicateCert({{ c.id }})" class="w-full text-left px-3 py-2 text-sm text-green-700 hover:bg-green-50 transition-colors flex items-center gap-2">
+                    <button onclick="closeRowMenu({{ c.id }});duplicateCert({{ c.id }})" class="w-full text-left px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 transition-colors flex items-center gap-2">
                       <i data-lucide="copy" class="w-3.5 h-3.5 inline-block"></i> 复制记录
                     </button>
                     <div class="border-t border-gray-100 my-1"></div>

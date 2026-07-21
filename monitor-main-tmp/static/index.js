@@ -466,6 +466,10 @@
       if (row.style.display !== 'none') visible++;
     });
 
+    // Update search result count
+    var countEl = document.getElementById('search-result-count');
+    if (countEl) countEl.textContent = visible > 0 ? visible + ' 条' : '0 条';
+
     var tbody = document.getElementById('cert-tbody');
     var visibleRows = Array.from(tbody.querySelectorAll('tr')).filter(function (r) { return r.style.display !== 'none'; });
     visibleRows.sort(function (a, b) {
@@ -906,6 +910,39 @@
   // ── 修改密码（首页内联功能） ──────────────────────────────
 
   'use strict';
+
+  // ── Undo State ────────────────────────────────────────
+  var _undoStack = [];
+  var _undoTimer = null;
+  var UNDO_TIMEOUT = 5000; // 5 seconds
+
+  function showUndoToast(message, undoCallback) {
+    var toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3';
+    toast.innerHTML = '<span>' + message + '</span>' +
+      '<button class="text-red-400 hover:text-red-300 font-medium text-sm">' +
+      '撤销</button>';
+    document.body.appendChild(toast);
+    
+    // Auto-remove after timeout
+    _undoTimer = setTimeout(function() {
+      if (toast.parentElement) {
+        toast.style.transition = 'opacity 0.3s';
+        toast.style.opacity = '0';
+        setTimeout(function() { if (toast.parentElement) toast.remove(); }, 300);
+      }
+    }, UNDO_TIMEOUT);
+    
+    // Bind undo callback to button
+    toast.querySelector('button').addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (undoCallback) undoCallback();
+      toast.remove();
+      clearTimeout(_undoTimer);
+    });
+    
+    return toast;
+  }
 
   window.checkSelfPwd = function () {
     var pwd = document.getElementById('selfPwdField').value;
