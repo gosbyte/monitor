@@ -23,7 +23,9 @@ from data import (
     load_users, DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, LOGS_FILE,
     USERS_FILE, USE_SQLITE,
 )
-from auth import login_required, csrf_required, admin_required, _badge_count_cache
+from auth import login_required, csrf_required, admin_required
+
+from data import _badge_count_cache
 
 
 # Flask route handlers can return str, tuple[str, int], Response, or dict
@@ -278,7 +280,7 @@ def register_cert_routes(app: Flask) -> None:
                     "remind_enabled": enabled, "handled": handled,
                     "responsible_users": c.get("responsible_users", []),
                     "customer": c.get("customer", ""), "cert_type": c.get("cert_type", ""),
-                    "expire_date": c.get("expire_date", ""), "note": c.get("note", "")
+                    "expire_date": c.get("expire_date", ""), "note": c.get("note", ""), "domain": c.get("domain", "")
                 })
         return jsonify({"ok": False}), 404
 
