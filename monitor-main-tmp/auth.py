@@ -14,17 +14,13 @@ from typing import Any
 from PIL import Image
 
 from flask import session, redirect, url_for, request, Response
-_badge_count_cache: dict | None = None
 
 from data import (
     load_certs, calc_days_left, load_users, save_users,
     verify_user, is_user_locked, get_lock_seconds,
     do_lock_user, reset_failed_attempts,
+    _badge_count_cache,
 )
-
-
-# ── 上下文处理器 ─────────────────────────────────────────
-_badge_count_cache: dict | None = None
 
 def inject_globals() -> dict[str, Any]:
     """向所有模板注入 csrf_token, badge_count 和 csp_nonce"""

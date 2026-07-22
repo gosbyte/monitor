@@ -8,6 +8,11 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
+
+# Shared badge count cache between route handlers and context processor
+_badge_count_cache: dict | None = None
 import re
 import time
 import logging
