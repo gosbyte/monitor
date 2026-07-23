@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN" class="{% if active_page == 'index' %}index-page{% endif %}">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
@@ -16,8 +16,6 @@
   {% block head %}{% endblock %}
   {% block styles %}{% endblock %}
   
-  /* When index.html provides its own header, hide base.html's mobile header */
-  .index-page .mobile-header { display: none !important; }
   {% block shortcut_handlers %}{% endblock %}
   <style>
     /* Focus visible for keyboard navigation */

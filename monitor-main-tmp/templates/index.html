@@ -91,130 +91,6 @@ document.addEventListener('keydown', function(e) {
 <link rel="stylesheet" href="/static/dark.css">
 {% endblock %}
 
-{% block page_header %}
-<!-- 顶部导航 -->
-<div class="bg-white border-b border-gray-200 dark:border-gray-700 sticky top-0 z-[100]" id="page-header">
-  <div class="max-w-7xl mx-auto px-4 py-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-          <i data-lucide="calendar-clock" class="w-4 h-4 inline-block"></i>
-        </div>
-        <div class="min-w-0">
-          <h1 class="text-lg font-bold text-gray-900 leading-tight truncate">
-            <span class="hidden sm:inline">到期提醒管理系统</span>
-            <span class="sm:hidden">到期提醒</span>
-          </h1>
-          <p class="text-xs text-gray-400 hidden md:block leading-tight">通用到期提醒管理</p>
-        </div>
-      </div>
-      <!-- 移动端汉堡菜单按钮（侧边栏） -->
-      <button onclick="toggleSidebar()" class="md:hidden flex items-center justify-center w-10 h-10 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors ml-2 flex-shrink-0" aria-label="菜单">
-        <i data-lucide="menu" class="w-5 h-5 inline-block"></i>
-      </button>
-      <!-- 桌面端导航 -->
-      <div class="hidden md:flex items-center gap-2 flex-wrap" id="desktop-nav">
-        
-        {% if is_admin %}
-        <!-- 管理下拉菜单 -->
-        <div class="relative" id="admin-dropdown">
-          <button onclick="toggleAdminMenu()" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm relative">
-            <i data-lucide="settings" class="w-4 h-4 inline-block"></i> 管理
-            {% if badge_count > 0 %}
-            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{{ badge_count }}</span>
-            {% endif %}
-            <i data-lucide="chevron-down" class="w-3 h-3 inline-block"></i>
-          </button>
-          <div id="admin-menu" class="hidden absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px] dark:bg-gray-800 dark:border-gray-600">
-            <a href="/config" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="webhook" class="w-4 h-4 inline-block"></i> 推送配置
-            </a>
-            <a href="/data_manage" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="database" class="w-4 h-4 inline-block"></i> 数据管理
-            </a>
-            <a href="/users" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="users" class="w-4 h-4 inline-block"></i> 用户管理
-            </a>
-            <a href="/logs" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="clipboard-list" class="w-4 h-4 inline-block"></i> 操作日志
-            </a>
-            <a href="/push_history" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="bell" class="w-4 h-4 inline-block"></i> 推送记录
-            </a>
-            <a href="/backup" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" download>
-              <i data-lucide="archive" class="w-4 h-4 inline-block"></i> 数据备份
-            </a>
-            <a href="/restore" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-              <i data-lucide="rotate-ccw" class="w-4 h-4 inline-block"></i> 数据恢复
-            </a>
-            <!-- 已整合到数据管理 -->
-          </div>
-        </div>
-        {% endif %}
-        <!-- 暗色模式切换 -->
-        <button onclick="toggleDarkMode()" id="dark-toggle" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm">
-          <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun"></i>
-          <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon"></i>
-        </button>
-        <!-- 修改密码（所有用户可见） -->
-        <button onclick="openPwdModalSelf()" class="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm">
-          <i data-lucide="key-round" class="w-4 h-4 inline-block"></i> 改密码
-        </button>
-        <a href="/logout" class="flex items-center gap-2 px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm">
-          <i data-lucide="log-out" class="w-4 h-4 inline-block"></i> 退出
-        </a>
-      </div>
-      <!-- 移动端下拉菜单 -->
-      <div id="mobile-menu" class="hidden md:hidden dark:bg-gray-800" style="flex-basis:100%">
-        <div class="mt-3 border-t border-gray-200 pt-3 pb-1 space-y-1">
-          {% if is_admin %}
-          <div class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-1">管理</div>
-          <a href="/config" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="webhook" class="w-4 h-4 inline-block text-blue-500"></i> 推送配置
-          </a>
-          <a href="/data_manage" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="database" class="w-4 h-4 inline-block text-green-500"></i> 数据管理
-          </a>
-          <a href="/users" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="users" class="w-4 h-4 inline-block text-purple-500"></i> 用户管理
-          </a>
-          <a href="/logs" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="clipboard-list" class="w-4 h-4 inline-block text-amber-500"></i> 操作日志
-          </a>
-          <a href="/push_history" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="bell" class="w-4 h-4 inline-block text-rose-500"></i> 推送记录
-          </a>
-          <a href="/backup" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="archive" class="w-4 h-4 inline-block text-gray-500"></i> 数据备份
-          </a>
-          <a href="/restore" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="rotate-ccw" class="w-4 h-4 inline-block text-gray-500"></i> 数据恢复
-          </a>
-          <div class="border-t border-gray-100 my-1"></div>
-          {% endif %}
-          <div class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider px-4 py-1">操作</div>
-          <button onclick="openAddModal()" class="flex items-center gap-3 px-4 py-2.5 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-sm font-medium w-full text-left shadow-sm">
-            <i data-lucide="plus" class="w-4 h-4 inline-block"></i> 添加记录
-          </button>
-          <button onclick="openPwdModalSelf()" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium w-full text-left">
-            <i data-lucide="key-round" class="w-4 h-4 inline-block text-orange-500"></i> 改密码
-          </button>
-          <button onclick="toggleDarkMode()" class="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium w-full text-left">
-            <i data-lucide="sun" class="w-4 h-4 inline-block" id="dark-icon-sun-m"></i>
-            <i data-lucide="moon" class="w-4 h-4 inline-block hidden" id="dark-icon-moon-m"></i>
-            <span id="dark-label-m">暗色模式</span>
-          </button>
-          <div class="border-t border-gray-100 my-1"></div>
-          <a href="/logout" class="flex items-center gap-3 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium">
-            <i data-lucide="log-out" class="w-4 h-4 inline-block"></i> 退出
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
-
 {% block content %}
 <main class="max-w-7xl mx-auto px-4 py-6">
 
@@ -258,7 +134,7 @@ document.addEventListener('keydown', function(e) {
   <!-- 页面标题栏 -->
   <div class="flex items-center justify-between mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">到期提醒管理</h1>
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">到期提醒管理</h1>
       <p class="text-sm text-gray-500 mt-1">管理所有证书、许可证和合同的到期提醒</p>
     </div>
     <div class="flex items-center gap-2 text-xs text-gray-400">
