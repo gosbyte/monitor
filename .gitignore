@@ -47,8 +47,3 @@ coverage.xml
 static/*.min.js
 
 # Docker (build context only)
-Dockerfile
-.dockerignore
-docker-compose.yml
-supervisord.conf
-deploy.sh
