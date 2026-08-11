@@ -6,13 +6,17 @@
 """
 from __future__ import annotations
 
-import fcntl
 import json
 import os
+from typing import Any
+
+
+# Shared badge count cache between route handlers and context processor
+_badge_count_cache: dict | None = None
 import re
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from cryptography.fernet import Fernet
@@ -46,9 +50,9 @@ LOG_CLEANUP_DIRS: list[str] = [DATA_DIR]  # 可被环境变量扩展
 
 # ── 统一缓存实例 ──────────────────────────────────────────
 # certs_cache: 缓存到期项列表（默认 TTL 30s，最大 5 条）
-certs_cache = LRUCache(maxsize=5, ttl=30.0)
-# users_cache: 缓存用户列表（默认 TTL 30s，最大 5 条）
-users_cache = LRUCache(maxsize=5, ttl=30.0)
+certs_cache = LRUCache(maxsize=5, ttl=5.0)
+# users_cache: 缓存用户列表（默认 TTL 5s，最大 5 条）
+users_cache = LRUCache(maxsize=5, ttl=5.0)
 # config_cache: 缓存配置字典（默认 TTL 60s，最大 5 条）
 config_cache = LRUCache(maxsize=5, ttl=60.0)
 
@@ -56,62 +60,7 @@ config_cache = LRUCache(maxsize=5, ttl=60.0)
 _config_cache: dict[str, Any] = {}
 _config_cache_mtime: float = 0
 
-# ── 文件锁工具（供 app.py 并发安全读写使用）─────────────────
-class FileLock:
-    """跨平台文件锁（基于 fcntl）"""
-    def __init__(self, filepath: str, timeout: int = 10) -> None:
-        self.lockfile = filepath + ".lock"
-        self.timeout = timeout
-        self._fd = None  # type: ignore[assignment]
-
-    def __enter__(self) -> "FileLock":
-        self._fd = open(self.lockfile, "w")  # type: ignore[assignment]
-        deadline = datetime.now().timestamp() + self.timeout
-        while True:
-            try:
-                fcntl.flock(self._fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                return self
-            except (IOError, OSError):
-                if datetime.now().timestamp() >= deadline:
-                    raise TimeoutError(
-                        f"Could not acquire lock on {self.lockfile} within {self.timeout}s"
-                    )
-                time.sleep(0.1)
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[return]
-        if self._fd:  # type: ignore[union-attr]
-            fcntl.flock(self._fd.fileno(), fcntl.LOCK_UN)  # type: ignore[union-attr]
-            self._fd.close()  # type: ignore[union-attr]
-        try:
-            os.unlink(self.lockfile)
-        except OSError:
-            pass
-
-
-def locked_read_json(filepath: str) -> Any | None:
-    """带文件锁的安全读取 JSON"""
-    with FileLock(filepath):
-        if os.path.exists(filepath):
-            with open(filepath, "r", encoding="utf-8-sig") as f:
-                return json.load(f)
-        return None
-
-
-def locked_write_json(filepath: str, data: Any) -> None:
-    """带文件锁的安全原子写入 JSON"""
-    with FileLock(filepath):
-        atomic_write_json(filepath, data)
-
-
 _fernet: Fernet | None = None
-
-
-def atomic_write_json(filepath: str, data: Any) -> None:
-    """写 JSON 文件（临时文件 + os.replace，保证原子性）"""
-    tmp = filepath + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp, filepath)
 
 
 #
@@ -304,8 +253,8 @@ def validate_password(password: str) -> tuple[bool, str, int, str]:
         return False, "密码不能为空", 0, "极弱"
 
     # 长度检查
-    if len(password) < 12:
-        return False, "密码长度不能少于12位", 0, "极弱"
+    if len(password) < 6:
+        return False, "密码长度不能少于6位", 0, "极弱"
 
     # 常见密码检查
     if password.lower() in _COMMON_PASSWORDS:
@@ -374,7 +323,7 @@ def save_users(users: list[dict[str, Any]]) -> None:
                      u.get("failed_attempts", 0),
                      u.get("consecutive_locks", 0),
                      u.get("lock_until"),
-                     int(u.get("force_change_password", 1)),
+                     int(u.get("force_change_password", 0)),
                      u["username"]))
             else:
                 conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
@@ -386,7 +335,7 @@ def save_users(users: list[dict[str, Any]]) -> None:
                      u.get("failed_attempts", 0),
                      u.get("consecutive_locks", 0),
                      u.get("lock_until"),
-                     int(u.get("force_change_password", 1))))
+                     int(u.get("force_change_password", 0))))
     # 清除用户缓存
     users_cache.clear()
 
@@ -495,7 +444,7 @@ def save_certs(certs: list[dict[str, Any]] | dict[str, Any]) -> None:
                         (c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
                          c.get("expire_date", ""), c.get("note", ""),
                          int(c.get("remind_enabled", True)), int(c.get("handled", False)),
-                         json.dumps(c.get("responsible_users", []), ensure_ascii=False),
+                         json.dumps(c.get("responsible_users") if c.get("responsible_users") is not None else [], ensure_ascii=False),
                          datetime.now().strftime("%Y-%m-%d %H:%M"), c.get("id")))
                 else:
                     conn.execute("""INSERT INTO certs (id, customer, cert_type, domain, expire_date, note,
@@ -504,9 +453,20 @@ def save_certs(certs: list[dict[str, Any]] | dict[str, Any]) -> None:
                         (c.get("id"), c.get("customer", ""), c.get("cert_type", ""), c.get("domain", ""),
                          c.get("expire_date", ""), c.get("note", ""), c.get("created_by", ""),
                          int(c.get("remind_enabled", True)), int(c.get("handled", False)),
-                         json.dumps(c.get("responsible_users", []), ensure_ascii=False),
+                         json.dumps(c.get("responsible_users") if c.get("responsible_users") is not None else [], ensure_ascii=False),
                          c.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M")),
                          datetime.now().strftime("%Y-%m-%d %H:%M")))
+            # 删除已不在列表中的孤儿记录（修复：删证书后刷新又重现的问题）
+            # save_certs 此前只 UPDATE/INSERT，从不 DELETE，导致被过滤掉的行仍在库里，
+            # 下次 load_certs 重新读出 → 记录“删不掉”。
+            ids = [c.get("id") for c in certs if c.get("id") is not None]
+            if ids:
+                placeholders = ",".join("?" for _ in ids)
+                conn.execute(f"DELETE FROM certs WHERE id NOT IN ({placeholders})", ids)
+            else:
+                # 传入空列表（删除了最后一条）→ 清空表，保证删除持久化
+                conn.execute("DELETE FROM certs")
+                logger.warning("save_certs: 传入空列表，已清空 certs 表")
     else:
         if certs.get("id") is None:
             logger.warning(f"save_certs: 跳过 id=None 的单条记录 {certs.get('customer', '?')}")
@@ -616,7 +576,7 @@ def reload_config() -> dict[str, Any]:
     return load_config()
 
 
-def calc_days_left(expire_str: str) -> int:
+def calc_days_left(expire_str: str) -> int | None:
     try:
         s = expire_str.strip()
         if "T" in s:
@@ -625,9 +585,9 @@ def calc_days_left(expire_str: str) -> int:
             exp = datetime.strptime(s, "%Y-%m-%d %H:%M")
         else:
             exp = datetime.strptime(s, "%Y-%m-%d")
-        return int((exp - datetime.now()).total_seconds() / 86400)
+        return round((exp - datetime.now()).total_seconds() / 86400)
     except Exception:
-        return -999
+        return None
 
 
 def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
@@ -635,6 +595,8 @@ def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
         days_left = calc_days_left(cert.get("expire_date", ""))
     if not cert.get("remind_enabled", True):
         return "disabled"
+    if days_left is None:
+        return "normal"  # Unknown date → treat as normal (won't trigger alerts)
     if days_left < 0:
         return "expired"
     if days_left <= 7:
@@ -643,7 +605,7 @@ def get_cert_status(cert: dict[str, Any], days_left: int | None = None) -> str:
 
 
 def calc_stats(certs: list[dict[str, Any]]) -> dict[str, int]:
-    normal = expiring = expired = disabled = 0
+    normal = expiring = expired = disabled = today_expiring = 0
     for c in certs:
         days_left = calc_days_left(c["expire_date"])
         status = get_cert_status(c, days_left)
@@ -655,7 +617,14 @@ def calc_stats(certs: list[dict[str, Any]]) -> dict[str, int]:
             expired += 1
         elif status == "disabled":
             disabled += 1
-    return {"total": len(certs), "normal": normal, "expiring": expiring, "expired": expired, "disabled": disabled}
+        # 今天到期
+        try:
+            expire_dt = datetime.strptime(c["expire_date"], "%Y-%m-%d")
+            if expire_dt.date() == date.today():
+                today_expiring += 1
+        except (ValueError, KeyError):
+            pass
+    return {"total": len(certs), "normal": normal, "expiring": expiring, "expired": expired, "disabled": disabled, "today_expiring": today_expiring}
 
 
 # ── 辅助函数：供 app.py 直接调用 db.py ──────────────────
@@ -673,3 +642,62 @@ def db_batch_delete_cert_ids(ids: list[int]) -> int:
 
 # ── JSON 迁移（供 init_data.py 调用）─────────────────
 from db import migrate_json_to_sqlite  # noqa: E402
+
+def atomic_write_json(filepath: str, data: Any) -> None:
+    """原子写入 JSON 文件"""
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, filepath)
+
+class FileLock:
+    """跨平台文件锁（基于 fcntl）"""
+    def __init__(self, filepath: str, timeout: int = 10) -> None:
+        self.lockfile = filepath + ".lock"
+        self.timeout = timeout
+        self._fd = None  # type: ignore[assignment]
+
+    def __enter__(self) -> "FileLock":
+        self._fd = open(self.lockfile, "w")  # type: ignore[assignment]
+        deadline = time.time() + self.timeout
+        while True:
+            try:
+                fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (IOError, OSError):
+                if time.time() > deadline:
+                    raise TimeoutError(f"File lock timeout: {self.lockfile}")
+                time.sleep(0.1)
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._fd:
+            fcntl.flock(self._fd, fcntl.LOCK_UN)
+            self._fd.close()
+
+
+def atomic_write_json(filepath: str, data: Any) -> None:
+    """原子写入 JSON 文件"""
+    tmp = filepath + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, filepath)
+
+
+def locked_read_json(filepath: str, default: Any = None) -> Any:
+    """带锁读取 JSON 文件"""
+    with FileLock(filepath):
+        if not os.path.exists(filepath):
+            return default
+        with open(filepath, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+
+def locked_write_json(filepath: str, data: Any) -> None:
+    """带锁写入 JSON 文件"""
+    with FileLock(filepath):
+        atomic_write_json(filepath, data)

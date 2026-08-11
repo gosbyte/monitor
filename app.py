@@ -50,6 +50,14 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder="templates")
 
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve the favicon from static/ so the browser's automatic
+    root /favicon.ico probe does not 404."""
+    return app.send_static_file('favicon.ico')
+
+
 # ── 安全配置 ──────────────────────────────────────────────
 def _load_or_create_secret_key():
     env_key = os.environ.get("SECRET_KEY")
@@ -107,6 +115,10 @@ def set_security_headers(response):
             "font-src 'self' https://fonts.gstatic.com; "
             "connect-src 'self' https://o404879.oss-cn-shanghai.oss.aliyuncs.com;"
         )
+    # [FIX] 静态资源长缓存：避免每次整页刷新都重新验证 CSS/JS（配合 ?v= 版本号，
+    # 改文件时升级版本号即可破缓存），消除因 CSS 晚到导致的侧边栏 FOUC 抖动
+    if request.path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'public, max-age=86400'
     return response
 
 
@@ -307,6 +319,16 @@ from routes.admin import register_admin_routes
 from routes.api import register_api_routes
 from routes.pages import register_page_routes
 
+# ── Initialize database and data directory on startup ──────────
+try:
+    from init_data import init_data as _init_data
+    _init_data()
+except Exception as _e:
+    import logging
+    logging.getLogger(__name__).error(f"Data initialization failed: {_e}")
+    raise
+
+
 register_auth_routes(app)
 register_cert_routes(app)
 register_admin_routes(app)
@@ -316,4 +338,4 @@ register_page_routes(app)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5188))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

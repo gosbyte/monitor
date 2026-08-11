@@ -13,7 +13,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any, Union
 
-from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session
+from flask import Flask, request, jsonify, render_template, redirect, url_for, Response, session, g
 
 from exceptions import ValidationError, DataError, ServiceError, ImportError, ExportError
 
@@ -21,9 +21,11 @@ from data import (
     load_certs, save_certs, load_config, save_config, write_log,
     calc_days_left, get_cert_status, calc_stats, encrypt_field, decrypt_field,
     load_users, DATA_DIR, BASE_DIR, DATA_FILE, CONFIG_FILE, LOGS_FILE,
-    USERS_FILE, USE_SQLITE,
+    USERS_FILE, USE_SQLITE, certs_cache, reload_config,
 )
-from auth import login_required, csrf_required, admin_required, _check_api_csrf
+from auth import login_required, csrf_required, admin_required
+
+from data import _badge_count_cache
 
 
 # Flask route handlers can return str, tuple[str, int], Response, or dict
@@ -32,18 +34,17 @@ _FlaskResponse = Union[str, tuple[str, int], Response, dict[str, Any], Any]
 logger = logging.getLogger(__name__)
 
 
-# ── Badge 模板（内联，最多2处调用）─────────────────────────
+def _check_api_csrf() -> bool:
+    """API CSRF 检查（不旋转token，避免连续请求失败）"""
+    if request.method == "GET":
+        return True
+    token = request.headers.get("X-CSRF-Token")
+    if not token and request.is_json:
+        token = request.json.get("_csrf_token")
+    if not token or token != session.get("_csrf_token"):
+        return False
+    return True
 
-def _build_badge(status: str, days_left: float, expire_str: str) -> str:
-    """根据状态构建 badge HTML"""
-    days = f"{abs(days_left):.0f}"
-    badges = {
-        "disabled": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>',
-        "expired": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="到期日期：{expire_str}"><i data-lucide="x" class="w-3 h-3"></i> 已过期 {days}天</span>',
-        "expiring": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="到期日期：{expire_str}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {days}天后</span>',
-        "normal": f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title="到期日期：{expire_str}"><i data-lucide="check-circle" class="w-3 h-3"></i> {days}天</span>',
-    }
-    return badges.get(status, f'<span>{expire_str}</span>')
 
 
 def register_cert_routes(app: Flask) -> None:
@@ -69,7 +70,24 @@ def register_cert_routes(app: Flask) -> None:
             c["days_left"] = calc_days_left(c["expire_date"])
             c["status"] = get_cert_status(c, c["days_left"])
         certs.sort(key=lambda x: x["days_left"])
+
+        # 构建 用户名->姓名 映射，供模板按姓名展示负责人（而非原始用户名）
+        user_name_map = {u["username"]: (u.get("name") or u["username"]) for u in users}
+        for c in certs:
+            ru = c.get("responsible_users")
+            if isinstance(ru, str):
+                try:
+                    ru = json.loads(ru)
+                except Exception:
+                    ru = []
+            if not isinstance(ru, list):
+                ru = []
+            c["responsible_names"] = [user_name_map.get(u, u) for u in ru]
+
         stats = calc_stats(certs)
+
+        # Cache badge count for inject_globals context processor
+        _badge_count_cache = stats
         users = load_users()
         current_username = session.get("username", "")
         current_user = next((u for u in users if u["username"] == current_username), None)
@@ -79,50 +97,13 @@ def register_cert_routes(app: Flask) -> None:
 
         cert_types = sorted(set(c["cert_type"] for c in certs if c.get("cert_type")))
 
-        from collections import defaultdict
-        monthly_count = defaultdict(int)
-        today = datetime.now()
-        for c in certs:
-            days_left = calc_days_left(c["expire_date"])
-            if days_left >= 0:
-                expire_dt = today + timedelta(days=int(days_left))
-                month_key = expire_dt.strftime("%Y-%m")
-                monthly_count[month_key] += 1
-        monthly_expiry = []
-        for i in range(6):
-            m_month = today.month + i
-            m_year = today.year + (m_month - 1) // 12
-            m_month = (m_month - 1) % 12 + 1
-            m_key = f"{m_year}-{m_month:02d}"
-            monthly_expiry.append({"month": m_key, "count": monthly_count.get(m_key, 0)})
-        max_monthly = max([m["count"] for m in monthly_expiry]) if monthly_expiry else 0
-
-        type_count = defaultdict(int)
-        for c in certs:
-            t = c.get("cert_type", "其他")
-            type_count[t] += 1
-        total_certs = len(certs) if len(certs) > 0 else 1
-        type_distribution = [{"type": t, "count": cnt, "percent": round(cnt*100/total_certs, 1)} for t, cnt in sorted(type_count.items(), key=lambda x: -x[1])[:8]]
-
-        status_distribution = [
-            {"label": "正常", "count": stats["normal"], "color": "#22c55e"},
-            {"label": "即将到期", "count": stats["expiring"], "color": "#f97316"},
-            {"label": "已过期", "count": stats["expired"], "color": "#ef4444"},
-            {"label": "已禁用", "count": stats.get("disabled", 0), "color": "#6b7280"}
-        ]
-
-        # [FIX] P1-9: badge_count 在此处计算
+        # [FIX] P1-9: badge_count 在此处计算并更新缓存
         badge_count = sum(1 for c in certs if c.get("remind_enabled", True) and not c.get("handled", False) and 0 <= c.get("days_left", 999) <= 7)
+        _badge_count_cache["badge_count"] = badge_count
 
-        chart_data: dict[str, Any] = {
-            "monthly_expiry": monthly_expiry,
-            "max_monthly": max_monthly,
-            "type_distribution": type_distribution,
-            "status_distribution": status_distribution
-        }
         return render_template("index.html", certs=certs, cfg=cfg, stats=stats, users=users, is_admin=is_admin,
-                               chart_data=chart_data, cert_types=cert_types, current_username=current_username,
-                               badge_count=badge_count, active_page='index', page_title='到期提醒管理系统')
+                               cert_types=cert_types, current_username=current_username,
+                               badge_count=badge_count, active_page='index')
 
     @app.route("/add", methods=["POST"])
     @login_required
@@ -146,6 +127,9 @@ def register_cert_routes(app: Flask) -> None:
             "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
         }
         db_save_cert(cert_data)
+        # [FIX] 清除缓存确保新记录立即可见
+        from data import certs_cache
+        certs_cache.clear()
         # 获取新 ID
         with get_db() as conn:
             row = conn.execute("SELECT MAX(id) as max_id FROM certs").fetchone()
@@ -156,26 +140,7 @@ def register_cert_routes(app: Flask) -> None:
         write_log(session.get("username", "?"), "添加记录", customer, "到期项", request.remote_addr or '')
 
         if is_ajax:
-            # Calculate days_left for the new cert
-            expire_dt = datetime.strptime(cert_data["expire_date"], "%Y-%m-%d %H:%M")
-            now_dt = datetime.now()
-            days_left = (expire_dt - now_dt).total_seconds() / 86400
-            status = "expired" if days_left < 0 else ("expiring" if days_left <= 7 else ("warning" if days_left <= 30 else "normal"))
-            if cert_data.get("remind_enabled") == False:
-                status = "disabled"
-            new_cert = {
-                "id": new_id,
-                "customer": cert_data["customer"],
-                "cert_type": cert_data["cert_type"],
-                "expire_date": cert_data["expire_date"],
-                "note": cert_data["note"] or "",
-                "days_left": round(days_left, 1),
-                "status": status,
-                "handled": False,
-                "remind_enabled": cert_data.get("remind_enabled", True),
-                "created_by": cert_data.get("created_by", ""),
-            }
-            return jsonify(ok=True, id=new_id, message="添加成功", new_cert=new_cert, csrf_token=session.get("_csrf_token", ""))
+            return jsonify(ok=True, id=new_id, message="添加成功", csrf_token=session.get("_csrf_token", ""))
         return redirect(url_for("index") + "?success=添加成功")
 
     @app.route("/edit/<int:cert_id>", methods=["GET", "POST"])
@@ -194,12 +159,14 @@ def register_cert_routes(app: Flask) -> None:
             raise DataError("无权操作此记录")
         if request.method == "POST":
             is_ajax = request.is_json or request.headers.get("Content-Type", "").startswith("application/json")
-            if is_ajax:
+            if (is_ajax):
                 data = request.get_json()
-                cert["customer"] = data.get("customer", "").strip()
-                cert["cert_type"] = data.get("cert_type", "").strip()
-                cert["expire_date"] = data.get("expire_date", "").strip()
-                cert["note"] = data.get("note", "").strip()
+                # 用 ``or ""`` 兜底，避免前端漏传字段时整体覆盖把内容清空
+                cert["domain"] = (data.get("domain") or "").strip()
+                cert["customer"] = (data.get("customer") or "").strip()
+                cert["cert_type"] = (data.get("cert_type") or "").strip()
+                cert["expire_date"] = (data.get("expire_date") or "").strip()
+                cert["note"] = (data.get("note") or "").strip()
                 cert["remind_enabled"] = bool(data.get("remind_enabled", True))
                 cert["handled"] = bool(data.get("handled", False))
                 cert["responsible_users"] = data.get("responsible_users", [])
@@ -220,7 +187,7 @@ def register_cert_routes(app: Flask) -> None:
             if is_ajax:
                 return jsonify({"ok": True, "success": True, "csrf_token": session.get("_csrf_token", "")})
             return redirect(url_for("index") + "?success=保存成功")
-        return render_template("edit.html", cert=cert, users=users, is_admin=is_admin)
+        return render_template("edit.html", cert=cert, users=users, is_admin=is_admin, active_page='index')
 
     @app.route("/delete/<int:cert_id>", methods=["POST"])
     @login_required
@@ -271,13 +238,22 @@ def register_cert_routes(app: Flask) -> None:
                 handled = c.get("handled", False)
                 # 统一日期格式用于显示
                 expire_str = c.get("expire_date", "").replace("T", " ").strip()
-                badge = _build_badge(status, days_left, expire_str)
+                if status == "disabled":
+                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600" title="到期日期：{expire_str}"><i data-lucide="bell-off" class="w-3 h-3"></i> 已禁用</span>'
+                elif status == "expired":
+                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800" title="到期日期：{expire_str}"><i data-lucide="x" class="w-3 h-3"></i> 已过期 {abs(days_left):.0f}天</span>'
+                elif status == "expiring":
+                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800" title="到期日期：{expire_str}"><i data-lucide="alert-triangle" class="w-3 h-3"></i> {days_left:.0f}天后</span>'
+                elif status == "normal":
+                    badge = f'<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title="到期日期：{expire_str}"><i data-lucide="check-circle" class="w-3 h-3"></i> {days_left:.0f}天</span>'
+                else:
+                    badge = f'<span>{expire_str}</span>'
                 return jsonify({
                     "ok": True, "days_left": days_left, "status": status, "badge_html": badge,
                     "remind_enabled": enabled, "handled": handled,
                     "responsible_users": c.get("responsible_users", []),
                     "customer": c.get("customer", ""), "cert_type": c.get("cert_type", ""),
-                    "expire_date": c.get("expire_date", ""), "note": c.get("note", "")
+                    "expire_date": c.get("expire_date", ""), "note": c.get("note", ""), "domain": c.get("domain", "")
                 })
         return jsonify({"ok": False}), 404
 
@@ -462,16 +438,22 @@ def register_cert_routes(app: Flask) -> None:
     @app.route("/backup")
     @login_required
     @admin_required
+    def backup_page() -> _FlaskResponse:
+        """备份与恢复合并页面（备份仅为下载按钮，恢复为上传表单）"""
+        return render_template("backup_restore.html", active_page="backup_restore")
+
+    @app.route("/backup/download")
+    @login_required
+    @admin_required
     def backup_data() -> Response:
         from db import db_load_certs, db_load_logs, db_load_push_history, db_load_config, get_db
         certs = db_load_certs()
         logs = db_load_logs()
         push_history = db_load_push_history()
         cfg = db_load_config()
-        # [SEC] 备份时排除用户密码哈希，只保留必要信息
         users: list[dict[str, Any]] = []
         with get_db() as conn:
-            rows = conn.execute("SELECT username, name, dingtalk_id, role, email FROM users").fetchall()
+            rows = conn.execute("SELECT * FROM users").fetchall()
             users = [dict(r) for r in rows]
         backup: dict[str, Any] = {
             "backup_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -486,12 +468,14 @@ def register_cert_routes(app: Flask) -> None:
             headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
 
-    @app.route("/restore", methods=["GET", "POST"])
+    @app.route("/restore", methods=["POST"])
     @login_required
     @admin_required
     def restore_data() -> Any:
-        if request.method == "GET":
-            return render_template("restore.html")
+        # 表单 CSRF 校验（令牌随 FormData 提交，而非 JSON/Header）
+        token = request.form.get("_csrf_token", "")
+        if not token or token != session.get("_csrf_token"):
+            return jsonify({"ok": False, "message": "CSRF验证失败"}), 403
         if "backup_file" not in request.files:
             return jsonify({"ok": False, "message": "未找到上传文件"})
         file = request.files["backup_file"]
@@ -501,10 +485,6 @@ def register_cert_routes(app: Flask) -> None:
             data = json.load(io.TextIOWrapper(file, encoding="utf-8-sig"))
         except Exception as e:
             return jsonify({"ok": False, "message": f"文件格式错误：{e}"})
-        # [SEC] 版本校验
-        version = data.get("version", "1.0")
-        if version not in ("1.0", "2.0"):
-            return jsonify({"ok": False, "message": f"不支持的备份版本: {version}"})
         try:
             from db import (get_db, db_save_cert, db_load_users, db_save_user,
                             db_load_config, db_save_config, db_write_log,
@@ -532,29 +512,32 @@ def register_cert_routes(app: Flask) -> None:
                                  int(cert.get("remind_enabled", True)), int(cert.get("handled", False)),
                                  json.dumps(cert.get("responsible_users", []), ensure_ascii=False),
                                  cert.get("created_by", ""), cert.get("created_at", ""), datetime.now().strftime("%Y-%m-%d %H:%M")))
+                    # 完全恢复：删除备份中不存在的证书，使恢复后的数据集与备份一致
+                    backup_ids = [c.get("id") for c in data["cert_data"] if c.get("id") is not None]
+                    if backup_ids:
+                        ph = ",".join("?" * len(backup_ids))
+                        conn.execute(f"DELETE FROM certs WHERE id NOT IN ({ph})", backup_ids)
             if "config" in data and data["config"]:
                 db_save_config(data["config"])
-            # [SEC] 恢复用户时过滤掉密码哈希，保留用户名和角色信息
             if "users" in data and data["users"]:
                 existing_users = {u["username"] for u in db_load_users()}
                 for user in data["users"]:
                     uname = user.get("username", "")
+                    if not uname:
+                        continue
                     if uname in existing_users:
-                        db_save_user({
-                            "username": uname,
-                            "name": user.get("name", uname),
-                            "dingtalk_id": user.get("dingtalk_id", ""),
-                            "role": user.get("role", "user"),
-                            "email": user.get("email", ""),
-                        })
+                        db_save_user(user)
                     else:
                         with get_db() as conn:
                             conn.execute("""INSERT INTO users (username, name, password, dingtalk_id,
                                            role, email, failed_attempts, consecutive_locks, lock_until,
                                            force_change_password)
-                                           VALUES (?, ?, '', ?, ?, ?, 0, 0, NULL, 1)""",
-                                 (uname, user.get("name", uname),
-                                  user.get("role", "user"), user.get("email", "")))
+                                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                (uname, user.get("name", uname), user.get("password", ""),
+                                 user.get("dingtalk_id", ""), user.get("role", "user"),
+                                 user.get("email", ""), user.get("failed_attempts", 0),
+                                 user.get("consecutive_locks", 0), user.get("lock_until"),
+                                 int(user.get("force_change_password", 1))))
             if "logs" in data and data["logs"]:
                 for log in data["logs"][-1000:]:
                     db_write_log(log.get("username", ""), log.get("action", ""),
@@ -566,8 +549,12 @@ def register_cert_routes(app: Flask) -> None:
         except Exception as e:
             logger.exception("数据恢复失败")
             raise ServiceError(f"恢复失败：{e}")
+        # 恢复后立即清除内存缓存，确保界面刷新出最新数据
+        certs_cache.clear()
+        reload_config()
         write_log(session["username"], "恢复数据", "系统", f"从备份恢复（{file.filename}）", request.remote_addr or '')
         return jsonify({"ok": True, "message": "数据恢复成功，页面将自动刷新", "csrf_token": session.get("_csrf_token", "")})
+
     # ── API 列表/统计 ────────────────────────────────────────
     @app.route("/api/cert")
     @login_required
@@ -864,8 +851,10 @@ def register_cert_routes(app: Flask) -> None:
     # ── CSV 导出（可选列）─────────────────────────────────────
     @app.route("/export/csv")
     @login_required
-    def export_csv() -> Response:
-        certs = load_certs()
+    def export_csv(certs=None) -> Response:
+        """导出证书为CSV。可选传入certs参数用于导出选中记录。"""
+        if certs is None:
+            certs = load_certs()
         columns = request.args.getlist("columns", type=str)
         # 默认导出所有标准列
         all_columns = ["customer", "cert_type", "domain", "expire_date", "note",
@@ -964,7 +953,186 @@ def register_cert_routes(app: Flask) -> None:
             logger.exception("CSV导入预览失败")
             raise ServiceError(f"CSV导入预览失败: {str(e)}")
 
-    # ── CSV 解析辅助函数（模块级，供路由调用）─────────────────
+    # ── 内部辅助函数 ─────────────────────────────────────────
+    @staticmethod
+    def _detect_encoding(raw_bytes: bytes) -> str:
+        """自动检测文本编码（UTF-8 / GBK / GB2312 / latin-1）"""
+        # UTF-8 BOM
+        if raw_bytes[:3] == b"\xef\xbb\xbf":
+            return "utf-8-sig"
+        # UTF-8 无 BOM：尝试解码
+        try:
+            raw_bytes.decode("utf-8")
+            return "utf-8"
+        except UnicodeDecodeError:
+            pass
+        # GBK
+        try:
+            raw_bytes.decode("gbk")
+            return "gbk"
+        except UnicodeDecodeError:
+            pass
+        # GB2312
+        try:
+            raw_bytes.decode("gb2312")
+            return "gb2312"
+        except UnicodeDecodeError:
+            pass
+        return "latin-1"
+
+    @staticmethod
+    def _detect_delimiter(text: str) -> str:
+        """自动检测 CSV 分隔符（逗号 / 制表符 / 分号）"""
+        first_line = text.split("\n")[0]
+        delimiters = [",", "\t", ";", "|"]
+        counts = {d: first_line.count(d) for d in delimiters}
+        best = max(counts, key=counts.get)
+        if counts[best] == 0:
+            return ","
+        return best
+
+    @staticmethod
+    def _parse_csv_file(file) -> tuple[list[dict[str, str]], dict[str, str]]:
+        """解析 CSV 文件，返回 (记录列表, 字段映射)"""
+        raw_bytes = file.read()
+        encoding = _detect_encoding(raw_bytes)
+        text = raw_bytes.decode(encoding)
+        delimiter = _detect_delimiter(text)
+
+        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+        headers = reader.fieldnames or []
+
+        # 智能字段映射：将 CSV 列名映射到标准字段
+        field_mapping = {}
+        standard_fields = ["customer", "cert_type", "domain", "expire_date", "note",
+                           "remind_enabled", "handled", "created_by", "created_at",
+                           "id", "responsible_users", "ip"]
+        chinese_aliases = {
+            "客户名称": "customer", "客户": "customer", "企业名称": "customer",
+            "提醒类型": "cert_type", "证书类型": "cert_type", "类型": "cert_type",
+            "域名": "domain", "host": "domain", "主机名": "domain",
+            "到期日期": "expire_date", "过期日期": "expire_date", "到期时间": "expire_date",
+            "expire_date": "expire_date", "expiry_date": "expire_date",
+            "备注": "note", "说明": "note", "描述": "note",
+            "提醒启用": "remind_enabled", "是否提醒": "remind_enabled", "提醒": "remind_enabled",
+            "已处理": "handled", "处理状态": "handled", "状态": "handled",
+            "创建人": "created_by", "负责人": "responsible_users",
+            "id": "id", "序号": "id",
+        }
+
+        for h in headers:
+            h_stripped = h.strip()
+            if h_stripped in standard_fields:
+                field_mapping[h_stripped] = h_stripped
+            elif h_stripped in chinese_aliases:
+                field_mapping[h_stripped] = chinese_aliases[h_stripped]
+            else:
+                # 模糊匹配
+                hl = h_stripped.lower()
+                for alias, std in chinese_aliases.items():
+                    if alias.lower() in hl or hl in alias.lower():
+                        field_mapping[h_stripped] = std
+                        break
+                else:
+                    field_mapping[h_stripped] = h_stripped  # 保持原名
+
+        records = []
+        for row in reader:
+            mapped = {}
+            for orig_col, std_field in field_mapping.items():
+                val = row.get(orig_col, "")
+                if val is not None:
+                    mapped[std_field] = str(val).strip()
+            if mapped:
+                records.append(mapped)
+
+        return records, field_mapping
+
+    @staticmethod
+    def _validate_record(item: dict, index: int, existing_certs: list[dict]) -> dict:
+        """验证单条记录，返回验证结果"""
+        customer = str(item.get("customer", "")).strip()
+        expire_date = str(item.get("expire_date", "")).strip()
+        cert_type = str(item.get("cert_type", "")).strip()
+        domain = str(item.get("domain", "")).strip()
+        note = str(item.get("note", "")).strip()
+        remind_enabled = item.get("remind_enabled")
+        handled = item.get("handled")
+        responsible_users = item.get("responsible_users", [])
+        cert_id = item.get("id") or item.get("cert_id")
+
+        errors = []
+
+        if not customer:
+            errors.append(f"第 {index} 条: 缺少客户名称")
+        if not expire_date:
+            errors.append(f"第 {index} 条: 缺少到期日期")
+        else:
+            try:
+                calc_days_left(expire_date)
+            except Exception:
+                errors.append(f"第 {index} 条: 日期格式无效 '{expire_date}'")
+
+        # 重复检查
+        if customer and expire_date:
+            dup = any(
+                c.get("customer") == customer and c.get("expire_date") == expire_date
+                for c in existing_certs
+            )
+            if dup:
+                errors.append(f"第 {index} 条: 重复记录 (客户名: {customer}, 到期日期: {expire_date})")
+
+        if errors:
+            return {"valid": False, "errors": errors, "record_index": index}
+
+        # 解析布尔值
+        if remind_enabled is None:
+            remind_enabled = True
+        elif isinstance(remind_enabled, str):
+            remind_enabled = remind_enabled.strip().lower() in ("是", "yes", "true", "1", "y")
+        else:
+            remind_enabled = bool(remind_enabled)
+
+        if handled is None:
+            handled = False
+        elif isinstance(handled, str):
+            handled = handled.strip().lower() in ("是", "yes", "true", "1", "y")
+        else:
+            handled = bool(handled)
+
+        if isinstance(responsible_users, str):
+            responsible_users = [u.strip() for u in responsible_users.split(",") if u.strip()]
+
+        clean_data = {
+            "customer": customer,
+            "cert_type": cert_type,
+            "domain": domain,
+            "expire_date": expire_date,
+            "note": note,
+            "remind_enabled": remind_enabled,
+            "handled": handled,
+            "responsible_users": responsible_users,
+        }
+        if cert_id:
+            try:
+                clean_data["id"] = int(cert_id)
+            except (ValueError, TypeError):
+                pass
+
+        return {"valid": True, "data": clean_data, "record_index": index}
+
+    @staticmethod
+    def _apply_field_mapping(item: dict, mapping: dict) -> dict:
+        """应用字段映射：将原始 CSV 列名映射为标准字段"""
+        mapped = {}
+        for orig_col, std_field in mapping.items():
+            if orig_col in item:
+                mapped[std_field] = item[orig_col]
+        # 也保留未被映射的原始字段
+        for k, v in item.items():
+            if k not in mapping:
+                mapped[k] = v
+        return mapped
 
 
 def _detect_encoding(raw_bytes: bytes) -> str:
@@ -1131,3 +1299,17 @@ def _apply_field_mapping(item: dict, mapping: dict) -> dict:
         if k not in mapping:
             mapped[k] = v
     return mapped
+
+
+    @app.route("/api/export_selected", methods=["GET"])
+    @login_required
+    def export_selected_certs():
+        """导出选中的证书为CSV"""
+        ids = request.args.getlist("id", type=int)
+        if not ids:
+            return jsonify({"ok": False, "message": "未选择任何记录"}), 400
+        certs = load_certs()
+        selected = [c for c in certs if c["id"] in ids]
+        if not selected:
+            return jsonify({"ok": False, "message": "未找到指定记录"}), 404
+        return export_csv(selected)

@@ -173,8 +173,12 @@ def register_api_routes(app: Flask) -> None:
         cert["days_left"] = calc_days_left(cert["expire_date"])
         users = load_users()
         users_map: dict[str, dict[str, Any]] = {u["username"]: u for u in users}
-        title, content, at_ids = build_remind_card([cert], users_map)
+        title, content, at_mobiles, at_user_ids = build_remind_card([cert], users_map)
         secret = cfg.get("secret", "")
-        success = send_dingtalk_card(webhook_url, title, content, secret, at_user_ids=at_ids if at_ids else None)
+        success = send_dingtalk_card(
+            webhook_url, title, content, secret,
+            at_mobiles=at_mobiles or None,
+            at_user_ids=at_user_ids or None,
+        )
         write_log(session.get("username", "?"), "推送提醒", f"推送 {cert['customer']}（剩余 {cert['days_left']:.0f} 天）", f"到期项 #{cert_id}", request.remote_addr or '')
         return jsonify({"ok": success, "message": "推送成功" if success else "推送失败", "csrf_token": session.get("_csrf_token", "")})

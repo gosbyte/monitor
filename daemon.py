@@ -337,11 +337,15 @@ def check_and_remind() -> None:
     
     if to_remind:
         logger.info(f"发现 {len(to_remind)} 条需要提醒")
-        title, card_content, at_ids = build_remind_card(to_remind, users_map)
+        title, card_content, at_mobiles, at_user_ids = build_remind_card(to_remind, users_map)
         secret = cfg.get("secret", "")
         ding_ok = True
         if has_dingtalk:
-            ding_ok = send_dingtalk_card(cfg["webhook_url"], title, card_content, secret, at_user_ids=at_ids if at_ids else None)
+            ding_ok = send_dingtalk_card(
+                cfg["webhook_url"], title, card_content, secret,
+                at_mobiles=at_mobiles or None,
+                at_user_ids=at_user_ids or None,
+            )
         # 企业微信推送
         wecom_webhook = cfg.get("wecom_webhook", "")
         wecom_ok = True  # 未配置视为通过

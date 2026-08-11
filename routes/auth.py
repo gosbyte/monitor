@@ -74,6 +74,7 @@ _load_login_attempts()
 
 # 定时持久化（每 30 秒）
 import threading
+from utils.request_utils import get_client_ip
 
 
 def _persist_login_loop():
@@ -210,7 +211,7 @@ def register_auth_routes(app: Flask) -> None:
             current_user["password"] = generate_password_hash(new_pwd)
             current_user["force_change_password"] = 0
             save_users(users)
-            write_log(username, "修改密码", "首次登录强制修改密码完成", "系统", request.remote_addr or '')
+            write_log(username, "修改密码", "首次登录强制修改密码完成", "系统", get_client_ip(request))
             return redirect(url_for("index"))
         return render_template("change_password.html")
 
@@ -244,7 +245,7 @@ def register_auth_routes(app: Flask) -> None:
             raise DataError("用户名已存在")
         users.append({"username": username, "name": name or username, "password": generate_password_hash(password), "dingtalk_id": "", "role": role})
         save_users(users)
-        write_log(session.get("username", "?"), "添加用户", f"添加用户 {username}（姓名：{name}）", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "添加用户", f"添加用户 {username}（姓名：{name}）", username, get_client_ip(request))
         return redirect(url_for("users_page") + "?success=用户添加成功")
 
     @app.route("/users/edit/<username>", methods=["POST"])
@@ -265,7 +266,7 @@ def register_auth_routes(app: Flask) -> None:
             target["password"] = generate_password_hash(password)
         target["dingtalk_id"] = request.form.get("dingtalk_id", "").strip()
         save_users(users)
-        write_log(session.get("username", "?"), "编辑用户", f"编辑用户 {username}", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "编辑用户", f"编辑用户 {username}", username, get_client_ip(request))
         return redirect(url_for("users_page") + "?success=用户信息已保存")
 
     @app.route("/users/password/<username>", methods=["POST"])
@@ -289,7 +290,7 @@ def register_auth_routes(app: Flask) -> None:
         else:
             raise ValidationError("用户不存在")
         save_users(users)
-        write_log(session.get("username", "?"), "修改密码", f"修改用户 {username} 的密码", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "修改密码", f"修改用户 {username} 的密码", username, get_client_ip(request))
         return redirect(url_for("index") + "?success=密码修改成功")
 
     @app.route("/users/delete/<username>", methods=["POST"])
@@ -300,7 +301,7 @@ def register_auth_routes(app: Flask) -> None:
             raise DataError("不能删除默认管理员")
         users = [u for u in load_users() if u["username"] != username]
         save_users(users)
-        write_log(session.get("username", "?"), "删除用户", f"删除用户 {username}", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "删除用户", f"删除用户 {username}", username, get_client_ip(request))
         return redirect(url_for("users_page") + "?success=用户已删除")
 
     @app.route("/users/unlock/<username>", methods=["POST"])
@@ -315,7 +316,7 @@ def register_auth_routes(app: Flask) -> None:
                 u["consecutive_locks"] = 0
                 break
         save_users(users)
-        write_log(session.get("username", "?"), "解锁用户", f"解锁用户 {username}", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "解锁用户", f"解锁用户 {username}", username, get_client_ip(request))
         return redirect(url_for("users_page") + "?success=用户已解锁")
 
     @app.route("/users/dingtalk_id", methods=["POST"])
@@ -336,6 +337,6 @@ def register_auth_routes(app: Flask) -> None:
             return jsonify({"ok": False, "error": "用户不存在"}), 404
         save_users(users)
         logger.info(f"用户 {username} 钉钉ID已更新: {dingtalk_id}")
-        write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, request.remote_addr or '')
+        write_log(session.get("username", "?"), "更新钉钉ID", f"为用户 {username} 更新钉钉ID：{dingtalk_id}", username, get_client_ip(request))
         return jsonify({"ok": True})
 

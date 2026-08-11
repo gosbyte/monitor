@@ -137,8 +137,7 @@ def init_db() -> None:
         
         # 插入默认管理员用户
         from werkzeug.security import generate_password_hash
-        default_password = os.environ.get("DEFAULT_ADMIN_PASSWORD", "admin123")
-        default_password = generate_password_hash(default_password)
+        default_password = generate_password_hash("admin123")
         conn.execute(
             "INSERT OR IGNORE INTO users (username, name, password, role) VALUES (?, ?, ?, ?)",
             ("admin", "管理员", default_password, "admin")
@@ -300,8 +299,12 @@ def db_delete_cert(cert_id: int) -> None:
 
 def db_batch_delete_cert_ids(ids: list[int]) -> int:
     """批量删除到期项，返回实际删除数量"""
+    if not ids:
+        return 0
+    # [SEC] Validate all IDs are integers before building query
+    ids = [int(i) for i in ids]
     with db_transaction() as conn:
-        placeholders = ",".join("?" * len(ids))
+        placeholders = ",".join("?" for _ in ids)
         cursor = conn.execute(f"DELETE FROM certs WHERE id IN ({placeholders})", ids)
         return cursor.rowcount
 

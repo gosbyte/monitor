@@ -20,6 +20,7 @@ from data import (
     DATA_DIR, BASE_DIR, reload_config,
 )
 from auth import login_required, admin_required, csrf_required, _check_api_csrf
+from utils.request_utils import get_client_ip
 
 
 # Flask route handlers can return str, tuple[str, int], or Response
@@ -96,7 +97,7 @@ def register_admin_routes(app: Flask) -> None:
             except Exception:
                 pass
         current_user = session.get("username", "?")
-        write_log(current_user, "批量删除", f"删除 {len(deleted_ids)} 条记录", "到期项", request.remote_addr or '')
+        write_log(current_user, "批量删除", f"删除 {len(deleted_ids)} 条记录", "到期项", get_client_ip(request))
         return jsonify({"ok": True, "message": f"删除 {len(deleted_ids)} 条记录", "deleted_ids": deleted_ids, "csrf_token": session.get("_csrf_token", "")})
 
     @app.route("/api/batch_handle", methods=["POST"])
@@ -119,7 +120,7 @@ def register_admin_routes(app: Flask) -> None:
         save_certs(certs)
         label = "标记已处理" if handled else "取消已处理"
         current_user = session.get("username", "?")
-        write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", request.remote_addr or '')
+        write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", get_client_ip(request))
         return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
 
     @app.route("/api/batch_remind", methods=["POST"])
@@ -142,7 +143,7 @@ def register_admin_routes(app: Flask) -> None:
         save_certs(certs)
         label = "启用提醒" if remind_enabled else "禁用提醒"
         current_user = session.get("username", "?")
-        write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", request.remote_addr or '')
+        write_log(current_user, f"批量{label}", f"{count} 条记录", "到期项", get_client_ip(request))
         return jsonify({"ok": True, "message": f"{label} {count} 条记录", "csrf_token": session.get("_csrf_token", "")})
 
     # ── 日志管理 ──────────────────────────────────────────────
@@ -162,31 +163,17 @@ def register_admin_routes(app: Flask) -> None:
     @csrf_required
     def clear_logs() -> _FlaskResponse:
         save_logs([])
-        write_log(session.get("username", "?"), "清空日志", "清空全部操作日志", "系统", request.remote_addr or '')
+        write_log(session.get("username", "?"), "清空日志", "清空全部操作日志", "系统", get_client_ip(request))
         return redirect(url_for("logs_page") + "?success=日志已清空")
-
-    # ── 推送历史 ──────────────────────────────────────────────
-    @app.route("/push_history")
-    @admin_required
-    def push_history_page() -> _FlaskResponse:
-        users = load_users()
-        current_username = session.get("username", "")
-        current_user = next((u for u in users if u["username"] == current_username), None)
-        is_admin = current_user.get("role") == "admin" if current_user else False
-        push_history_file = os.path.join(DATA_DIR, "push_history.json") if DATA_DIR != BASE_DIR else os.path.join(BASE_DIR, "push_history.json")
-        history: list[dict[str, Any]] = []
-        if os.path.exists(push_history_file):
-            with open(push_history_file, "r", encoding="utf-8") as f:
-                history = json.load(f)
-        history.sort(key=lambda x: x.get("time", ""), reverse=True)
-        return render_template("push_history.html", history=history, is_admin=is_admin)
 
     # ── 数据管理 ──────────────────────────────────────────────
     @app.route("/data-manage")
     @login_required
     @admin_required
     def data_manage_page() -> _FlaskResponse:
-        return render_template("data_manage.html")
+        users = load_users()
+        user_name_map = {u["username"]: (u.get("name") or u["username"]) for u in users}
+        return render_template("data_manage.html", user_name_map=user_name_map)
 
     # ── 日志清理 API ──────────────────────────────────────
     @app.route("/api/admin/cleanup-logs", methods=["POST"])
@@ -196,11 +183,10 @@ def register_admin_routes(app: Flask) -> None:
     def api_cleanup_logs() -> Any:
         """手动触发日志清理"""
         try:
-            # 从 app_init 导入 cleanup_logs 函数
-            from app_init import cleanup_logs
+            from utils.log_cleanup import cleanup_logs
             cleaned, freed = cleanup_logs()
             msg = f"清理完成: {cleaned} 项, 释放 ~{freed / 1024 / 1024:.1f}MB"
-            write_log(session.get("username", "?"), "日志清理", msg, "系统", request.remote_addr or '')
+            write_log(session.get("username", "?"), "日志清理", msg, "系统", get_client_ip(request))
             return jsonify({"ok": True, "message": msg, "csrf_token": session.get("_csrf_token", "")})
         except Exception as e:
             logger.exception("日志清理失败")
@@ -216,7 +202,7 @@ def register_admin_routes(app: Flask) -> None:
         try:
             cfg = reload_config()
             msg = "配置已热更新"
-            write_log(session.get("username", "?"), "配置热更新", msg, "系统", request.remote_addr or '')
+            write_log(session.get("username", "?"), "配置热更新", msg, "系统", get_client_ip(request))
             return jsonify({"ok": True, "message": msg, "config": cfg, "csrf_token": session.get("_csrf_token", "")})
         except Exception as e:
             logger.exception("配置热更新失败")
