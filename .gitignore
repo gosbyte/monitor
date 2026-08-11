@@ -1,19 +1,37 @@
-# 数据文件（运行时生成，不应提交）
-*.json
-*.lock
-*.tmp
-.secret_key
-.fernet_key
-
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
 *.egg-info/
 .venv/
+venv/
+dist/
+build/
+
+# Runtime data
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.log.*
+*.json
+.secret_key
+.fernet_key
+login_attempts.json
+rate_limit_state.json
+
+# Node (Tailwind build tools - not needed in production)
+node_modules/
+tailwind-input.css
+package.json
+package-lock.json
 
 # IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
@@ -22,18 +40,15 @@ Thumbs.db
 # Test coverage
 htmlcov/
 .coverage
+coverage.xml
 .pytest_cache/
 
-# Minified JS (using CDN now)
+# Minified JS (using CDN)
 static/*.min.js
 
-# Node modules (if building locally)
-node_modules/
-
-# Logs
-daemon.log
-flask.log
-audit.log
-
-# SQLite database
-monitor.db
+# Docker (build context only)
+Dockerfile
+.dockerignore
+docker-compose.yml
+supervisord.conf
+deploy.sh
